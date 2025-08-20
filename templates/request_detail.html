@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Request {{ request.request_id[:8] }} - Server Provisioning System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Request Details -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-server me-2"></i>{{ request.server_name }}
+                    </h4>
+                    <p class="text-muted mb-0">Request ID: <code>{{ request.request_id }}</code></p>
+                </div>
+                <div class="text-end">
+                    <span class="badge {{ request.get_status_badge_class() }} fs-6 mb-2">
+                        {{ request.status.title() }}
+                    </span><br>
+                    <span class="badge {{ request.get_priority_badge_class() }}">
+                        {{ request.priority.title() }} Priority
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Server Configuration -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-cog me-2"></i>Server Configuration
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Name:</strong> {{ request.server_name }}</li>
+                            <li><strong>Type:</strong> {{ request.server_type.title() }}</li>
+                            <li><strong>OS:</strong> {{ request.operating_system }}</li>
+                            {% if request.server_ip %}
+                                <li><strong>IP Address:</strong> <code>{{ request.server_ip }}</code></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">
+                            <i class="fas fa-microchip me-2"></i>Hardware Specifications
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><strong>CPU Cores:</strong> {{ request.cpu_cores }}</li>
+                            <li><strong>Memory:</strong> {{ request.memory_gb }} GB</li>
+                            <li><strong>Storage:</strong> {{ request.storage_gb }} GB</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Application Details -->
+                <div class="mb-4">
+                    <h6 class="text-info">
+                        <i class="fas fa-code me-2"></i>Application Details
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li><strong>Application:</strong> {{ request.application_name }}</li>
+                                <li><strong>Type:</strong> {{ request.application_type.replace('-', ' ').title() }}</li>
+                                <li><strong>Usage:</strong> {{ request.estimated_usage.replace('-', ' ').title() }}</li>
+                            </ul>
+                        </div>
+                        {% if request.application_description %}
+                            <div class="col-md-6">
+                                <strong>Description:</strong>
+                                <p class="text-muted mb-0">{{ request.application_description }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Business Justification -->
+                <div class="mb-4">
+                    <h6 class="text-warning">
+                        <i class="fas fa-business-time me-2"></i>Business Justification
+                    </h6>
+                    <p class="text-muted">{{ request.business_justification }}</p>
+                </div>
+
+                <!-- Deployment Progress -->
+                {% if request.status == 'deploying' %}
+                <div class="mb-4">
+                    <h6 class="text-info">
+                        <i class="fas fa-rocket me-2"></i>Deployment Progress
+                    </h6>
+                    <div class="progress mb-2">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: {{ request.deployment_progress }}%"
+                             aria-valuenow="{{ request.deployment_progress }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ request.deployment_progress }}%
+                        </div>
+                    </div>
+                    <small class="text-muted">Deployment in progress...</small>
+                </div>
+                {% endif %}
+
+                <!-- Admin Notes -->
+                {% if request.admin_notes %}
+                <div class="mb-4">
+                    <h6 class="text-secondary">
+                        <i class="fas fa-comment-alt me-2"></i>Admin Notes
+                    </h6>
+                    <div class="alert alert-secondary">
+                        {{ request.admin_notes }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Deployment Notes -->
+                {% if request.deployment_notes %}
+                <div class="mb-4">
+                    <h6 class="text-success">
+                        <i class="fas fa-check-circle me-2"></i>Deployment Notes
+                    </h6>
+                    <div class="alert alert-success">
+                        {{ request.deployment_notes }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Request Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Request Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <strong>Submitted by:</strong><br>
+                        {{ request.user.username }} ({{ request.user.email }})
+                    </li>
+                    <li class="mb-2">
+                        <strong>Created:</strong><br>
+                        {{ request.created_at.strftime('%B %d, %Y at %H:%M') }}
+                    </li>
+                    {% if request.reviewed_at %}
+                    <li class="mb-2">
+                        <strong>Reviewed:</strong><br>
+                        {{ request.reviewed_at.strftime('%B %d, %Y at %H:%M') }}
+                    </li>
+                    {% endif %}
+                    {% if request.deployed_at %}
+                    <li class="mb-2">
+                        <strong>Deployed:</strong><br>
+                        {{ request.deployed_at.strftime('%B %d, %Y at %H:%M') }}
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Admin Actions -->
+        {% if current_user.is_admin and request.status == 'pending' and form %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-gavel me-2"></i>Admin Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('review_request', request_id=request.request_id) }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.status.label(class="form-label") }}
+                        {{ form.status(class="form-select") }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.admin_notes.label(class="form-label") }}
+                        {{ form.admin_notes(class="form-control", rows="4", placeholder="Add notes about your decision...") }}
+                    </div>
+
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick Actions -->
+        {% if current_user.is_admin and request.status == 'approved' %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-rocket me-2"></i>Deployment
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">This request has been approved and is ready for deployment.</p>
+                <div class="d-grid">
+                    <a href="{{ url_for('deploy_server', request_id=request.request_id) }}" 
+                       class="btn btn-success">
+                        <i class="fas fa-rocket me-2"></i>Start Deployment
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <a href="{{ url_for('admin_dashboard') if current_user.is_admin else url_for('dashboard') }}" 
+           class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Hero Section -->
+        <div class="text-center mb-5">
+            <div class="display-1 mb-4">
+                <i class="fas fa-server text-info"></i>
+            </div>
+            <h1 class="display-4 fw-bold mb-3">Server Provisioning System</h1>
+            <p class="lead">
+                Request, track, and deploy server infrastructure with an automated approval workflow
+            </p>
+        </div>
+
+        <!-- Features -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 bg-dark">
+                    <div class="card-body text-center">
+                        <div class="display-6 text-primary mb-3">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h5>Easy Requests</h5>
+                        <p class="text-muted">Submit detailed server provisioning requests with comprehensive specifications</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 border-0 bg-dark">
+                    <div class="card-body text-center">
+                        <div class="display-6 text-success mb-3">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h5>Approval Workflow</h5>
+                        <p class="text-muted">Streamlined approval process with admin review and automated notifications</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 border-0 bg-dark">
+                    <div class="card-body text-center">
+                        <div class="display-6 text-warning mb-3">
+                            <i class="fas fa-rocket"></i>
+                        </div>
+                        <h5>Auto Deployment</h5>
+                        <p class="text-muted">Automated deployment process with real-time progress tracking</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="text-center">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-dashboard me-2"></i>Go to Dashboard
+                </a>
+                <a href="{{ url_for('request_server') }}" class="btn btn-outline-success btn-lg">
+                    <i class="fas fa-plus-circle me-2"></i>New Request
+                </a>
+            {% else %}
+                <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-user-plus me-2"></i>Get Started
+                </a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Stats Section (if authenticated) -->
+{% if current_user.is_authenticated and current_user.is_admin %}
+<div class="row mt-5">
+    <div class="col-12">
+        <hr class="my-5">
+        <h3 class="text-center mb-4">System Overview</h3>
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <div class="display-6 mb-2">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <h5>Pending</h5>
+                        <div class="h4">{{ stats.pending if stats else '0' }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <div class="display-6 mb-2">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <h5>Approved</h5>
+                        <div class="h4">{{ stats.approved if stats else '0' }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <div class="display-6 mb-2">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <h5>Deployed</h5>
+                        <div class="h4">{{ stats.deployed if stats else '0' }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body text-center">
+                        <div class="display-6 mb-2">
+                            <i class="fas fa-list"></i>
+                        </div>
+                        <h5>Total</h5>
+                        <div class="h4">{{ stats.total_requests if stats else '0' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

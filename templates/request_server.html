@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}New Server Request - Server Provisioning System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="fas fa-server me-2"></i>Request New Server
+                </h3>
+                <p class="text-muted mb-0">Fill out the form below to request a new server provisioning</p>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Server Configuration Section -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-cog me-2"></i>Server Configuration
+                        </h5>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form.server_name.label(class="form-label") }}
+                                {{ form.server_name(class="form-control" + (" is-invalid" if form.server_name.errors else "")) }}
+                                {% if form.server_name.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.server_name.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.server_type.label(class="form-label") }}
+                                {{ form.server_type(class="form-select" + (" is-invalid" if form.server_type.errors else "")) }}
+                                {% if form.server_type.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.server_type.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hardware Specifications Section -->
+                    <div class="mb-4">
+                        <h5 class="text-success mb-3">
+                            <i class="fas fa-microchip me-2"></i>Hardware Specifications
+                        </h5>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                {{ form.cpu_cores.label(class="form-label") }}
+                                {{ form.cpu_cores(class="form-select" + (" is-invalid" if form.cpu_cores.errors else "")) }}
+                                {% if form.cpu_cores.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.cpu_cores.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                {{ form.memory_gb.label(class="form-label") }}
+                                {{ form.memory_gb(class="form-select" + (" is-invalid" if form.memory_gb.errors else "")) }}
+                                {% if form.memory_gb.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.memory_gb.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                {{ form.storage_gb.label(class="form-label") }}
+                                {{ form.storage_gb(class="form-select" + (" is-invalid" if form.storage_gb.errors else "")) }}
+                                {% if form.storage_gb.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.storage_gb.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mt-2">
+                            <div class="col-12">
+                                {{ form.operating_system.label(class="form-label") }}
+                                {{ form.operating_system(class="form-select" + (" is-invalid" if form.operating_system.errors else "")) }}
+                                {% if form.operating_system.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.operating_system.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Application Details Section -->
+                    <div class="mb-4">
+                        <h5 class="text-info mb-3">
+                            <i class="fas fa-code me-2"></i>Application Details
+                        </h5>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form.application_name.label(class="form-label") }}
+                                {{ form.application_name(class="form-control" + (" is-invalid" if form.application_name.errors else "")) }}
+                                {% if form.application_name.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.application_name.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.application_type.label(class="form-label") }}
+                                {{ form.application_type(class="form-select" + (" is-invalid" if form.application_type.errors else "")) }}
+                                {% if form.application_type.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.application_type.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            {{ form.application_description.label(class="form-label") }}
+                            {{ form.application_description(class="form-control" + (" is-invalid" if form.application_description.errors else ""), rows="3", placeholder="Describe what your application does (optional)") }}
+                            {% if form.application_description.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.application_description.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Business Justification Section -->
+                    <div class="mb-4">
+                        <h5 class="text-warning mb-3">
+                            <i class="fas fa-business-time me-2"></i>Business Requirements
+                        </h5>
+                        
+                        <div class="mb-3">
+                            {{ form.business_justification.label(class="form-label") }}
+                            {{ form.business_justification(class="form-control" + (" is-invalid" if form.business_justification.errors else ""), rows="4", placeholder="Explain why this server is needed, what business problem it solves, and any relevant timelines...") }}
+                            {% if form.business_justification.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.business_justification.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form.estimated_usage.label(class="form-label") }}
+                                {{ form.estimated_usage(class="form-select" + (" is-invalid" if form.estimated_usage.errors else "")) }}
+                                {% if form.estimated_usage.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.estimated_usage.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.priority.label(class="form-label") }}
+                                {{ form.priority(class="form-select" + (" is-invalid" if form.priority.errors else "")) }}
+                                {% if form.priority.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.priority.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Section -->
+                    <div class="text-end">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-2">Cancel</a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

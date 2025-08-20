@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Server Provisioning System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-dashboard me-2"></i>Dashboard
+                </h2>
+                <p class="text-muted mb-0">Welcome back, {{ current_user.username }}!</p>
+            </div>
+            <a href="{{ url_for('request_server') }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle me-2"></i>New Request
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title mb-1">Total Requests</h6>
+                        <div class="h3 mb-0">{{ stats.total_requests }}</div>
+                    </div>
+                    <div class="display-6 opacity-75">
+                        <i class="fas fa-list"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title mb-1">Pending</h6>
+                        <div class="h3 mb-0">{{ stats.pending }}</div>
+                    </div>
+                    <div class="display-6 opacity-75">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title mb-1">Approved</h6>
+                        <div class="h3 mb-0">{{ stats.approved }}</div>
+                    </div>
+                    <div class="display-6 opacity-75">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title mb-1">Rejected</h6>
+                        <div class="h3 mb-0">{{ stats.rejected }}</div>
+                    </div>
+                    <div class="display-6 opacity-75">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Notifications -->
+{% if notifications %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bell me-2"></i>Recent Notifications
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for notification in notifications %}
+                <div class="alert alert-{{ notification.type }} alert-dismissible d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <strong>{{ notification.title }}</strong><br>
+                        <small>{{ notification.message }}</small>
+                    </div>
+                    <div class="ms-3">
+                        <small class="text-muted">{{ notification.created_at.strftime('%m/%d %H:%M') }}</small>
+                        <a href="{{ url_for('mark_notification_read', notification_id=notification.id) }}" 
+                           class="btn btn-sm btn-outline-secondary ms-2">
+                            <i class="fas fa-check"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Requests -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Your Server Requests
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if requests %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Request ID</th>
+                                    <th>Server Name</th>
+                                    <th>Application</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in requests %}
+                                <tr>
+                                    <td>
+                                        <code>{{ request.request_id[:8] }}...</code>
+                                    </td>
+                                    <td>
+                                        <strong>{{ request.server_name }}</strong><br>
+                                        <small class="text-muted">{{ request.server_type }}</small>
+                                    </td>
+                                    <td>
+                                        {{ request.application_name }}<br>
+                                        <small class="text-muted">{{ request.application_type }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ request.get_status_badge_class() }}">
+                                            {{ request.status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ request.get_priority_badge_class() }}">
+                                            {{ request.priority.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ request.created_at.strftime('%m/%d/%Y %H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('request_detail', request_id=request.request_id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="display-6 text-muted mb-3">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                        <h5>No requests yet</h5>
+                        <p class="text-muted">You haven't submitted any server requests.</p>
+                        <a href="{{ url_for('request_server') }}" class="btn btn-primary">
+                            <i class="fas fa-plus-circle me-2"></i>Submit Your First Request
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

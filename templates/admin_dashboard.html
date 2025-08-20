@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Server Provisioning System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-cogs me-2"></i>Admin Dashboard
+                </h2>
+                <p class="text-muted mb-0">Manage server provisioning requests</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-2">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.total_requests }}</div>
+                <div class="small">Total</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.pending }}</div>
+                <div class="small">Pending</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.approved }}</div>
+                <div class="small">Approved</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.deployed }}</div>
+                <div class="small">Deployed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.rejected }}</div>
+                <div class="small">Rejected</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Status Filter</label>
+                        <select name="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="pending" {{ 'selected' if status_filter == 'pending' }}>Pending</option>
+                            <option value="approved" {{ 'selected' if status_filter == 'approved' }}>Approved</option>
+                            <option value="rejected" {{ 'selected' if status_filter == 'rejected' }}>Rejected</option>
+                            <option value="deploying" {{ 'selected' if status_filter == 'deploying' }}>Deploying</option>
+                            <option value="deployed" {{ 'selected' if status_filter == 'deployed' }}>Deployed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Priority Filter</label>
+                        <select name="priority" class="form-select">
+                            <option value="">All Priorities</option>
+                            <option value="urgent" {{ 'selected' if priority_filter == 'urgent' }}>Urgent</option>
+                            <option value="high" {{ 'selected' if priority_filter == 'high' }}>High</option>
+                            <option value="medium" {{ 'selected' if priority_filter == 'medium' }}>Medium</option>
+                            <option value="low" {{ 'selected' if priority_filter == 'low' }}>Low</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Search</label>
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Search by server name, application, or request ID"
+                               value="{{ search }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary d-block w-100">
+                            <i class="fas fa-filter me-1"></i>Filter
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Requests Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Server Requests
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if requests %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Request ID</th>
+                                    <th>User</th>
+                                    <th>Server Details</th>
+                                    <th>Application</th>
+                                    <th>Hardware</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in requests %}
+                                <tr>
+                                    <td>
+                                        <code class="small">{{ request.request_id[:8] }}...</code>
+                                    </td>
+                                    <td>
+                                        <strong>{{ request.user.username }}</strong><br>
+                                        <small class="text-muted">{{ request.user.email }}</small>
+                                    </td>
+                                    <td>
+                                        <strong>{{ request.server_name }}</strong><br>
+                                        <small class="text-muted">{{ request.server_type }}</small>
+                                    </td>
+                                    <td>
+                                        {{ request.application_name }}<br>
+                                        <small class="text-muted">{{ request.application_type }}</small>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {{ request.cpu_cores }}C / {{ request.memory_gb }}GB / {{ request.storage_gb }}GB
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ request.get_status_badge_class() }}">
+                                            {{ request.status.title() }}
+                                        </span>
+                                        {% if request.status == 'deploying' %}
+                                            <br><small>{{ request.deployment_progress }}%</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ request.get_priority_badge_class() }}">
+                                            {{ request.priority.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ request.created_at.strftime('%m/%d/%Y') }}</small><br>
+                                        <small class="text-muted">{{ request.created_at.strftime('%H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('request_detail', request_id=request.request_id) }}" 
+                                               class="btn btn-outline-primary" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if request.status == 'approved' %}
+                                                <a href="{{ url_for('deploy_server', request_id=request.request_id) }}" 
+                                                   class="btn btn-outline-success" title="Deploy">
+                                                    <i class="fas fa-rocket"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="display-6 text-muted mb-3">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                        <h5>No requests found</h5>
+                        <p class="text-muted">No server requests match your current filters.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,182 @@
+/* Custom styles for Server Provisioning System */
+
+/* Body and layout adjustments */
+body {
+    background-color: var(--bs-body-bg);
+}
+
+/* Card improvements */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid var(--bs-border-color);
+}
+
+.card-header {
+    background-color: var(--bs-secondary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+/* Progress bar improvements */
+.progress {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Status badges custom colors */
+.badge.bg-deploying {
+    background-color: var(--bs-info) !important;
+}
+
+.badge.bg-failed {
+    background-color: var(--bs-danger) !important;
+}
+
+/* Table improvements */
+.table-hover tbody tr:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Form improvements */
+.form-control:focus, .form-select:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Deployment log styling */
+.log-entry {
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+}
+
+.log-entry:last-child {
+    margin-bottom: 0;
+}
+
+/* Animation for loading states */
+.fa-spinner {
+    animation: fa-spin 1s infinite linear;
+}
+
+/* Alert improvements */
+.alert {
+    border: none;
+    border-left: 4px solid;
+}
+
+.alert-primary {
+    border-left-color: var(--bs-primary);
+}
+
+.alert-success {
+    border-left-color: var(--bs-success);
+}
+
+.alert-warning {
+    border-left-color: var(--bs-warning);
+}
+
+.alert-danger {
+    border-left-color: var(--bs-danger);
+}
+
+.alert-info {
+    border-left-color: var(--bs-info);
+}
+
+/* Navbar improvements */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Footer adjustments */
+footer {
+    margin-top: auto;
+}
+
+/* Button group improvements */
+.btn-group .btn {
+    position: relative;
+}
+
+/* Stats card improvements */
+.card.bg-primary, .card.bg-success, .card.bg-warning, 
+.card.bg-danger, .card.bg-info, .card.bg-secondary {
+    border: none;
+}
+
+/* Responsive table improvements */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* Custom scrollbar for deployment log */
+.card-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.card-body::-webkit-scrollbar-track {
+    background: var(--bs-secondary-bg);
+}
+
+.card-body::-webkit-scrollbar-thumb {
+    background: var(--bs-secondary);
+    border-radius: 4px;
+}
+
+.card-body::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-secondary-color);
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Priority and status indicators */
+.badge {
+    font-size: 0.75em;
+}
+
+/* Form section headers */
+.form-section-header {
+    border-bottom: 2px solid var(--bs-primary);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Notification improvements */
+.notification-item {
+    transition: background-color 0.2s ease;
+}
+
+.notification-item:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Code elements */
+code {
+    background-color: var(--bs-secondary-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+/* Hero section */
+.display-1, .display-4 {
+    font-weight: 700;
+}
+
+/* Feature cards on homepage */
+.feature-card {
+    transition: transform 0.2s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-2px);
+}
