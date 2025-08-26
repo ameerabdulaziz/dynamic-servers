@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}{{ server.name }} - Server Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Server Details -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-server me-2"></i>{{ server.name }}
+                    </h4>
+                    <p class="text-muted mb-0">Hetzner ID: {{ server.hetzner_id }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge {{ server.get_status_badge_class() }} fs-6 mb-2">
+                        {{ server.status.title() }}
+                    </span><br>
+                    <span class="badge {{ server.get_deployment_status_badge_class() }}">
+                        Deployment: {{ server.deployment_status.title() }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Server Configuration -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-cog me-2"></i>Server Configuration
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Type:</strong> {{ server.server_type }}</li>
+                            <li><strong>Image:</strong> {{ server.image }}</li>
+                            <li><strong>Location:</strong> {{ server.location }}</li>
+                            <li><strong>Datacenter:</strong> {{ server.datacenter }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">
+                            <i class="fas fa-microchip me-2"></i>Hardware Specifications
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><strong>CPU Cores:</strong> {{ server.cpu_cores }}</li>
+                            <li><strong>Memory:</strong> {{ server.memory_gb }} GB</li>
+                            <li><strong>Storage:</strong> {{ server.disk_gb }} GB</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Network Information -->
+                <div class="mb-4">
+                    <h6 class="text-info">
+                        <i class="fas fa-network-wired me-2"></i>Network Information
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Public IPv4:</strong>
+                            {% if server.public_ip %}
+                                <code>{{ server.public_ip }}</code>
+                            {% else %}
+                                <span class="text-muted">None</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Private IPv4:</strong>
+                            {% if server.private_ip %}
+                                <code>{{ server.private_ip }}</code>
+                            {% else %}
+                                <span class="text-muted">None</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>IPv6:</strong>
+                            {% if server.ipv6 %}
+                                <code>{{ server.ipv6 }}</code>
+                            {% else %}
+                                <span class="text-muted">None</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deployment Log -->
+                {% if server.deployment_log %}
+                <div class="mb-4">
+                    <h6 class="text-warning">
+                        <i class="fas fa-file-alt me-2"></i>Last Deployment Log
+                    </h6>
+                    <div class="card bg-dark text-light">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.9rem; max-height: 200px; overflow-y: auto;">
+                            {{ server.deployment_log }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Deployments -->
+        {% if recent_deployments %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Deployments
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Script</th>
+                                <th>Status</th>
+                                <th>Executed By</th>
+                                <th>Started</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for deployment in recent_deployments %}
+                            <tr>
+                                <td>{{ deployment.script.name }}</td>
+                                <td>
+                                    <span class="badge {{ deployment.get_status_badge_class() }}">
+                                        {{ deployment.status.title() }}
+                                    </span>
+                                </td>
+                                <td>{{ deployment.executor.username }}</td>
+                                <td>{{ deployment.started_at.strftime('%m/%d %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('deployment_execution', execution_id=deployment.execution_id) }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Server Management -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>Server Management
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('manage_server', server_id=server.id) }}">
+                    {{ management_form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ management_form.action.label(class="form-label") }}
+                        {{ management_form.action(class="form-select") }}
+                    </div>
+
+                    <div class="d-grid">
+                        {{ management_form.submit(class="btn btn-warning") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Deploy Applications -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-rocket me-2"></i>Deploy Applications
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if execution_form.script_id.choices %}
+                <form method="POST" action="{{ url_for('deploy_to_server', server_id=server.id) }}">
+                    {{ execution_form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ execution_form.script_id.label(class="form-label") }}
+                        {{ execution_form.script_id(class="form-select") }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ execution_form.execution_variables.label(class="form-label") }}
+                        {{ execution_form.execution_variables(class="form-control", rows="4", placeholder='{"key": "value"}') }}
+                        <div class="form-text">Optional JSON variables for the deployment</div>
+                    </div>
+
+                    <div class="d-grid">
+                        {{ execution_form.submit(class="btn btn-success") }}
+                    </div>
+                </form>
+                {% else %}
+                <p class="text-muted">No deployment scripts available.</p>
+                <a href="{{ url_for('deployment_scripts') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Create Script
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Server Information -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Server Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <strong>Created:</strong><br>
+                        {{ server.created_at.strftime('%B %d, %Y at %H:%M') }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>Last Synced:</strong><br>
+                        {{ server.last_synced.strftime('%B %d, %Y at %H:%M') }}
+                    </li>
+                    {% if server.last_deployment %}
+                    <li class="mb-2">
+                        <strong>Last Deployment:</strong><br>
+                        {{ server.last_deployment.strftime('%B %d, %Y at %H:%M') }}
+                    </li>
+                    {% endif %}
+                    {% if server.managed_by %}
+                    <li class="mb-2">
+                        <strong>Managed by:</strong><br>
+                        {{ server.manager.username }}
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <a href="{{ url_for('servers_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Servers
+        </a>
+    </div>
+</div>
+{% endblock %}

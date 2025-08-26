@@ -5,8 +5,10 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
-from models import User, ServerRequest, Notification
-from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm
+from models import User, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution
+from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
+from hetzner_service import HetznerService
+from ansible_service import AnsibleService
 
 @app.route('/')
 def index():
@@ -276,6 +278,326 @@ def mark_notification_read(notification_id):
         notification.is_read = True
         db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
+
+# Server Management Routes
+
+@app.route('/servers')
+@login_required
+def servers_list():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get servers from database
+    servers = HetznerServer.query.order_by(HetznerServer.last_synced.desc()).all()
+    
+    # Get server statistics
+    stats = {
+        'total_servers': len(servers),
+        'running': len([s for s in servers if s.status == 'running']),
+        'stopped': len([s for s in servers if s.status == 'stopped']),
+        'deploying': len([s for s in servers if s.deployment_status == 'deploying'])
+    }
+    
+    return render_template('servers_list.html', servers=servers, stats=stats)
+
+@app.route('/servers/sync')
+@login_required
+def sync_servers():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        hetzner_service = HetznerService()
+        result = hetzner_service.sync_servers_from_hetzner()
+        
+        if result['success']:
+            flash(f'Servers synced successfully! {result["synced"]} new, {result["updated"]} updated from {result["total"]} total.', 'success')
+        else:
+            flash(f'Error syncing servers: {result["error"]}', 'danger')
+    except Exception as e:
+        flash(f'Error connecting to Hetzner: {str(e)}', 'danger')
+    
+    return redirect(url_for('servers_list'))
+
+@app.route('/servers/<int:server_id>')
+@login_required
+def server_detail(server_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    
+    # Get deployment scripts for execution form
+    scripts = DeploymentScript.query.all()
+    
+    # Get recent deployments
+    recent_deployments = DeploymentExecution.query.filter_by(server_id=server_id).order_by(DeploymentExecution.started_at.desc()).limit(10).all()
+    
+    # Create forms
+    management_form = ServerManagementForm()
+    execution_form = ExecuteDeploymentForm()
+    execution_form.script_id.choices = [(s.id, s.name) for s in scripts]
+    
+    return render_template('server_detail.html', 
+                         server=server, 
+                         management_form=management_form,
+                         execution_form=execution_form,
+                         recent_deployments=recent_deployments)
+
+@app.route('/servers/<int:server_id>/manage', methods=['POST'])
+@login_required
+def manage_server(server_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    form = ServerManagementForm()
+    
+    if form.validate_on_submit():
+        try:
+            hetzner_service = HetznerService()
+            
+            if form.action.data == 'start':
+                result = hetzner_service.start_server(server.hetzner_id)
+            elif form.action.data == 'stop':
+                result = hetzner_service.stop_server(server.hetzner_id)
+            elif form.action.data == 'reboot':
+                result = hetzner_service.reboot_server(server.hetzner_id)
+            else:
+                flash('Invalid action', 'danger')
+                return redirect(url_for('server_detail', server_id=server_id))
+            
+            if result['success']:
+                flash(f'Server {form.action.data} action initiated successfully!', 'success')
+                # Update server status (will be synced properly on next sync)
+                if form.action.data == 'start':
+                    server.status = 'starting'
+                elif form.action.data == 'stop':
+                    server.status = 'stopping'
+                elif form.action.data == 'reboot':
+                    server.status = 'rebooting'
+                db.session.commit()
+            else:
+                flash(f'Error executing {form.action.data}: {result["error"]}', 'danger')
+                
+        except Exception as e:
+            flash(f'Error managing server: {str(e)}', 'danger')
+    
+    return redirect(url_for('server_detail', server_id=server_id))
+
+@app.route('/servers/<int:server_id>/deploy', methods=['POST'])
+@login_required
+def deploy_to_server(server_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    form = ExecuteDeploymentForm()
+    
+    # Set choices for the form
+    scripts = DeploymentScript.query.all()
+    form.script_id.choices = [(s.id, s.name) for s in scripts]
+    
+    if form.validate_on_submit():
+        try:
+            # Parse execution variables
+            execution_vars = {}
+            if form.execution_variables.data:
+                import json
+                execution_vars = json.loads(form.execution_variables.data)
+            
+            ansible_service = AnsibleService()
+            result = ansible_service.execute_deployment(
+                server_id=server_id,
+                script_id=form.script_id.data,
+                user_id=current_user.id,
+                variables=execution_vars
+            )
+            
+            if result['success']:
+                flash(f'Deployment started successfully! Execution ID: {result["execution_id"]}', 'success')
+                return redirect(url_for('deployment_execution', execution_id=result["execution_id"]))
+            else:
+                flash(f'Error starting deployment: {result["error"]}', 'danger')
+                
+        except json.JSONDecodeError:
+            flash('Invalid JSON in execution variables', 'danger')
+        except Exception as e:
+            flash(f'Error executing deployment: {str(e)}', 'danger')
+    
+    return redirect(url_for('server_detail', server_id=server_id))
+
+# Deployment Scripts Management
+
+@app.route('/deployment-scripts')
+@login_required
+def deployment_scripts():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    scripts = DeploymentScript.query.order_by(DeploymentScript.created_at.desc()).all()
+    return render_template('deployment_scripts.html', scripts=scripts)
+
+@app.route('/deployment-scripts/new', methods=['GET', 'POST'])
+@login_required
+def new_deployment_script():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    form = DeploymentScriptForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Validate Ansible playbook
+            ansible_service = AnsibleService()
+            validation = ansible_service.validate_playbook(form.ansible_playbook.data)
+            
+            if not validation['valid']:
+                flash(f'Invalid Ansible playbook: {validation["error"]}', 'danger')
+                return render_template('deployment_script_form.html', form=form, title='New Deployment Script')
+            
+            # Validate variables JSON if provided
+            if form.variables.data:
+                import json
+                json.loads(form.variables.data)
+            
+            script = DeploymentScript()
+            script.name = form.name.data
+            script.description = form.description.data
+            script.ansible_playbook = form.ansible_playbook.data
+            script.variables = form.variables.data
+            script.created_by = current_user.id
+            
+            db.session.add(script)
+            db.session.commit()
+            
+            flash('Deployment script created successfully!', 'success')
+            return redirect(url_for('deployment_scripts'))
+            
+        except json.JSONDecodeError:
+            flash('Invalid JSON in variables field', 'danger')
+        except Exception as e:
+            flash(f'Error creating script: {str(e)}', 'danger')
+    
+    return render_template('deployment_script_form.html', form=form, title='New Deployment Script')
+
+@app.route('/deployment-scripts/<int:script_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_deployment_script(script_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    script = DeploymentScript.query.get_or_404(script_id)
+    form = DeploymentScriptForm(obj=script)
+    
+    if form.validate_on_submit():
+        try:
+            # Validate Ansible playbook
+            ansible_service = AnsibleService()
+            validation = ansible_service.validate_playbook(form.ansible_playbook.data)
+            
+            if not validation['valid']:
+                flash(f'Invalid Ansible playbook: {validation["error"]}', 'danger')
+                return render_template('deployment_script_form.html', form=form, title='Edit Deployment Script', script=script)
+            
+            # Validate variables JSON if provided
+            if form.variables.data:
+                import json
+                json.loads(form.variables.data)
+            
+            script.name = form.name.data
+            script.description = form.description.data
+            script.ansible_playbook = form.ansible_playbook.data
+            script.variables = form.variables.data
+            script.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            flash('Deployment script updated successfully!', 'success')
+            return redirect(url_for('deployment_scripts'))
+            
+        except json.JSONDecodeError:
+            flash('Invalid JSON in variables field', 'danger')
+        except Exception as e:
+            flash(f'Error updating script: {str(e)}', 'danger')
+    
+    return render_template('deployment_script_form.html', form=form, title='Edit Deployment Script', script=script)
+
+@app.route('/deployment-scripts/samples')
+@login_required
+def sample_deployment_scripts():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    ansible_service = AnsibleService()
+    samples = ansible_service.get_sample_playbooks()
+    
+    return render_template('sample_scripts.html', samples=samples)
+
+@app.route('/deployment-scripts/samples/<sample_name>/create', methods=['POST'])
+@login_required
+def create_from_sample(sample_name):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        ansible_service = AnsibleService()
+        samples = ansible_service.get_sample_playbooks()
+        
+        if sample_name not in samples:
+            flash('Sample script not found', 'danger')
+            return redirect(url_for('sample_deployment_scripts'))
+        
+        sample = samples[sample_name]
+        
+        script = DeploymentScript()
+        script.name = sample['name']
+        script.description = sample['description']
+        script.ansible_playbook = sample['playbook']
+        script.variables = json.dumps(sample['variables'], indent=2)
+        script.created_by = current_user.id
+        
+        db.session.add(script)
+        db.session.commit()
+        
+        flash(f'Sample script "{sample["name"]}" created successfully!', 'success')
+        return redirect(url_for('deployment_scripts'))
+        
+    except Exception as e:
+        flash(f'Error creating sample script: {str(e)}', 'danger')
+        return redirect(url_for('sample_deployment_scripts'))
+
+# Deployment Execution Tracking
+
+@app.route('/deployments')
+@login_required
+def deployment_executions():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    executions = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).all()
+    return render_template('deployment_executions.html', executions=executions)
+
+@app.route('/deployments/<execution_id>')
+@login_required
+def deployment_execution(execution_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    execution = DeploymentExecution.query.filter_by(execution_id=execution_id).first_or_404()
+    return render_template('deployment_execution_detail.html', execution=execution)
 
 @app.context_processor
 def inject_user():

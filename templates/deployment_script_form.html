@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Server Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-code me-2"></i>{{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control") }}
+                        {% for error in form.name.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows="3", placeholder="Brief description of what this script does") }}
+                        {% for error in form.description.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.ansible_playbook.label(class="form-label") }}
+                        <div class="form-text mb-2">Write your Ansible playbook in YAML format. The playbook will be validated before saving.</div>
+                        {{ form.ansible_playbook(class="form-control", rows="15", style="font-family: monospace;", placeholder="---\n- name: Sample playbook\n  hosts: servers\n  become: yes\n  tasks:\n    - name: Update package cache\n      apt:\n        update_cache: yes") }}
+                        {% for error in form.ansible_playbook.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.variables.label(class="form-label") }}
+                        <div class="form-text mb-2">Default variables for this playbook in JSON format (optional)</div>
+                        {{ form.variables(class="form-control", rows="6", style="font-family: monospace;", placeholder='{\n  "app_name": "my-app",\n  "version": "latest",\n  "port": 3000\n}') }}
+                        {% for error in form.variables.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('deployment_scripts') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Cancel
+                        </a>
+                        
+                        <div>
+                            <a href="{{ url_for('sample_deployment_scripts') }}" class="btn btn-info me-2">
+                                <i class="fas fa-file-code me-2"></i>Browse Samples
+                            </a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sample Code Examples -->
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>Quick Examples
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="examplesAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#example1">
+                                Basic Server Update
+                            </button>
+                        </h2>
+                        <div id="example1" class="accordion-collapse collapse" data-bs-parent="#examplesAccordion">
+                            <div class="accordion-body">
+                                <div class="card bg-dark text-light">
+                                    <div class="card-body" style="font-family: monospace; font-size: 0.85rem;">
+<pre>---
+- name: Update server packages
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+    
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+      when: ansible_os_family == "Debian"</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#example2">
+                                Install Application
+                            </button>
+                        </h2>
+                        <div id="example2" class="accordion-collapse collapse" data-bs-parent="#examplesAccordion">
+                            <div class="accordion-body">
+                                <div class="card bg-dark text-light">
+                                    <div class="card-body" style="font-family: monospace; font-size: 0.85rem;">
+<pre>---
+- name: Deploy web application
+  hosts: servers
+  become: yes
+  vars:
+    app_name: "{{ app_name | default('my-app') }}"
+    app_port: "{{ app_port | default(3000) }}"
+  tasks:
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+    
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
+    
+    - name: Create app directory
+      file:
+        path: "/opt/{{ app_name }}"
+        state: directory
+        owner: www-data
+        group: www-data</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

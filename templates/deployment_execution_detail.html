@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Deployment {{ execution.execution_id[:8] }} - Server Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Execution Overview -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>Deployment Execution
+                    </h4>
+                    <p class="text-muted mb-0">{{ execution.execution_id }}</p>
+                </div>
+                <span class="badge {{ execution.get_status_badge_class() }} fs-6">
+                    {{ execution.status.title() }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-info-circle me-2"></i>Execution Details
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Script:</strong> {{ execution.script.name }}</li>
+                            <li><strong>Server:</strong> {{ execution.server.name }}</li>
+                            <li><strong>Server IP:</strong> 
+                                {% if execution.server.public_ip %}
+                                    <code>{{ execution.server.public_ip }}</code>
+                                {% else %}
+                                    <span class="text-muted">No public IP</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>Executed by:</strong> {{ execution.executor.username }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">
+                            <i class="fas fa-clock me-2"></i>Timing Information
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Started:</strong> {{ execution.started_at.strftime('%B %d, %Y at %H:%M:%S') }}</li>
+                            {% if execution.completed_at %}
+                                <li><strong>Completed:</strong> {{ execution.completed_at.strftime('%B %d, %Y at %H:%M:%S') }}</li>
+                                <li><strong>Duration:</strong> 
+                                    {% set duration = (execution.completed_at - execution.started_at).total_seconds() %}
+                                    {% if duration < 60 %}
+                                        {{ "%.1f"|format(duration) }} seconds
+                                    {% else %}
+                                        {{ "%.1f"|format(duration/60) }} minutes
+                                    {% endif %}
+                                </li>
+                            {% else %}
+                                <li><strong>Status:</strong> 
+                                    {% if execution.status == 'running' %}
+                                        <span class="text-info">Still running...</span>
+                                    {% else %}
+                                        <span class="text-warning">Incomplete</span>
+                                    {% endif %}
+                                </li>
+                            {% endif %}
+                            {% if execution.exit_code is not none %}
+                                <li><strong>Exit Code:</strong> 
+                                    <span class="badge {% if execution.exit_code == 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ execution.exit_code }}
+                                    </span>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Execution Variables -->
+                {% if execution.execution_variables %}
+                <div class="mb-4">
+                    <h6 class="text-warning">
+                        <i class="fas fa-cog me-2"></i>Execution Variables
+                    </h6>
+                    <div class="card bg-dark text-light">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.9rem;">
+                            <pre>{{ execution.execution_variables }}</pre>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Ansible Output -->
+                {% if execution.ansible_output %}
+                <div class="mb-4">
+                    <h6 class="text-info">
+                        <i class="fas fa-terminal me-2"></i>Ansible Output
+                    </h6>
+                    <div class="card bg-dark text-light">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">
+                            <pre>{{ execution.ansible_output }}</pre>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Error Log -->
+                {% if execution.error_log %}
+                <div class="mb-4">
+                    <h6 class="text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Error Log
+                    </h6>
+                    <div class="card bg-danger bg-opacity-10 border-danger">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.85rem;">
+                            <pre>{{ execution.error_log }}</pre>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Script Content -->
+                <div class="mb-4">
+                    <h6 class="text-secondary">
+                        <i class="fas fa-code me-2"></i>Executed Script Content
+                    </h6>
+                    <div class="card bg-dark text-light">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto;">
+                            <pre>{{ execution.script.ansible_playbook }}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('server_detail', server_id=execution.server.id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-server me-2"></i>View Server
+                    </a>
+                    <a href="{{ url_for('edit_deployment_script', script_id=execution.script.id) }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-edit me-2"></i>Edit Script
+                    </a>
+                    {% if execution.status in ['completed', 'failed'] %}
+                    <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#rerunModal">
+                        <i class="fas fa-redo me-2"></i>Re-run Deployment
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Execution Summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Summary
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <strong>Execution ID:</strong><br>
+                        <code class="small">{{ execution.execution_id }}</code>
+                    </li>
+                    <li class="mb-2">
+                        <strong>Server Type:</strong><br>
+                        {{ execution.server.server_type }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>Server Location:</strong><br>
+                        {{ execution.server.location or 'Unknown' }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>Script Usage:</strong><br>
+                        {{ execution.script.execution_count }} total executions
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Related Executions -->
+        {% set related_executions = execution.server.deployments|rejectattr('id', 'equalto', execution.id)|list %}
+        {% if related_executions %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Related Deployments
+                </h6>
+            </div>
+            <div class="card-body">
+                {% for related in related_executions[:5] %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <div class="small">{{ related.script.name }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ related.started_at.strftime('%m/%d %H:%M') }}</div>
+                    </div>
+                    <div>
+                        <span class="badge {{ related.get_status_badge_class() }} small">{{ related.status }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if related_executions|length > 5 %}
+                <div class="text-center mt-2">
+                    <small class="text-muted">... and {{ related_executions|length - 5 }} more</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <a href="{{ url_for('deployment_executions') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Deployments
+        </a>
+    </div>
+</div>
+
+<!-- Re-run Modal -->
+<div class="modal fade" id="rerunModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Re-run Deployment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>This will execute the same script on the same server with the same variables.</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Make sure the server is in the correct state before re-running the deployment.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('deploy_to_server', server_id=execution.server.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="script_id" value="{{ execution.script.id }}">
+                    <input type="hidden" name="execution_variables" value="{{ execution.execution_variables or '{}' }}">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-redo me-2"></i>Re-run Now
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

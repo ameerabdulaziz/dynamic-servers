@@ -39,10 +39,25 @@
                             </a>
                         </li>
                         {% if current_user.is_admin %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
-                                    <i class="fas fa-cogs me-1"></i>Admin Panel
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-cogs me-1"></i>Admin
                                 </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                                        <i class="fas fa-dashboard me-2"></i>Dashboard
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('servers_list') }}">
+                                        <i class="fas fa-server me-2"></i>Manage Servers
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('deployment_scripts') }}">
+                                        <i class="fas fa-code me-2"></i>Deployment Scripts
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('deployment_executions') }}">
+                                        <i class="fas fa-rocket me-2"></i>Deployments
+                                    </a></li>
+                                </ul>
                             </li>
                         {% endif %}
                     {% endif %}

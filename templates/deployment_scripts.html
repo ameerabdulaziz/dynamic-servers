@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Deployment Scripts - Server Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-code me-2"></i>Deployment Scripts
+                </h2>
+                <p class="text-muted mb-0">Manage Ansible playbooks for server deployment</p>
+            </div>
+            <div>
+                <a href="{{ url_for('sample_deployment_scripts') }}" class="btn btn-info me-2">
+                    <i class="fas fa-file-code me-2"></i>Sample Scripts
+                </a>
+                <a href="{{ url_for('new_deployment_script') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>New Script
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Available Scripts
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if scripts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Script Name</th>
+                                    <th>Description</th>
+                                    <th>Created By</th>
+                                    <th>Usage Statistics</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for script in scripts %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ script.name }}</strong><br>
+                                        <small class="text-muted">ID: {{ script.id }}</small>
+                                    </td>
+                                    <td>
+                                        {% if script.description %}
+                                            {{ script.description[:100] }}
+                                            {% if script.description|length > 100 %}...{% endif %}
+                                        {% else %}
+                                            <span class="text-muted">No description</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ script.creator.username }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ script.execution_count }} executions</span><br>
+                                        {% if script.last_executed %}
+                                            <small class="text-muted">Last: {{ script.last_executed.strftime('%m/%d %H:%M') }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Never executed</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ script.updated_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('edit_deployment_script', script_id=script.id) }}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-info" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#viewModal{{ script.id }}">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="display-6 text-muted mb-3">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <h5>No deployment scripts</h5>
+                        <p class="text-muted">Create your first Ansible deployment script to get started.</p>
+                        <div>
+                            <a href="{{ url_for('sample_deployment_scripts') }}" class="btn btn-info me-2">
+                                <i class="fas fa-file-code me-2"></i>Browse Samples
+                            </a>
+                            <a href="{{ url_for('new_deployment_script') }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Create New Script
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Modals -->
+{% for script in scripts %}
+<div class="modal fade" id="viewModal{{ script.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ script.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Description</h6>
+                    <p>{{ script.description or 'No description provided' }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Ansible Playbook</h6>
+                    <div class="card bg-dark text-light">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.85rem;">
+                            <pre>{{ script.ansible_playbook }}</pre>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if script.variables %}
+                <div class="mb-3">
+                    <h6>Default Variables</h6>
+                    <div class="card bg-dark text-light">
+                        <div class="card-body" style="font-family: monospace; font-size: 0.85rem;">
+                            <pre>{{ script.variables }}</pre>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="{{ url_for('edit_deployment_script', script_id=script.id) }}" class="btn btn-primary">Edit Script</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

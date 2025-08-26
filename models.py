@@ -89,6 +89,125 @@ class ServerRequest(db.Model):
     def __repr__(self):
         return f'<ServerRequest {self.request_id}>'
 
+class HetznerServer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    hetzner_id = db.Column(db.Integer, unique=True, nullable=False)  # Hetzner server ID
+    name = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(20), nullable=False)  # running, stopped, starting, etc.
+    server_type = db.Column(db.String(50), nullable=False)  # cx11, cx21, etc.
+    image = db.Column(db.String(100), nullable=False)  # ubuntu-20.04, etc.
+    
+    # Network information
+    public_ip = db.Column(db.String(15))
+    private_ip = db.Column(db.String(15))
+    ipv6 = db.Column(db.String(39))
+    
+    # Location and datacenter
+    datacenter = db.Column(db.String(50))
+    location = db.Column(db.String(50))
+    
+    # Specifications
+    cpu_cores = db.Column(db.Integer)
+    memory_gb = db.Column(db.Float)
+    disk_gb = db.Column(db.Integer)
+    
+    # Management
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_synced = db.Column(db.DateTime, default=datetime.utcnow)
+    managed_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Deployment status
+    deployment_status = db.Column(db.String(20), default='none')  # none, pending, deploying, deployed, failed
+    deployment_log = db.Column(db.Text)
+    last_deployment = db.Column(db.DateTime)
+    
+    manager = db.relationship('User', backref='managed_servers')
+    
+    def get_status_badge_class(self):
+        status_classes = {
+            'running': 'bg-success',
+            'stopped': 'bg-secondary',
+            'starting': 'bg-warning',
+            'stopping': 'bg-warning',
+            'rebooting': 'bg-info',
+            'rebuilding': 'bg-danger',
+            'migrating': 'bg-info',
+            'unknown': 'bg-dark'
+        }
+        return status_classes.get(self.status, 'bg-secondary')
+    
+    def get_deployment_status_badge_class(self):
+        status_classes = {
+            'none': 'bg-secondary',
+            'pending': 'bg-warning',
+            'deploying': 'bg-info',
+            'deployed': 'bg-success',
+            'failed': 'bg-danger'
+        }
+        return status_classes.get(self.deployment_status, 'bg-secondary')
+    
+    def __repr__(self):
+        return f'<HetznerServer {self.name}>'
+
+class DeploymentScript(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    ansible_playbook = db.Column(db.Text, nullable=False)  # YAML content
+    variables = db.Column(db.Text)  # JSON string of variables
+    
+    # Metadata
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Usage tracking
+    execution_count = db.Column(db.Integer, default=0)
+    last_executed = db.Column(db.DateTime)
+    
+    creator = db.relationship('User', backref='deployment_scripts')
+    
+    def __repr__(self):
+        return f'<DeploymentScript {self.name}>'
+
+class DeploymentExecution(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    execution_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
+    
+    # Relationships
+    server_id = db.Column(db.Integer, db.ForeignKey('hetzner_server.id'), nullable=False)
+    script_id = db.Column(db.Integer, db.ForeignKey('deployment_script.id'), nullable=False)
+    executed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Execution details
+    status = db.Column(db.String(20), default='pending')  # pending, running, completed, failed
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    
+    # Logs and output
+    ansible_output = db.Column(db.Text)
+    error_log = db.Column(db.Text)
+    exit_code = db.Column(db.Integer)
+    
+    # Variables used in this execution
+    execution_variables = db.Column(db.Text)  # JSON string
+    
+    server = db.relationship('HetznerServer', backref='deployments')
+    script = db.relationship('DeploymentScript', backref='executions')
+    executor = db.relationship('User', backref='executed_deployments')
+    
+    def get_status_badge_class(self):
+        status_classes = {
+            'pending': 'bg-warning',
+            'running': 'bg-info',
+            'completed': 'bg-success',
+            'failed': 'bg-danger'
+        }
+        return status_classes.get(self.status, 'bg-secondary')
+    
+    def __repr__(self):
+        return f'<DeploymentExecution {self.execution_id}>'
+
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

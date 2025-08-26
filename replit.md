@@ -26,8 +26,9 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: SQLite for development with PostgreSQL support via environment variables
 - **Connection Pooling**: SQLAlchemy engine with connection recycling and health checks
-- **Models**: User management, server requests, and notification systems
-- **Relationships**: Foreign key relationships between users and their server requests
+- **Models**: User management, server requests, notification systems, Hetzner servers, deployment scripts, and execution tracking
+- **Relationships**: Foreign key relationships between users, server requests, managed servers, and deployment executions
+- **Extended Models**: HetznerServer, DeploymentScript, DeploymentExecution for infrastructure management
 
 ### Authentication & Authorization
 - **User Management**: Registration, login, and role-based permissions
@@ -40,6 +41,11 @@ Preferred communication style: Simple, everyday language.
 - **Real-time Updates**: Progress tracking for server deployment with status updates
 - **Dashboard**: User and admin dashboards with statistics and request management
 - **Form Validation**: Comprehensive client and server-side validation
+- **Hetzner Cloud Integration**: Sync and manage existing servers from Hetzner Cloud provider
+- **Ansible Deployment**: Execute deployment scripts using Ansible playbooks on managed servers
+- **Server Management**: Start, stop, reboot Hetzner Cloud servers directly from the interface
+- **Deployment Scripts**: Create, edit, and execute custom Ansible playbooks with variables
+- **Sample Scripts**: Pre-built deployment scripts for common tasks (Nginx, Docker, system updates)
 
 ## External Dependencies
 
@@ -49,6 +55,18 @@ Preferred communication style: Simple, everyday language.
 - **Flask-Login**: User authentication and session management
 - **Flask-WTF**: Form handling and CSRF protection
 - **WTForms**: Form validation and rendering
+
+### Cloud Provider Integration
+- **hcloud**: Hetzner Cloud API client for server management
+- **requests**: HTTP library for API communications
+- **ansible**: Infrastructure automation for deployment scripts
+- **ansible-core**: Core Ansible functionality for playbook execution
+
+### Infrastructure Management
+- **Hetzner Cloud API**: Integration for listing, managing, and controlling cloud servers
+- **Ansible Automation**: Execute deployment playbooks on remote servers
+- **SSH Key Management**: Secure connections to managed servers
+- **Deployment Tracking**: Monitor execution status and logs of deployment scripts
 
 ### Frontend Dependencies
 - **Bootstrap 5**: UI framework loaded via CDN
@@ -68,7 +86,20 @@ Preferred communication style: Simple, everyday language.
 - **Werkzeug Security**: Password hashing and security utilities
 - **Flask-WTF CSRF**: Cross-site request forgery protection
 
+### External Service Integration
+- **Environment Variables**: Configuration via SESSION_SECRET, DATABASE_URL, and HETZNER_API_TOKEN
+- **API Security**: Secure storage and handling of cloud provider API tokens
+- **SSH Security**: Ansible connections using SSH key authentication
+
 ### Deployment Considerations
 - **ProxyFix**: Werkzeug middleware for reverse proxy compatibility
-- **Environment Variables**: Configuration via SESSION_SECRET and DATABASE_URL
-- **Logging**: Built-in Python logging configured for debugging
+- **Cloud Provider Access**: Integration with Hetzner Cloud for server management
+- **Ansible Execution**: Secure playbook execution with variable injection
+- **Logging**: Built-in Python logging configured for debugging and deployment tracking
+
+### Recent Changes (August 26, 2025)
+- **Added Hetzner Cloud Integration**: Full server listing, management, and monitoring
+- **Implemented Ansible Service**: Deployment script execution with playbook validation
+- **Extended Database Models**: New models for server management and deployment tracking
+- **Enhanced Admin Interface**: Added server management sections to admin navigation
+- **Created Sample Scripts**: Pre-built Ansible playbooks for common deployment tasks

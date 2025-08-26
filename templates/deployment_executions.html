@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Deployment Executions - Server Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-rocket me-2"></i>Deployment Executions
+                </h2>
+                <p class="text-muted mb-0">Monitor and track all deployment activities</p>
+            </div>
+            <div>
+                <a href="{{ url_for('servers_list') }}" class="btn btn-info me-2">
+                    <i class="fas fa-server me-2"></i>Manage Servers
+                </a>
+                <a href="{{ url_for('deployment_scripts') }}" class="btn btn-primary">
+                    <i class="fas fa-code me-2"></i>Deployment Scripts
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Execution Statistics -->
+<div class="row g-4 mb-4">
+    {% set stats = {
+        'total': executions|length,
+        'completed': executions|selectattr('status', 'equalto', 'completed')|list|length,
+        'failed': executions|selectattr('status', 'equalto', 'failed')|list|length,
+        'running': executions|selectattr('status', 'equalto', 'running')|list|length
+    } %}
+    
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.total }}</div>
+                <div class="small">Total Executions</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.completed }}</div>
+                <div class="small">Completed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.failed }}</div>
+                <div class="small">Failed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ stats.running }}</div>
+                <div class="small">Running</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Executions Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Deployments
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if executions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Execution ID</th>
+                                    <th>Script & Server</th>
+                                    <th>Status</th>
+                                    <th>Executed By</th>
+                                    <th>Duration</th>
+                                    <th>Started</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for execution in executions %}
+                                <tr>
+                                    <td>
+                                        <code class="small">{{ execution.execution_id[:8] }}...</code>
+                                    </td>
+                                    <td>
+                                        <strong>{{ execution.script.name }}</strong><br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-server me-1"></i>{{ execution.server.name }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ execution.get_status_badge_class() }}">
+                                            {{ execution.status.title() }}
+                                        </span>
+                                        {% if execution.exit_code is not none %}
+                                            <br><small class="text-muted">Exit: {{ execution.exit_code }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ execution.executor.username }}</td>
+                                    <td>
+                                        {% if execution.completed_at %}
+                                            {% set duration = (execution.completed_at - execution.started_at).total_seconds() %}
+                                            {% if duration < 60 %}
+                                                {{ "%.1f"|format(duration) }}s
+                                            {% else %}
+                                                {{ "%.1f"|format(duration/60) }}m
+                                            {% endif %}
+                                        {% elif execution.status == 'running' %}
+                                            <span class="text-info">Running...</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ execution.started_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('deployment_execution', execution_id=execution.execution_id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="display-6 text-muted mb-3">
+                            <i class="fas fa-rocket"></i>
+                        </div>
+                        <h5>No deployments yet</h5>
+                        <p class="text-muted">No deployment executions have been started yet.</p>
+                        <a href="{{ url_for('servers_list') }}" class="btn btn-primary">
+                            <i class="fas fa-server me-2"></i>Manage Servers
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

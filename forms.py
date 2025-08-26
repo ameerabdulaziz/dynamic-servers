@@ -147,3 +147,35 @@ class AdminReviewForm(FlaskForm):
         Length(max=1000, message='Notes cannot exceed 1000 characters')
     ])
     submit = SubmitField('Update Request')
+
+class DeploymentScriptForm(FlaskForm):
+    name = StringField('Script Name', validators=[
+        DataRequired(), 
+        Length(min=3, max=100, message='Script name must be between 3 and 100 characters')
+    ])
+    description = TextAreaField('Description', validators=[
+        Length(max=500, message='Description cannot exceed 500 characters')
+    ])
+    ansible_playbook = TextAreaField('Ansible Playbook (YAML)', validators=[
+        DataRequired(),
+        Length(min=10, message='Playbook content is required')
+    ])
+    variables = TextAreaField('Variables (JSON)', validators=[
+        Length(max=2000, message='Variables cannot exceed 2000 characters')
+    ])
+    submit = SubmitField('Save Script')
+
+class ExecuteDeploymentForm(FlaskForm):
+    script_id = SelectField('Deployment Script', validators=[DataRequired()], coerce=int)
+    execution_variables = TextAreaField('Execution Variables (JSON)', validators=[
+        Length(max=1000, message='Variables cannot exceed 1000 characters')
+    ])
+    submit = SubmitField('Execute Deployment')
+
+class ServerManagementForm(FlaskForm):
+    action = SelectField('Action', validators=[DataRequired()], choices=[
+        ('start', 'Start Server'),
+        ('stop', 'Stop Server'),
+        ('reboot', 'Reboot Server')
+    ])
+    submit = SubmitField('Execute Action')
