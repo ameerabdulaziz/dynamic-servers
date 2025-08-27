@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}New Hetzner Project - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('hetzner_projects') }}">Hetzner Projects</a></li>
+                <li class="breadcrumb-item active">New Project</li>
+            </ol>
+        </nav>
+        <h1 class="display-6 mb-0">
+            <i class="fas fa-plus text-primary me-2"></i>Create New Project
+        </h1>
+        <p class="text-muted">Set up a new Hetzner Cloud project with individual API token</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cog me-2"></i>Project Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Project Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                        <div class="form-text">A descriptive name for this Hetzner project</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" 
+                                  rows="3" placeholder="Describe the purpose of this project..."></textarea>
+                        <div class="form-text">Optional description of the project's purpose</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="hetzner_api_token" class="form-label">Hetzner Cloud API Token</label>
+                        <input type="password" class="form-control" id="hetzner_api_token" 
+                               name="hetzner_api_token" required>
+                        <div class="form-text">
+                            Individual API token for this Hetzner Cloud project. 
+                            <a href="https://console.hetzner.cloud/" target="_blank">Get token from Hetzner Console</a>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="max_servers" class="form-label">Maximum Servers</label>
+                                <input type="number" class="form-control" id="max_servers" 
+                                       name="max_servers" value="10" min="1" max="100" required>
+                                <div class="form-text">Maximum number of servers allowed in this project</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="monthly_budget" class="form-label">Monthly Budget ($)</label>
+                                <input type="number" step="0.01" class="form-control" id="monthly_budget" 
+                                       name="monthly_budget" placeholder="100.00">
+                                <div class="form-text">Optional monthly budget limit for cost tracking</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('hetzner_projects') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Create Project
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Project Creation Help -->
+        <div class="card border-0 mb-4">
+            <div class="card-header bg-gradient">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>Project Benefits
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Organization:</strong> Group servers by purpose or client
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Security:</strong> Individual API tokens per project
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Budget Control:</strong> Track costs per project
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Easy Management:</strong> Bulk operations per project
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- API Token Help -->
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-question-circle me-2"></i>API Token Setup
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small">To get a Hetzner Cloud API token:</p>
+                <ol class="small">
+                    <li>Visit the <a href="https://console.hetzner.cloud/" target="_blank">Hetzner Console</a></li>
+                    <li>Select your project</li>
+                    <li>Go to "Security" → "API Tokens"</li>
+                    <li>Create a new token with "Read & Write" permissions</li>
+                    <li>Copy and paste the token here</li>
+                </ol>
+                <div class="alert alert-warning alert-sm">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <small>Keep API tokens secure and never share them publicly.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

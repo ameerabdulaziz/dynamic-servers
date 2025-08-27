@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('hetzner_projects') }}">Hetzner Projects</a></li>
+                        <li class="breadcrumb-item active">{{ project.name }}</li>
+                    </ol>
+                </nav>
+                <h1 class="display-6 mb-0">
+                    <i class="fas fa-folder-open text-primary me-2"></i>{{ project.name }}
+                </h1>
+                <p class="text-muted">{{ project.description }}</p>
+            </div>
+            <div>
+                <a href="{{ url_for('edit_hetzner_project', project_id=project.id) }}" class="btn btn-outline-primary">
+                    <i class="fas fa-edit me-1"></i>Edit Project
+                </a>
+                <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-sync me-1"></i>Sync Servers
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Project Overview -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ servers|length }}</div>
+                        <small>Total Servers</small>
+                    </div>
+                    <i class="fas fa-server fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ servers|selectattr("status", "equalto", "running")|list|length }}</div>
+                        <small>Running Servers</small>
+                    </div>
+                    <i class="fas fa-play fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ project.max_servers - servers|length }}</div>
+                        <small>Available Slots</small>
+                    </div>
+                    <i class="fas fa-plus fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">${{ "%.2f"|format(project.monthly_cost) }}</div>
+                        <small>Monthly Cost</small>
+                    </div>
+                    <i class="fas fa-dollar-sign fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Status -->
+{% if project.monthly_budget %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Budget Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar {{ 'bg-danger' if project.is_over_budget() else 'bg-success' }}" 
+                                 style="width: {{ (project.monthly_cost / float(project.monthly_budget) * 100)|round(1) }}%">
+                                {{ (project.monthly_cost / float(project.monthly_budget) * 100)|round(1) }}%
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            ${{ "%.2f"|format(project.monthly_cost) }} of ${{ "%.2f"|format(project.monthly_budget) }}
+                        </small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        {% if project.is_over_budget() %}
+                        <span class="badge bg-danger fs-6">Over Budget</span>
+                        {% else %}
+                        <span class="badge bg-success fs-6">Within Budget</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Project Servers -->
+<div class="card border-0">
+    <div class="card-header bg-gradient">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-server me-2"></i>Project Servers
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        {% if servers %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Type</th>
+                        <th>Location</th>
+                        <th>Public IP</th>
+                        <th>Resources</th>
+                        <th>Last Sync</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for server in servers %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ server.name }}</div>
+                            <small class="text-muted">#{{ server.hetzner_id }}</small>
+                        </td>
+                        <td>
+                            <span class="badge {{ server.get_status_badge_class() }}">
+                                {{ server.status.title() }}
+                            </span>
+                        </td>
+                        <td>
+                            <code>{{ server.server_type }}</code>
+                        </td>
+                        <td>
+                            <i class="fas fa-map-marker-alt text-muted me-1"></i>
+                            {{ server.location }}
+                        </td>
+                        <td>
+                            {% if server.public_ip %}
+                            <code>{{ server.public_ip }}</code>
+                            {% else %}
+                            <span class="text-muted">No public IP</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ server.cpu_cores }}vCPU • 
+                                {{ server.memory_gb }}GB RAM • 
+                                {{ server.disk_gb }}GB SSD
+                            </small>
+                        </td>
+                        <td>
+                            {% if server.last_synced %}
+                            <small class="text-muted">{{ server.last_synced.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% else %}
+                            <span class="text-muted">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('server_detail', server_id=server.id) }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('server_management', server_id=server.id) }}" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-tools"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-server fa-4x text-muted mb-3"></i>
+            <h3 class="text-muted">No Servers Found</h3>
+            <p class="text-muted">
+                This project doesn't have any servers yet. 
+                {% if project.hetzner_api_token.startswith('REQUIRES_') %}
+                Please configure a valid Hetzner API token for this project and sync servers.
+                {% else %}
+                Click "Sync Servers" to import servers from Hetzner Cloud.
+                {% endif %}
+            </p>
+            {% if not project.hetzner_api_token.startswith('REQUIRES_') %}
+            <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sync me-1"></i>Sync Servers Now
+                </button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('edit_hetzner_project', project_id=project.id) }}" class="btn btn-primary">
+                <i class="fas fa-key me-1"></i>Configure API Token
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Project Information -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Project Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Project ID:</strong> <code>{{ project.project_id }}</code></p>
+                        <p><strong>Created:</strong> {{ project.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        <p><strong>Last Updated:</strong> {{ project.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if project.is_active else 'secondary' }}">
+                                {{ 'Active' if project.is_active else 'Inactive' }}
+                            </span>
+                        </p>
+                        <p><strong>Max Servers:</strong> {{ project.max_servers }}</p>
+                        {% if project.monthly_budget %}
+                        <p><strong>Monthly Budget:</strong> ${{ "%.2f"|format(project.monthly_budget) }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if project.hetzner_api_token.startswith('REQUIRES_') %}
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>API Token Required:</strong> This project needs a valid Hetzner Cloud API token to sync servers. 
+                    <a href="{{ url_for('edit_hetzner_project', project_id=project.id) }}">Configure now</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
