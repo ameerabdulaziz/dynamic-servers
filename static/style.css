@@ -315,10 +315,6 @@ body {
 }
 
 .navbar-brand .brand-text {
-    background: var(--dbs-blue-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     font-weight: 700;
     letter-spacing: -0.5px;
 }
@@ -464,10 +460,6 @@ code {
 }
 
 .hero-gradient-text {
-    background: linear-gradient(135deg, var(--dbs-blue) 0%, var(--dbs-light-blue) 50%, var(--dbs-orange) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     font-weight: 800;
     letter-spacing: -1px;
 }
@@ -740,9 +732,5 @@ code {
 
 /* Brand text styling */
 .brand-text {
-    background: var(--dbs-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     font-weight: 700;
 }
