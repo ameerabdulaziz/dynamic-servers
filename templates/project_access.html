@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}Project Access Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Project Access Management</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Project Access</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2 text-warning"></i>
+                        User Project Access Matrix
+                    </h5>
+                    <small class="text-muted">Manage which users can access specific Hetzner projects</small>
+                </div>
+                <div class="card-body">
+                    {% if access_matrix %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        {% for project in projects %}
+                                            <th class="text-center">{{ project.name }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user_id, user_data in access_matrix.items() %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-sm me-2">
+                                                        <div class="bg-secondary rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">
+                                                            {{ user_data.user.username[0].upper() }}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fw-medium">{{ user_data.user.username }}</div>
+                                                        <small class="text-muted">{{ user_data.user.email }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge {{ 'bg-info' if user_data.user.role.name == 'TECHNICAL_AGENT' else 'bg-primary' }}">
+                                                    {{ user_data.user.get_role_display() }}
+                                                </span>
+                                                {% if user_data.user.is_manager %}
+                                                    <span class="badge bg-warning ms-1">Manager</span>
+                                                {% endif %}
+                                            </td>
+                                            {% for project in projects %}
+                                                <td class="text-center">
+                                                    {% set access = user_data.project_access[project.id] %}
+                                                    {% if access %}
+                                                        <div class="d-flex flex-column align-items-center">
+                                                            <span class="badge {{ 'bg-success' if access.access_level == 'admin' else 'bg-info' if access.access_level == 'write' else 'bg-secondary' }} mb-1">
+                                                                {{ access.access_level.title() }}
+                                                            </span>
+                                                            <form method="POST" action="{{ url_for('revoke_project_access') }}" class="mb-0">
+                                                                <input type="hidden" name="user_id" value="{{ user_data.user.id }}">
+                                                                <input type="hidden" name="project_id" value="{{ project.id }}">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                                        onclick="return confirm('Revoke access for {{ user_data.user.username }}?')">
+                                                                    <i class="fas fa-times"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    {% else %}
+                                                        <form method="POST" action="{{ url_for('grant_project_access') }}" class="d-inline-block">
+                                                            <input type="hidden" name="user_id" value="{{ user_data.user.id }}">
+                                                            <input type="hidden" name="project_id" value="{{ project.id }}">
+                                                            <div class="input-group input-group-sm">
+                                                                <select name="access_level" class="form-select">
+                                                                    <option value="read">Read</option>
+                                                                    <option value="write">Write</option>
+                                                                    <option value="admin">Admin</option>
+                                                                </select>
+                                                                <button type="submit" class="btn btn-outline-success">
+                                                                    <i class="fas fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h5>No Users Found</h5>
+                            <p class="text-muted">No non-admin users found to assign project access.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Levels Legend -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Access Levels</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-secondary me-2">Read</span>
+                                <small class="text-muted">View servers and project information</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-info me-2">Write</span>
+                                <small class="text-muted">Manage servers, execute operations</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-success me-2">Admin</span>
+                                <small class="text-muted">Full project management access</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-submit access level forms when changed
+document.addEventListener('DOMContentLoaded', function() {
+    const accessSelects = document.querySelectorAll('select[name="access_level"]');
+    accessSelects.forEach(function(select) {
+        select.addEventListener('change', function() {
+            // Auto-submit form when access level is changed
+            this.closest('form').querySelector('button').click();
+        });
+    });
+});
+</script>
+{% endblock %}

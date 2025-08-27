@@ -16,6 +16,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.Enum(UserRole), default=UserRole.SALES_AGENT, nullable=False)
+    is_manager = db.Column(db.Boolean, default=False)  # Manager-level privileges within role
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -68,6 +69,39 @@ class User(UserMixin, db.Model):
             ]
         }
         return permission in permissions.get(self.role, [])
+    
+    def has_project_access(self, project_id, access_level='read'):
+        """Check if user has access to specific project"""
+        # Admins and manager technical agents have access to all projects
+        if self.role == UserRole.ADMIN or (self.role == UserRole.TECHNICAL_AGENT and self.is_manager):
+            return True
+        
+        # Check explicit project access
+        access = UserProjectAccess.query.filter_by(
+            user_id=self.id, 
+            project_id=project_id
+        ).first()
+        
+        if not access:
+            return False
+        
+        # Check access level hierarchy: read < write < admin
+        access_hierarchy = {'read': 1, 'write': 2, 'admin': 3}
+        required_level = access_hierarchy.get(access_level, 1)
+        user_level = access_hierarchy.get(access.access_level, 1)
+        
+        return user_level >= required_level
+    
+    def get_accessible_projects(self):
+        """Get list of projects user has access to"""
+        # Admins and manager technical agents see all projects
+        if self.role == UserRole.ADMIN or (self.role == UserRole.TECHNICAL_AGENT and self.is_manager):
+            from models import HetznerProject  # Import here to avoid circular imports
+            return HetznerProject.query.all()
+        
+        # Get projects with explicit access
+        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
+        return HetznerProject.query.filter(HetznerProject.id.in_(accessible_project_ids)).all()
     
     def __repr__(self):
         return f'<User {self.username} ({self.role_display})>'
@@ -514,3 +548,25 @@ class HetznerProject(db.Model):
     
     def __repr__(self):
         return f'<HetznerProject {self.name}>'
+
+class UserProjectAccess(db.Model):
+    """Manages user access to specific projects"""
+    __tablename__ = 'user_project_access'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey('hetzner_projects.id'), nullable=False)
+    access_level = db.Column(db.String(20), default='read')  # read, write, admin
+    granted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    granted_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='project_access')
+    project = db.relationship('HetznerProject', backref='user_access')
+    granted_by_user = db.relationship('User', foreign_keys=[granted_by])
+    
+    # Unique constraint on user-project combination
+    __table_args__ = (db.UniqueConstraint('user_id', 'project_id', name='unique_user_project'),)
+    
+    def __repr__(self):
+        return f'<UserProjectAccess {self.user.username} -> {self.project.name} ({self.access_level})>'

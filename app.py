@@ -37,6 +37,42 @@ def load_user(user_id):
     from models import User
     return User.query.get(int(user_id))
 
+def create_sample_project_access():
+    """Create sample project access permissions for demonstration"""
+    import models
+    # Get sample users and projects
+    tech_agent = models.User.query.filter_by(username='tech_agent').first()
+    sales_agent = models.User.query.filter_by(username='sales_agent').first()
+    
+    if not tech_agent or not sales_agent:
+        return
+    
+    nova_project = models.HetznerProject.query.filter_by(name='Nova HR').first()
+    frappe_project = models.HetznerProject.query.filter_by(name='Frappe ERP').first()
+    
+    if not nova_project or not frappe_project:
+        return
+    
+    # Grant project access if it doesn't already exist
+    access_grants = [
+        (tech_agent.id, nova_project.id, 'write'),  # Tech agent has write access to Nova HR
+        (tech_agent.id, frappe_project.id, 'read'), # Tech agent has read access to Frappe ERP
+        (sales_agent.id, nova_project.id, 'read'),  # Sales agent has read access to Nova HR
+    ]
+    
+    for user_id, project_id, access_level in access_grants:
+        existing = models.UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
+        if not existing:
+            access = models.UserProjectAccess()
+            access.user_id = user_id
+            access.project_id = project_id
+            access.access_level = access_level
+            access.granted_by = 1  # Admin user ID
+            db.session.add(access)
+    
+    db.session.commit()
+    logging.info("Sample project access permissions created")
+
 with app.app_context():
     # Import models to ensure tables are created
     import models
@@ -115,6 +151,11 @@ with app.app_context():
     
     db.session.commit()
     logging.info("Hetzner projects initialization completed")
+
+    # Create sample project access permissions
+    create_sample_project_access()
+    
+    logging.info("Application initialization completed")
 
 # Import routes
 import routes

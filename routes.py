@@ -5,7 +5,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify, m
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
-from models import User, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject
+from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from ansible_service import AnsibleService
@@ -728,7 +728,15 @@ def server_operations():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    servers = HetznerServer.query.all()
+    # Filter servers based on project access
+    if current_user.role == UserRole.ADMIN or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
+        # Admins and manager technical agents see all servers
+        servers = HetznerServer.query.all()
+    else:
+        # Regular technical agents see only servers from projects they have access to
+        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=current_user.id).subquery()
+        servers = HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+    
     return render_template('server_operations.html', servers=servers)
 
 @app.route('/server/<int:server_id>/backup', methods=['POST'])
@@ -739,6 +747,11 @@ def create_backup(server_id):
         return redirect(url_for('dashboard'))
     
     server = HetznerServer.query.get_or_404(server_id)
+    
+    # Check if user has access to this server's project
+    if not current_user.has_project_access(server.project_id):
+        flash('Access denied. You do not have access to this project.', 'danger')
+        return redirect(url_for('server_operations'))
     
     # Create backup record
     backup = DatabaseBackup()
@@ -804,6 +817,11 @@ def create_system_update(server_id):
         return redirect(url_for('dashboard'))
     
     server = HetznerServer.query.get_or_404(server_id)
+    
+    # Check if user has access to this server's project
+    if not current_user.has_project_access(server.project_id):
+        flash('Access denied. You do not have access to this project.', 'danger')
+        return redirect(url_for('server_operations'))
     
     # Create system update record
     update = SystemUpdate()
@@ -1048,6 +1066,87 @@ def system_updates():
     updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).all()
     return render_template('system_updates.html', updates=updates)
 
+# Project Access Management Routes (Admin Only)
+@app.route('/project-access')
+@login_required
+def project_access():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get all users and their project access
+    users = User.query.filter(User.role != UserRole.ADMIN).all()
+    projects = HetznerProject.query.all()
+    
+    # Build access matrix - organized by user for easier display
+    access_matrix = {}
+    for user in users:
+        access_matrix[user.id] = {
+            'user': user,
+            'project_access': {}
+        }
+        for project in projects:
+            access = UserProjectAccess.query.filter_by(user_id=user.id, project_id=project.id).first()
+            access_matrix[user.id]['project_access'][project.id] = access
+    
+    return render_template('project_access.html', 
+                         access_matrix=access_matrix, 
+                         projects=projects)
+
+@app.route('/project-access/grant', methods=['POST'])
+@login_required
+def grant_project_access():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    user_id = request.form.get('user_id')
+    project_id = request.form.get('project_id')
+    access_level = request.form.get('access_level', 'read')
+    
+    # Check if access already exists
+    existing = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
+    
+    if existing:
+        existing.access_level = access_level
+        existing.granted_by = current_user.id
+    else:
+        access = UserProjectAccess()
+        access.user_id = user_id
+        access.project_id = project_id
+        access.access_level = access_level
+        access.granted_by = current_user.id
+        db.session.add(access)
+    
+    user = User.query.get(user_id)
+    project = HetznerProject.query.get(project_id)
+    
+    db.session.commit()
+    flash(f'Granted {access_level} access to {user.username} for project {project.name}', 'success')
+    
+    return redirect(url_for('project_access'))
+
+@app.route('/project-access/revoke', methods=['POST'])
+@login_required
+def revoke_project_access():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    user_id = request.form.get('user_id')
+    project_id = request.form.get('project_id')
+    
+    access = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
+    
+    if access:
+        user = User.query.get(user_id)
+        project = HetznerProject.query.get(project_id)
+        db.session.delete(access)
+        db.session.commit()
+        flash(f'Revoked project access for {user.username} from {project.name}', 'success')
+    
+    return redirect(url_for('project_access'))
+
 # Hetzner Project Management Routes (Admin Only)
 @app.route('/hetzner-projects')
 @login_required
@@ -1056,7 +1155,8 @@ def hetzner_projects():
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    projects = HetznerProject.query.order_by(HetznerProject.created_at.desc()).all()
+    # Use the user's get_accessible_projects method which handles permissions correctly
+    projects = current_user.get_accessible_projects()
     return render_template('hetzner_projects.html', projects=projects)
 
 @app.route('/hetzner-projects/<int:project_id>')
