@@ -53,6 +53,19 @@ def create_sohila_user():
         db.session.add(sohila)
         db.session.commit()
         logging.info("Created Sohila technical user: sohila/sohila123")
+    
+    # Create Tokhy technical manager if he doesn't exist
+    tokhy = models.User.query.filter_by(username='tokhy').first()
+    if not tokhy:
+        tokhy = models.User()
+        tokhy.username = 'tokhy'
+        tokhy.email = 'tokhy@company.com'
+        tokhy.role = models.UserRole.TECHNICAL_AGENT
+        tokhy.is_manager = True  # Manager level technical agent
+        tokhy.set_password('tokhy123')
+        db.session.add(tokhy)
+        db.session.commit()
+        logging.info("Created Tokhy technical manager: tokhy/tokhy123")
 
 def create_sample_project_access():
     """Create sample project access permissions for demonstration"""
@@ -61,8 +74,9 @@ def create_sample_project_access():
     tech_agent = models.User.query.filter_by(username='tech_agent').first()
     sales_agent = models.User.query.filter_by(username='sales_agent').first()
     sohila = models.User.query.filter_by(username='sohila').first()
+    tokhy = models.User.query.filter_by(username='tokhy').first()
     
-    if not tech_agent or not sales_agent or not sohila:
+    if not tech_agent or not sales_agent or not sohila or not tokhy:
         return
     
     nova_project = models.HetznerProject.query.filter_by(name='Nova HR').first()
@@ -77,6 +91,7 @@ def create_sample_project_access():
         (tech_agent.id, frappe_project.id, 'read'), # Tech agent has read access to Frappe ERP
         (sales_agent.id, nova_project.id, 'read'),  # Sales agent has read access to Nova HR
         (sohila.id, nova_project.id, 'write'),      # Sohila has write access to Nova HR
+        (tokhy.id, nova_project.id, 'admin'),       # Tokhy has admin access to Nova HR (though as manager he sees all anyway)
     ]
     
     for user_id, project_id, access_level in access_grants:
