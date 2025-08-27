@@ -629,72 +629,91 @@ code {
     text-shadow: 0 2px 8px rgba(255, 140, 66, 0.4);
 }
 
-/* Custom Dynamic Business Servers Logo */
-.custom-dbs-logo {
+/* Custom Dynamic Business Servers Logo - Large Homepage Version */
+.custom-dbs-logo-large {
     display: inline-flex;
     align-items: center;
-    gap: 1.5rem;
-    padding: 1rem;
+    justify-content: center;
+    padding: 2rem;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    backdrop-filter: blur(15px);
+    border: 3px solid rgba(255, 255, 255, 0.2);
     animation: logo-glow 3s ease-in-out infinite;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
-.logo-servers {
+.logo-servers-large {
     display: flex;
-    gap: 0.5rem;
+    gap: 1rem;
     align-items: flex-end;
 }
 
 .server-stack {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     align-items: center;
 }
 
 .server-unit {
-    width: 24px;
-    height: 8px;
-    border-radius: 3px;
+    width: 32px;
+    height: 10px;
+    border-radius: 4px;
     position: relative;
     transition: all 0.3s ease;
 }
 
 .server-unit.active {
     background: var(--dbs-blue-gradient);
-    box-shadow: 0 0 10px rgba(37, 99, 235, 0.6);
+    box-shadow: 0 0 15px rgba(37, 99, 235, 0.8);
     animation: server-blink 2s ease-in-out infinite;
 }
 
 .server-unit.running {
     background: var(--dbs-orange-gradient);
-    box-shadow: 0 0 10px rgba(255, 140, 66, 0.6);
+    box-shadow: 0 0 15px rgba(255, 140, 66, 0.8);
     animation: server-blink 2s ease-in-out infinite 1s;
 }
 
 .server-unit::before {
     content: '';
     position: absolute;
-    right: 2px;
-    top: 2px;
-    width: 2px;
+    right: 3px;
+    top: 3px;
+    width: 3px;
     height: 4px;
     background: rgba(255, 255, 255, 0.9);
     border-radius: 1px;
 }
 
-.logo-text-dbs {
-    font-size: 3rem;
-    font-weight: 900;
-    background: var(--dbs-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -2px;
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+/* Navigation Logo - Smaller Version */
+.custom-dbs-logo-nav {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo-servers-nav {
+    display: flex;
+    gap: 0.25rem;
+    align-items: flex-end;
+}
+
+.custom-dbs-logo-nav .server-unit {
+    width: 16px;
+    height: 5px;
+    border-radius: 2px;
+}
+
+.custom-dbs-logo-nav .server-unit::before {
+    width: 2px;
+    height: 2px;
+    top: 1px;
+    right: 1px;
 }
 
 @keyframes logo-glow {
@@ -717,30 +736,7 @@ code {
     }
 }
 
-/* Navigation logo */
-.navbar-brand .custom-dbs-logo {
-    scale: 0.5;
-    margin: -0.25rem;
-    animation: none;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
 
-.navbar-brand .custom-dbs-logo .logo-text-dbs {
-    font-size: 1.5rem;
-}
-
-.navbar-brand .custom-dbs-logo .server-unit {
-    width: 16px;
-    height: 5px;
-}
-
-.navbar-brand .custom-dbs-logo .server-unit::before {
-    width: 1px;
-    height: 3px;
-    top: 1px;
-    right: 1px;
-}
 
 /* Brand text styling */
 .brand-text {
