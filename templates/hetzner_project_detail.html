@@ -126,6 +126,50 @@
 </div>
 {% endif %}
 
+<!-- SSH Configuration Alert -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% if not project.ssh_private_key %}
+        <div class="alert alert-warning border-0">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle fa-2x text-warning me-3"></i>
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-1">SSH Configuration Required</h6>
+                    <p class="mb-2">To perform remote operations like deployments and backups, this project needs SSH key configuration.</p>
+                    <a href="{{ url_for('configure_project_ssh', project_id=project.id) }}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-key me-1"></i>Configure SSH Keys Now
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% elif not project.ssh_connection_tested %}
+        <div class="alert alert-info border-0">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle fa-2x text-info me-3"></i>
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-1">SSH Configuration Not Tested</h6>
+                    <p class="mb-2">SSH keys are configured but connection hasn't been verified. Test connection to enable remote operations.</p>
+                    <a href="{{ url_for('configure_project_ssh', project_id=project.id) }}" class="btn btn-info btn-sm">
+                        <i class="fas fa-plug me-1"></i>Test SSH Connection
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-success border-0">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle fa-2x text-success me-3"></i>
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-1">SSH Connection Ready</h6>
+                    <p class="mb-2">SSH configuration is tested and working. Remote operations are available for all servers in this project.</p>
+                    <small class="text-muted">Last tested: {{ project.ssh_last_test.strftime('%Y-%m-%d %H:%M') if project.ssh_last_test else 'Unknown' }}</small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Project Servers -->
 <div class="card border-0">
     <div class="card-header bg-gradient">
@@ -194,7 +238,7 @@
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" class="btn btn-outline-primary btn-sm">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <a href="{{ url_for('server_management', server_id=server.id) }}" class="btn btn-outline-success btn-sm">
+                                <a href="{{ url_for('server_detail', server_id=server.id) }}" class="btn btn-outline-success btn-sm">
                                     <i class="fas fa-tools"></i>
                                 </a>
                             </div>
