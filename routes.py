@@ -741,13 +741,12 @@ def create_backup(server_id):
     server = HetznerServer.query.get_or_404(server_id)
     
     # Create backup record
-    backup = DatabaseBackup(
-        server_id=server_id,
-        database_name=request.form.get('database_name', 'main'),
-        backup_type=request.form.get('backup_type', 'full'),
-        started_at=datetime.utcnow(),
-        initiated_by=current_user.id
-    )
+    backup = DatabaseBackup()
+    backup.server_id = server_id
+    backup.database_name = request.form.get('database_name', 'main')
+    backup.backup_type = request.form.get('backup_type', 'full')
+    backup.started_at = datetime.utcnow()
+    backup.initiated_by = current_user.id
     
     db.session.add(backup)
     db.session.commit()
@@ -765,10 +764,9 @@ def create_backup(server_id):
         # Use SSH service to execute backup command remotely
         ssh_service = SSHService()
         
-        # Execute the backup command directly on the server
-        backup_command = get_default_backup_script()
+        # Execute the backup command via SSH
+        backup_command = "cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh"
         
-        # Execute the command via SSH
         success, stdout_output, stderr_output = ssh_service.execute_command(
             server=server,
             command=backup_command,
@@ -808,13 +806,12 @@ def create_system_update(server_id):
     server = HetznerServer.query.get_or_404(server_id)
     
     # Create system update record
-    update = SystemUpdate(
-        server_id=server_id,
-        update_type=request.form.get('update_type', 'deployment'),
-        update_description=request.form.get('description', 'Nova HR Docker deployment script execution'),
-        started_at=datetime.utcnow(),
-        initiated_by=current_user.id
-    )
+    update = SystemUpdate()
+    update.server_id = server_id
+    update.update_type = request.form.get('update_type', 'deployment')
+    update.update_description = request.form.get('description', 'Nova HR Docker deployment script execution')
+    update.started_at = datetime.utcnow()
+    update.initiated_by = current_user.id
     
     db.session.add(update)
     db.session.commit()

@@ -334,6 +334,10 @@ class DatabaseBackup(db.Model):
     # User tracking
     initiated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
+    # Execution logs (missing fields that caused the error)
+    backup_log = db.Column(db.Text)    # Stdout from script execution
+    error_log = db.Column(db.Text)     # Stderr from script execution
+    
     # Error handling
     error_message = db.Column(db.Text)
     retry_count = db.Column(db.Integer, default=0)
