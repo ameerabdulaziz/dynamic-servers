@@ -77,7 +77,7 @@
                 {% if project.monthly_budget %}
                 <div class="progress mb-3" style="height: 8px;">
                     <div class="progress-bar {{ 'bg-danger' if project.is_over_budget() else 'bg-success' }}" 
-                         style="width: {{ (project.monthly_cost / float(project.monthly_budget) * 100)|round(1) }}%">
+                         style="width: {{ (project.monthly_cost / project.monthly_budget * 100)|round(1) }}%">
                     </div>
                 </div>
                 <small class="text-muted">Budget: ${{ "%.2f"|format(project.monthly_budget) }}</small>

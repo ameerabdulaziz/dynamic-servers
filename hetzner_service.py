@@ -20,13 +20,18 @@ class HetznerService:
             from models import HetznerProject
             self.project = HetznerProject.query.get(project_id)
             if self.project and self.project.is_active:
-                self.api_token = self.project.hetzner_api_token
+                # If project token is 'USE_ENV_TOKEN', use environment variable
+                if self.project.hetzner_api_token == 'USE_ENV_TOKEN':
+                    self.api_token = os.environ.get('HETZNER_API_TOKEN')
+                else:
+                    self.api_token = self.project.hetzner_api_token
             else:
                 raise ValueError(f"Project {project_id} not found or inactive")
         else:
             self.api_token = os.environ.get('HETZNER_API_TOKEN')
-            if not self.api_token:
-                raise ValueError("No API token provided and HETZNER_API_TOKEN environment variable is not set")
+            
+        if not self.api_token:
+            raise ValueError("No API token available - check project configuration or HETZNER_API_TOKEN environment variable")
         
         self.client = Client(token=self.api_token)
         self.logger = logging.getLogger(__name__)
