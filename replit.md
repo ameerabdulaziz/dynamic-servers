@@ -104,6 +104,17 @@ Preferred communication style: Simple, everyday language.
 - **Logging**: Built-in Python logging configured for debugging and deployment tracking
 
 ### Recent Changes (August 27, 2025)
+- **Admin User Assignment Interface**: New comprehensive interface for admins to assign technical users to projects and promote users to managers
+  - **User Assignments Page**: Dedicated admin interface showing all technical user assignments with detailed project access
+  - **Assign Users to Projects**: Modal interface for assigning technical agents to specific projects with read/write/admin access levels
+  - **Promote to Manager**: Admin functionality to promote technical agents to manager status with full system access
+  - **Edit/Remove Access**: Inline editing and removal of user project assignments with AJAX functionality
+  - **Navigation Integration**: Added User Assignments link to admin dropdown menu for easy access
+- **Dashboard Permissions Filtering**: Applied project-based permissions to technical dashboard ensuring consistent access control
+  - **Filtered Statistics**: Dashboard now shows server counts and statistics only for servers users can access
+  - **Filtered Activities**: Recent updates, backups, and deployments filtered by accessible servers
+  - **Manager Override**: Technical managers continue to see all servers and activities system-wide
+- **Template Bug Fixes**: Fixed DatabaseBackup template error using correct started_at field instead of non-existent created_at
 - **Project-Based Permissions System**: Fully implemented granular access control for technical agents
   - **UserProjectAccess Model**: New database model managing user access to specific projects with read/write/admin levels
   - **Access Hierarchy**: Read < Write < Admin permissions with proper validation
