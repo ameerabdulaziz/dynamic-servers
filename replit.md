@@ -104,6 +104,24 @@ Preferred communication style: Simple, everyday language.
 - **Logging**: Built-in Python logging configured for debugging and deployment tracking
 
 ### Recent Changes (August 27, 2025)
+- **Project-Based Permissions System**: Fully implemented granular access control for technical agents
+  - **UserProjectAccess Model**: New database model managing user access to specific projects with read/write/admin levels
+  - **Access Hierarchy**: Read < Write < Admin permissions with proper validation
+  - **Manager Override**: Technical agents with is_manager=True can access all projects like admins
+  - **Server Filtering**: Technical agents only see servers from projects they have explicit access to
+  - **Admin Interface**: Project Access management page for admins to grant/revoke user access
+  - **Navigation Integration**: Added Project Access link to admin dropdown menu
+- **Created Sohila Technical User**: New sample user for testing project-based permissions
+  - **Username**: sohila (password: sohila123)
+  - **Role**: Technical Agent (non-manager)
+  - **Project Access**: Write access to Nova HR project only
+  - **Server Count**: Can manage 4 Nova HR servers (web, api, database, backup)
+- **Nova HR Project Sample Servers**: Added 4 dedicated servers for demonstration
+  - **nova-hr-web-01**: cx21 server for web interface (168.119.249.64)
+  - **nova-hr-api-01**: cx31 server for API backend (168.119.249.65)
+  - **nova-hr-db-01**: cx41 server for database (168.119.249.66)
+  - **nova-hr-backup-01**: cx21 server for backups (168.119.249.67)
+- **Fixed Database Schema Issues**: Resolved hetzner_id field type compatibility with PostgreSQL
 - **Project-Level SSH Configuration**: Moved SSH settings from individual servers to project-wide configuration for operational efficiency
   - **SSH Settings**: Each Hetzner project now has its own SSH credentials (username, port, private key, passphrase)
   - **Unified Access**: All servers in a project share the same SSH configuration
