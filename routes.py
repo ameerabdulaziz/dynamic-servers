@@ -123,17 +123,24 @@ def technical_dashboard():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Get all approved servers for management
-    servers = HetznerServer.query.all()
-    
-    # Get recent system updates
-    recent_updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(10).all()
-    
-    # Get recent backups
-    recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
-    
-    # Get deployment executions
-    recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
+    # Filter servers based on project access - same logic as server_operations
+    if current_user.role == UserRole.ADMIN or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
+        # Admins and manager technical agents see all servers
+        servers = HetznerServer.query.all()
+        # Get all system updates, backups, and deployments
+        recent_updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(10).all()
+        recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
+        recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
+    else:
+        # Regular technical agents see only servers from projects they have access to
+        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=current_user.id)
+        servers = HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+        
+        # Filter activities to only show data from servers they can access
+        accessible_server_ids = [s.id for s in servers]
+        recent_updates = SystemUpdate.query.filter(SystemUpdate.server_id.in_(accessible_server_ids)).order_by(SystemUpdate.started_at.desc()).limit(10).all()
+        recent_backups = DatabaseBackup.query.filter(DatabaseBackup.server_id.in_(accessible_server_ids)).order_by(DatabaseBackup.started_at.desc()).limit(10).all()
+        recent_deployments = DeploymentExecution.query.filter(DeploymentExecution.server_id.in_(accessible_server_ids)).order_by(DeploymentExecution.started_at.desc()).limit(10).all()
     
     # Statistics for technical dashboard
     stats = {
