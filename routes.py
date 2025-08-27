@@ -790,13 +790,13 @@ def create_system_update(server_id):
         # Use SSH service to execute deployment script remotely
         ssh_service = SSHService()
         
-        # Get the deployment script content
-        script_content = get_default_deploy_script()
+        # Execute the deployment script directly on the server
+        deployment_command = get_default_deploy_script()
         
-        # Execute the script via SSH
-        success, stdout_output, stderr_output = ssh_service.execute_script(
+        # Execute the command via SSH
+        success, stdout_output, stderr_output = ssh_service.execute_command(
             server=server,
-            script_content=script_content,
+            command=deployment_command,
             timeout=300  # 5 minute timeout
         )
         

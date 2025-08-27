@@ -52,7 +52,7 @@ class SSHService:
                 client.exec_command(f'chmod +x {script_filename}')
                 
                 # Execute the script
-                command = f'bash {script_filename}'
+                command = f'{script_filename}'
                 stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
                 
                 # Wait for command to complete and get output
@@ -172,7 +172,11 @@ class SSHService:
                 pass
 
 def get_default_deploy_script():
-    """Returns the default Nova HR Docker deployment script"""
+    """Returns the command to execute the Nova HR Docker deployment script"""
+    return "cd /home/dynamic/nova-hr-docker && ./deploy.sh"
+
+def get_nova_hr_script_content():
+    """Returns the Nova HR Docker deployment script content for reference"""
     return """#!/bin/bash
 # Nova HR Docker Deployment Script
 # This script handles the deployment of Nova HR application
