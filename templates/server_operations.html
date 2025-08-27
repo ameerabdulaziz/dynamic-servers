@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Server Operations - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-6 mb-0">
+                    <i class="fas fa-tools text-primary me-2"></i>Server Operations
+                </h1>
+                <p class="text-muted">Manage server backups, updates, and system operations</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bulkOperationModal">
+                    <i class="fas fa-tasks me-1"></i>Bulk Operations
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Operations Summary -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ servers|length }}</div>
+                        <small>Total Servers</small>
+                    </div>
+                    <i class="fas fa-server fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ servers|selectattr("status", "equalto", "running")|list|length }}</div>
+                        <small>Running Servers</small>
+                    </div>
+                    <i class="fas fa-play fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">5</div>
+                        <small>Pending Updates</small>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">12</div>
+                        <small>Recent Backups</small>
+                    </div>
+                    <i class="fas fa-database fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Servers List -->
+<div class="card border-0">
+    <div class="card-header bg-gradient">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-server me-2"></i>Server Management
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        {% if servers %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            <input type="checkbox" id="selectAll">
+                        </th>
+                        <th>Server</th>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Location</th>
+                        <th>Last Backup</th>
+                        <th>Last Update</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for server in servers %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="server-checkbox" value="{{ server.id }}">
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ server.name }}</div>
+                            <small class="text-muted">{{ server.server_type }} • {{ server.public_ip or 'No IP' }}</small>
+                        </td>
+                        <td>
+                            {% if server.project %}
+                            <span class="badge bg-secondary">{{ server.project.name }}</span>
+                            {% else %}
+                            <span class="text-muted">No Project</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {{ server.get_status_badge_class() }}">
+                                {{ server.status.title() }}
+                            </span>
+                        </td>
+                        <td>
+                            <i class="fas fa-map-marker-alt text-muted me-1"></i>
+                            {{ server.location or 'Unknown' }}
+                        </td>
+                        <td>
+                            <small class="text-muted">Never</small>
+                        </td>
+                        <td>
+                            <small class="text-muted">Never</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="initiateBackup({{ server.id }})" 
+                                        title="Start Backup">
+                                    <i class="fas fa-database"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-warning btn-sm" 
+                                        onclick="initiateUpdate({{ server.id }})" 
+                                        title="System Update">
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-info btn-sm" 
+                                        onclick="serverHealth({{ server.id }})" 
+                                        title="Health Check">
+                                    <i class="fas fa-stethoscope"></i>
+                                </button>
+                                <a href="{{ url_for('server_detail', server_id=server.id) }}" 
+                                   class="btn btn-outline-primary btn-sm" title="Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-server fa-4x text-muted mb-3"></i>
+            <h3 class="text-muted">No Servers Available</h3>
+            <p class="text-muted">No servers found for management operations. Sync servers from your Hetzner projects first.</p>
+            <a href="{{ url_for('hetzner_projects') }}" class="btn btn-primary">
+                <i class="fas fa-sync me-1"></i>Sync Servers
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bulk Operations Modal -->
+<div class="modal fade" id="bulkOperationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Server Operations</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Select Operation</label>
+                    <select class="form-control" id="bulkOperation">
+                        <option value="">Choose operation type</option>
+                        <option value="backup">Database Backup</option>
+                        <option value="update">System Update</option>
+                        <option value="health">Health Check</option>
+                        <option value="restart">Restart Services</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Schedule</label>
+                    <select class="form-control" id="bulkSchedule">
+                        <option value="now">Execute Now</option>
+                        <option value="maintenance">During Maintenance Window</option>
+                        <option value="custom">Custom Schedule</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3" id="customSchedule" style="display: none;">
+                    <label class="form-label">Custom Date & Time</label>
+                    <input type="datetime-local" class="form-control" id="scheduleDateTime">
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Selected Servers:</strong> <span id="selectedCount">0</span> servers
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="executeBulkOperation()">
+                    <i class="fas fa-play me-1"></i>Execute Operation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Select All functionality
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.server-checkbox');
+    checkboxes.forEach(checkbox => checkbox.checked = this.checked);
+    updateSelectedCount();
+});
+
+// Update selected count
+function updateSelectedCount() {
+    const selected = document.querySelectorAll('.server-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = selected;
+}
+
+// Add event listeners to individual checkboxes
+document.querySelectorAll('.server-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', updateSelectedCount);
+});
+
+// Custom schedule toggle
+document.getElementById('bulkSchedule').addEventListener('change', function() {
+    const customDiv = document.getElementById('customSchedule');
+    customDiv.style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+// Individual server operations
+function initiateBackup(serverId) {
+    if (confirm('Start database backup for this server?')) {
+        // TODO: Implement backup initiation
+        alert('Backup initiated for server ' + serverId);
+    }
+}
+
+function initiateUpdate(serverId) {
+    if (confirm('Start system update for this server? This may require a restart.')) {
+        // TODO: Implement update initiation
+        alert('System update initiated for server ' + serverId);
+    }
+}
+
+function serverHealth(serverId) {
+    // TODO: Implement health check
+    alert('Health check initiated for server ' + serverId);
+}
+
+function executeBulkOperation() {
+    const operation = document.getElementById('bulkOperation').value;
+    const schedule = document.getElementById('bulkSchedule').value;
+    const selected = document.querySelectorAll('.server-checkbox:checked');
+    
+    if (!operation) {
+        alert('Please select an operation type');
+        return;
+    }
+    
+    if (selected.length === 0) {
+        alert('Please select at least one server');
+        return;
+    }
+    
+    const serverIds = Array.from(selected).map(cb => cb.value);
+    
+    if (confirm(`Execute ${operation} on ${selected.length} selected servers?`)) {
+        // TODO: Implement bulk operation
+        alert(`Bulk ${operation} scheduled for ${selected.length} servers`);
+        document.getElementById('bulkOperationModal').querySelector('.btn-close').click();
+    }
+}
+</script>
+{% endblock %}
