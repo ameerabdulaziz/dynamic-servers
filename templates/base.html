@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Server Provisioning System{% endblock %}</title>
+    <title>{% block title %}Dynamic Business Servers{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
@@ -17,8 +17,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-server me-2"></i>
-                Server Provisioning
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Dynamic Business Servers" class="logo-img me-2">
+                <span class="brand-text">Dynamic Business Servers</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
