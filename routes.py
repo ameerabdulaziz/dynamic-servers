@@ -123,8 +123,8 @@ def technical_dashboard():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Filter servers based on project access - same logic as server_operations
-    if current_user.role == UserRole.ADMIN or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
+    # Admins see all servers and data - no filtering applied
+    if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
         # Admins and manager technical agents see all servers
         servers = HetznerServer.query.all()
         # Get all system updates, backups, and deployments
@@ -133,7 +133,7 @@ def technical_dashboard():
         recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
     else:
         # Regular technical agents see only servers from projects they have access to
-        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=current_user.id)
+        accessible_project_ids = [access.project_id for access in UserProjectAccess.query.filter_by(user_id=current_user.id).all()]
         servers = HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
         
         # Filter activities to only show data from servers they can access
@@ -735,13 +735,13 @@ def server_operations():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Filter servers based on project access
-    if current_user.role == UserRole.ADMIN or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
+    # Admins have complete system access - see all servers
+    if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
         # Admins and manager technical agents see all servers
         servers = HetznerServer.query.all()
     else:
         # Regular technical agents see only servers from projects they have access to
-        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=current_user.id).subquery()
+        accessible_project_ids = [access.project_id for access in UserProjectAccess.query.filter_by(user_id=current_user.id).all()]
         servers = HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
     
     return render_template('server_operations.html', servers=servers)
@@ -1162,8 +1162,8 @@ def user_assignments():
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Get all project access assignments
-    user_project_access = UserProjectAccess.query.join(User).join(HetznerProject).all()
+    # Get all project access assignments - simple query to avoid join issues
+    user_project_access = UserProjectAccess.query.all()
     
     # Get all technical users
     technical_users = User.query.filter_by(role=UserRole.TECHNICAL_AGENT).all()
