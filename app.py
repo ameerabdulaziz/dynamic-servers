@@ -45,14 +45,41 @@ with app.app_context():
     # Create admin user if it doesn't exist
     admin_user = models.User.query.filter_by(username='admin').first()
     if not admin_user:
-        admin_user = models.User()
-        admin_user.username = 'admin'
-        admin_user.email = 'admin@company.com'
-        admin_user.is_admin = True
+        admin_user = models.User(
+            username='admin',
+            email='admin@company.com',
+            role=models.UserRole.ADMIN
+        )
         admin_user.set_password('admin123')
         db.session.add(admin_user)
         db.session.commit()
         logging.info("Created admin user: admin/admin123")
+    
+    # Create sample technical agent if it doesn't exist
+    tech_user = models.User.query.filter_by(username='tech_agent').first()
+    if not tech_user:
+        tech_user = models.User(
+            username='tech_agent',
+            email='tech@company.com',
+            role=models.UserRole.TECHNICAL_AGENT
+        )
+        tech_user.set_password('tech123')
+        db.session.add(tech_user)
+        db.session.commit()
+        logging.info("Created technical agent user: tech_agent/tech123")
+    
+    # Create sample sales agent if it doesn't exist
+    sales_user = models.User.query.filter_by(username='sales_agent').first()
+    if not sales_user:
+        sales_user = models.User(
+            username='sales_agent',
+            email='sales@company.com',
+            role=models.UserRole.SALES_AGENT
+        )
+        sales_user.set_password('sales123')
+        db.session.add(sales_user)
+        db.session.commit()
+        logging.info("Created sales agent user: sales_agent/sales123")
 
 # Import routes
 import routes

@@ -31,19 +31,25 @@ Preferred communication style: Simple, everyday language.
 - **Extended Models**: HetznerServer, DeploymentScript, DeploymentExecution for infrastructure management
 
 ### Authentication & Authorization
-- **User Management**: Registration, login, and role-based permissions
-- **Admin Controls**: Separate admin interface for request approval and system management
+- **Three-Tier Role System**: Technical Agents, Sales Agents, and Administrators with distinct permissions
+- **Role-Based Dashboards**: Customized interfaces for each user type with relevant features and statistics
+- **Permission Checking**: Granular permission system controlling access to specific features and operations
 - **Session Security**: Secure session management with configurable secret keys
 - **Password Security**: Werkzeug password hashing with salt
+- **Dynamic Navigation**: Menu items and features shown based on user role and permissions
 
 ### Application Features
 - **Request Workflow**: Multi-stage approval process (pending → approved → deployed)
+- **Role-Specific Features**:
+  - **Technical Agents**: Server operations, backup management, system updates, deployment monitoring
+  - **Sales Agents**: Server requests, subscription management, client revenue tracking
+  - **Administrators**: Full system oversight, user management, approval workflows
+- **Subscription Management**: Client hosting date management, cost tracking, renewal automation
+- **Server Operations**: Backup initiation, system updates, server monitoring and control
 - **Real-time Updates**: Progress tracking for server deployment with status updates
-- **Dashboard**: User and admin dashboards with statistics and request management
 - **Form Validation**: Comprehensive client and server-side validation
 - **Hetzner Cloud Integration**: Sync and manage existing servers from Hetzner Cloud provider
 - **Ansible Deployment**: Execute deployment scripts using Ansible playbooks on managed servers
-- **Server Management**: Start, stop, reboot Hetzner Cloud servers directly from the interface
 - **Deployment Scripts**: Create, edit, and execute custom Ansible playbooks with variables
 - **Sample Scripts**: Pre-built deployment scripts for common tasks (Nginx, Docker, system updates)
 
@@ -98,15 +104,18 @@ Preferred communication style: Simple, everyday language.
 - **Logging**: Built-in Python logging configured for debugging and deployment tracking
 
 ### Recent Changes (August 27, 2025)
-- **Rebranded to Dynamic Business Servers**: Updated from "Business Solutions" to match company branding
-- **Integrated Company Logo**: Added Dynamic Business Servers logo with orange and blue color scheme
-- **Enhanced Visual Design**: Custom CSS with brand colors (#ff8c42 orange, #2563eb blue) and gradients
-- **Updated User Interface**: Comprehensive styling overhaul with branded buttons, cards, and navigation
-- **Logo Integration**: Added floating logo animation and gradient text effects on homepage
-- **Server-Themed Icons**: Integrated server, network, and infrastructure icons throughout the system
-- **Animated Icon Effects**: Added pulsing server icons and themed icon styling with drop shadows
-- **Custom DBS Logo**: Removed existing logo and created custom Dynamic Business Servers logo with animated server stacks
-- **Logo Design**: Server rack visualization with orange and blue server units, gradient "DBS" text, and glowing effects
+- **Simplified Branding to "Dynamic Servers"**: Removed "Business" from branding for cleaner, more concise name
+- **Implemented Three-Tier Role-Based Permission System**: 
+  - **Technical Agents**: Server management, system updates, database backups, deployment operations
+  - **Sales Agents**: Server requests, client subscription management, revenue tracking
+  - **Administrators**: Full system access including user management and approval workflows
+- **Enhanced Database Models**: Added ClientSubscription, DatabaseBackup, and SystemUpdate models for comprehensive tracking
+- **Role-Specific Dashboards**: Separate dashboard interfaces tailored to each user role's responsibilities
+- **Permission-Based Navigation**: Dynamic navigation menu showing only features accessible to user's role
+- **PostgreSQL Integration**: Migrated to PostgreSQL with proper enum types for user roles
+- **Sample User Creation**: Automatic creation of admin, technical agent, and sales agent demo accounts
+- **Subscription Management**: Sales agents can manage client hosting dates, costs, and renewal settings
+- **Server Operations Tracking**: Technical agents can initiate and monitor backups, updates, and system operations
 
 ### Previous Changes (August 26, 2025)
 - **Added Hetzner Cloud Integration**: Full server listing, management, and monitoring

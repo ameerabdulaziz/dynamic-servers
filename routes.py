@@ -5,7 +5,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
-from models import User, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution
+from models import User, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from ansible_service import AnsibleService
@@ -61,24 +61,16 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # Redirect based on user role
     if current_user.is_admin:
         return redirect(url_for('admin_dashboard'))
+    elif current_user.is_technical_agent:
+        return redirect(url_for('technical_dashboard'))
+    elif current_user.is_sales_agent:
+        return redirect(url_for('sales_dashboard'))
     
-    # Get user's requests
-    requests = ServerRequest.query.filter_by(user_id=current_user.id).order_by(ServerRequest.created_at.desc()).all()
-    
-    # Get unread notifications
-    notifications = Notification.query.filter_by(user_id=current_user.id, is_read=False).order_by(Notification.created_at.desc()).limit(5).all()
-    
-    # Statistics
-    stats = {
-        'total_requests': len(requests),
-        'pending': len([r for r in requests if r.status == 'pending']),
-        'approved': len([r for r in requests if r.status in ['approved', 'deploying', 'deployed']]),
-        'rejected': len([r for r in requests if r.status == 'rejected'])
-    }
-    
-    return render_template('dashboard.html', requests=requests, notifications=notifications, stats=stats)
+    # Fallback for any other roles
+    return redirect(url_for('sales_dashboard'))
 
 @app.route('/admin')
 @login_required
@@ -123,9 +115,88 @@ def admin_dashboard():
     return render_template('admin_dashboard.html', requests=requests, stats=stats, 
                          status_filter=status_filter, priority_filter=priority_filter, search=search)
 
+@app.route('/technical-dashboard')
+@login_required
+def technical_dashboard():
+    if not current_user.has_permission('manage_servers'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get all approved servers for management
+    servers = HetznerServer.query.all()
+    
+    # Get recent system updates
+    recent_updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(10).all()
+    
+    # Get recent backups
+    recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
+    
+    # Get deployment executions
+    recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
+    
+    # Statistics for technical dashboard
+    stats = {
+        'total_servers': len(servers),
+        'running_servers': len([s for s in servers if s.status == 'running']),
+        'stopped_servers': len([s for s in servers if s.status == 'stopped']),
+        'failed_backups': len([b for b in recent_backups if b.status == 'failed']),
+        'pending_updates': len([u for u in recent_updates if u.status in ['scheduled', 'running']]),
+        'recent_deployments': len(recent_deployments)
+    }
+    
+    return render_template('technical_dashboard.html', 
+                         servers=servers, 
+                         recent_updates=recent_updates,
+                         recent_backups=recent_backups,
+                         recent_deployments=recent_deployments,
+                         stats=stats)
+
+@app.route('/sales-dashboard')
+@login_required  
+def sales_dashboard():
+    if not current_user.has_permission('create_requests'):
+        flash('Access denied. Sales Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get user's requests (sales agents see their own requests)
+    requests = ServerRequest.query.filter_by(user_id=current_user.id).order_by(ServerRequest.created_at.desc()).all()
+    
+    # Get client subscriptions managed by this sales agent
+    subscriptions = ClientSubscription.query.filter_by(managed_by=current_user.id).order_by(ClientSubscription.subscription_end.asc()).all()
+    
+    # Get approved servers that clients can see
+    approved_servers = HetznerServer.query.filter(HetznerServer.deployment_status == 'deployed').all()
+    
+    # Get unread notifications
+    notifications = Notification.query.filter_by(user_id=current_user.id, is_read=False).order_by(Notification.created_at.desc()).limit(5).all()
+    
+    # Statistics for sales dashboard
+    stats = {
+        'total_requests': len(requests),
+        'pending_requests': len([r for r in requests if r.status == 'pending']),
+        'approved_requests': len([r for r in requests if r.status in ['approved', 'deploying', 'deployed']]),
+        'rejected_requests': len([r for r in requests if r.status == 'rejected']),
+        'total_subscriptions': len(subscriptions),
+        'expiring_soon': len([s for s in subscriptions if s.is_expiring_soon and s.is_active]),
+        'active_subscriptions': len([s for s in subscriptions if s.is_active]),
+        'total_revenue': sum([s.monthly_cost for s in subscriptions if s.is_active])
+    }
+    
+    return render_template('sales_dashboard.html', 
+                         requests=requests, 
+                         subscriptions=subscriptions,
+                         approved_servers=approved_servers,
+                         notifications=notifications, 
+                         stats=stats)
+
 @app.route('/request-server', methods=['GET', 'POST'])
 @login_required
 def request_server():
+    # Only sales agents and admins can create requests
+    if not current_user.has_permission('create_requests'):
+        flash('Access denied. You do not have permission to create server requests.', 'danger')
+        return redirect(url_for('dashboard'))
+        
     form = ServerRequestForm()
     if form.validate_on_submit():
         server_request = ServerRequest()
@@ -602,3 +673,129 @@ def deployment_execution(execution_id):
 @app.context_processor
 def inject_user():
     return dict(current_user=current_user)
+
+# Subscription Management Routes (Sales Agents)
+@app.route('/subscriptions')
+@login_required
+def subscriptions():
+    if not current_user.has_permission('manage_subscriptions'):
+        flash('Access denied. Sales Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Sales agents see only their managed subscriptions
+    if current_user.is_sales_agent:
+        subscriptions = ClientSubscription.query.filter_by(managed_by=current_user.id).all()
+    else:  # Admins see all subscriptions
+        subscriptions = ClientSubscription.query.all()
+    
+    return render_template('subscriptions.html', subscriptions=subscriptions)
+
+@app.route('/subscription/<int:subscription_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_subscription(subscription_id):
+    subscription = ClientSubscription.query.get_or_404(subscription_id)
+    
+    # Check permissions
+    if not current_user.has_permission('manage_subscriptions'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Sales agents can only edit their own managed subscriptions
+    if current_user.is_sales_agent and subscription.managed_by != current_user.id:
+        flash('Access denied. You can only edit subscriptions you manage.', 'danger')
+        return redirect(url_for('subscriptions'))
+    
+    if request.method == 'POST':
+        subscription.subscription_start = datetime.strptime(request.form['subscription_start'], '%Y-%m-%d').date()
+        subscription.subscription_end = datetime.strptime(request.form['subscription_end'], '%Y-%m-%d').date()
+        subscription.subscription_type = request.form['subscription_type']
+        subscription.monthly_cost = float(request.form['monthly_cost'])
+        subscription.auto_renewal = 'auto_renewal' in request.form
+        subscription.is_active = 'is_active' in request.form
+        
+        db.session.commit()
+        flash('Subscription updated successfully!', 'success')
+        return redirect(url_for('subscriptions'))
+    
+    return render_template('edit_subscription.html', subscription=subscription)
+
+# Server Operations Routes (Technical Agents)
+@app.route('/server-operations')
+@login_required
+def server_operations():
+    if not current_user.has_permission('server_operations'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    servers = HetznerServer.query.all()
+    return render_template('server_operations.html', servers=servers)
+
+@app.route('/server/<int:server_id>/backup', methods=['POST'])
+@login_required
+def create_backup(server_id):
+    if not current_user.has_permission('database_operations'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    
+    # Create backup record
+    backup = DatabaseBackup(
+        server_id=server_id,
+        database_name=request.form.get('database_name', 'main'),
+        backup_type=request.form.get('backup_type', 'full'),
+        started_at=datetime.utcnow(),
+        initiated_by=current_user.id
+    )
+    
+    db.session.add(backup)
+    db.session.commit()
+    
+    # In a real implementation, this would trigger the actual backup process
+    flash(f'Backup initiated for server {server.name}. Backup ID: {backup.backup_id}', 'success')
+    return redirect(url_for('technical_dashboard'))
+
+@app.route('/server/<int:server_id>/update', methods=['POST'])
+@login_required
+def create_system_update(server_id):
+    if not current_user.has_permission('system_updates'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    
+    # Create system update record
+    update = SystemUpdate(
+        server_id=server_id,
+        update_type=request.form.get('update_type', 'system'),
+        update_description=request.form.get('description', 'System update'),
+        started_at=datetime.utcnow(),
+        initiated_by=current_user.id
+    )
+    
+    db.session.add(update)
+    db.session.commit()
+    
+    # In a real implementation, this would trigger the actual update process
+    flash(f'System update initiated for server {server.name}. Update ID: {update.update_id}', 'success')
+    return redirect(url_for('technical_dashboard'))
+
+@app.route('/backups')
+@login_required
+def backups():
+    if not current_user.has_permission('database_operations'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
+    return render_template('backups.html', backups=backups)
+
+@app.route('/system-updates')
+@login_required
+def system_updates():
+    if not current_user.has_permission('system_updates'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).all()
+    return render_template('system_updates.html', updates=updates)

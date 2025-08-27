@@ -2,14 +2,21 @@ from datetime import datetime
 from app import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from enum import Enum
 import uuid
+
+class UserRole(Enum):
+    ADMIN = "admin"
+    TECHNICAL_AGENT = "technical_agent" 
+    SALES_AGENT = "sales_agent"
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
+    role = db.Column(db.Enum(UserRole), default=UserRole.SALES_AGENT, nullable=False)
+    active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationship with server requests - specify foreign_keys to avoid ambiguity
@@ -21,8 +28,49 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
+    @property
+    def is_admin(self):
+        return self.role == UserRole.ADMIN
+    
+    @property
+    def is_technical_agent(self):
+        return self.role == UserRole.TECHNICAL_AGENT
+    
+    @property
+    def is_sales_agent(self):
+        return self.role == UserRole.SALES_AGENT
+    
+    @property
+    def role_display(self):
+        role_names = {
+            UserRole.ADMIN: "Administrator",
+            UserRole.TECHNICAL_AGENT: "Technical Agent",
+            UserRole.SALES_AGENT: "Sales Agent"
+        }
+        return role_names.get(self.role, "Unknown")
+    
+    def has_permission(self, permission):
+        """Check if user has specific permission based on role"""
+        permissions = {
+            UserRole.ADMIN: [
+                'manage_users', 'manage_servers', 'approve_requests', 
+                'view_all_requests', 'manage_deployments', 'system_admin',
+                'manage_subscriptions', 'database_operations', 'server_operations'
+            ],
+            UserRole.TECHNICAL_AGENT: [
+                'manage_servers', 'view_approved_servers', 'manage_deployments',
+                'database_operations', 'system_updates', 'server_monitoring',
+                'server_operations', 'backup_operations'
+            ],
+            UserRole.SALES_AGENT: [
+                'create_requests', 'view_own_requests', 'view_approved_servers',
+                'manage_subscriptions', 'client_management'
+            ]
+        }
+        return permission in permissions.get(self.role, [])
+    
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<User {self.username} ({self.role_display})>'
 
 class ServerRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -207,6 +255,157 @@ class DeploymentExecution(db.Model):
     
     def __repr__(self):
         return f'<DeploymentExecution {self.execution_id}>'
+
+# New models for enhanced role-based features
+
+class ClientSubscription(db.Model):
+    """Manages client hosting subscription dates and details"""
+    id = db.Column(db.Integer, primary_key=True)
+    client_name = db.Column(db.String(100), nullable=False)
+    client_email = db.Column(db.String(120), nullable=False)
+    
+    # Subscription details
+    subscription_start = db.Column(db.Date, nullable=False)
+    subscription_end = db.Column(db.Date, nullable=False)
+    subscription_type = db.Column(db.String(50), nullable=False)  # basic, premium, enterprise
+    monthly_cost = db.Column(db.Float, nullable=False)
+    
+    # Server association
+    server_id = db.Column(db.Integer, db.ForeignKey('hetzner_server.id'))
+    
+    # Management tracking
+    managed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Sales agent
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    auto_renewal = db.Column(db.Boolean, default=True)
+    
+    # Relationships
+    server = db.relationship('HetznerServer', backref='subscriptions')
+    manager = db.relationship('User', backref='managed_subscriptions')
+    
+    @property
+    def days_remaining(self):
+        from datetime import date
+        return (self.subscription_end - date.today()).days
+    
+    @property
+    def is_expiring_soon(self):
+        return self.days_remaining <= 30
+    
+    def __repr__(self):
+        return f'<ClientSubscription {self.client_name}>'
+
+class DatabaseBackup(db.Model):
+    """Tracks database backup operations performed by technical agents"""
+    id = db.Column(db.Integer, primary_key=True)
+    backup_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
+    
+    # Backup details
+    server_id = db.Column(db.Integer, db.ForeignKey('hetzner_server.id'), nullable=False)
+    database_name = db.Column(db.String(100), nullable=False)
+    backup_type = db.Column(db.String(20), nullable=False)  # full, incremental, differential
+    
+    # Backup metadata
+    backup_size = db.Column(db.BigInteger)  # Size in bytes
+    backup_path = db.Column(db.String(255))  # Storage location
+    compression_used = db.Column(db.Boolean, default=True)
+    encryption_used = db.Column(db.Boolean, default=True)
+    
+    # Execution details
+    started_at = db.Column(db.DateTime, nullable=False)
+    completed_at = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='running')  # running, completed, failed, cancelled
+    
+    # User tracking
+    initiated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Error handling
+    error_message = db.Column(db.Text)
+    retry_count = db.Column(db.Integer, default=0)
+    
+    # Relationships
+    server = db.relationship('HetznerServer', backref='backups')
+    operator = db.relationship('User', backref='backup_operations')
+    
+    @property
+    def duration_minutes(self):
+        if self.completed_at and self.started_at:
+            return int((self.completed_at - self.started_at).total_seconds() / 60)
+        return None
+    
+    @property
+    def backup_size_mb(self):
+        if self.backup_size:
+            return round(self.backup_size / 1024 / 1024, 2)
+        return None
+    
+    def get_status_badge_class(self):
+        status_classes = {
+            'running': 'bg-info',
+            'completed': 'bg-success',
+            'failed': 'bg-danger',
+            'cancelled': 'bg-warning'
+        }
+        return status_classes.get(self.status, 'bg-secondary')
+    
+    def __repr__(self):
+        return f'<DatabaseBackup {self.backup_id}>'
+
+class SystemUpdate(db.Model):
+    """Tracks system updates performed by technical agents"""
+    id = db.Column(db.Integer, primary_key=True)
+    update_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
+    
+    # Update details
+    server_id = db.Column(db.Integer, db.ForeignKey('hetzner_server.id'), nullable=False)
+    update_type = db.Column(db.String(30), nullable=False)  # security, system, application, kernel
+    update_description = db.Column(db.Text, nullable=False)
+    
+    # Package information
+    packages_updated = db.Column(db.Text)  # JSON list of updated packages
+    kernel_update = db.Column(db.Boolean, default=False)
+    reboot_required = db.Column(db.Boolean, default=False)
+    reboot_completed = db.Column(db.Boolean, default=False)
+    
+    # Execution details
+    scheduled_at = db.Column(db.DateTime)
+    started_at = db.Column(db.DateTime, nullable=False)
+    completed_at = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='running')  # scheduled, running, completed, failed, rollback
+    
+    # User tracking
+    initiated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    approved_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Monitoring
+    pre_update_snapshot = db.Column(db.String(255))  # Snapshot ID if taken
+    rollback_available = db.Column(db.Boolean, default=False)
+    rollback_completed = db.Column(db.Boolean, default=False)
+    
+    # Error handling
+    error_message = db.Column(db.Text)
+    rollback_reason = db.Column(db.Text)
+    
+    # Relationships
+    server = db.relationship('HetznerServer', backref='system_updates')
+    operator = db.relationship('User', foreign_keys=[initiated_by], backref='initiated_updates')
+    approver = db.relationship('User', foreign_keys=[approved_by], backref='approved_updates')
+    
+    def get_status_badge_class(self):
+        status_classes = {
+            'scheduled': 'bg-info',
+            'running': 'bg-warning',
+            'completed': 'bg-success',
+            'failed': 'bg-danger',
+            'rollback': 'bg-warning'
+        }
+        return status_classes.get(self.status, 'bg-secondary')
+    
+    def __repr__(self):
+        return f'<SystemUpdate {self.update_id}>'
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
