@@ -80,6 +80,41 @@ with app.app_context():
         db.session.add(sales_user)
         db.session.commit()
         logging.info("Created sales agent user: sales_agent/sales123")
+    
+    # Create default Hetzner projects if they don't exist
+    projects_data = [
+        {
+            'name': 'Nova HR',
+            'description': 'Human Resources management platform with employee onboarding, payroll, and performance tracking systems',
+            'token': 'nova_hr_placeholder_token'
+        },
+        {
+            'name': 'Frappe ERP',
+            'description': 'Enterprise Resource Planning system with CRM, accounting, inventory, and project management modules',
+            'token': 'frappe_erp_placeholder_token'
+        },
+        {
+            'name': 'Django Projects',
+            'description': 'Development and staging environment for Django-based web applications and API services',
+            'token': 'django_projects_placeholder_token'
+        }
+    ]
+    
+    for project_data in projects_data:
+        existing_project = models.HetznerProject.query.filter_by(name=project_data['name']).first()
+        if not existing_project:
+            project = models.HetznerProject(
+                name=project_data['name'],
+                description=project_data['description'],
+                hetzner_api_token=project_data['token'],
+                created_by=admin_user.id,
+                max_servers=15,
+                monthly_budget=500.00
+            )
+            db.session.add(project)
+    
+    db.session.commit()
+    logging.info("Hetzner projects initialization completed")
 
 # Import routes
 import routes

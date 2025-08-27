@@ -5,7 +5,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
-from models import User, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate
+from models import User, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from ansible_service import AnsibleService
@@ -799,3 +799,129 @@ def system_updates():
     
     updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).all()
     return render_template('system_updates.html', updates=updates)
+
+# Hetzner Project Management Routes (Admin Only)
+@app.route('/hetzner-projects')
+@login_required
+def hetzner_projects():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    projects = HetznerProject.query.order_by(HetznerProject.created_at.desc()).all()
+    return render_template('hetzner_projects.html', projects=projects)
+
+@app.route('/hetzner-projects/<int:project_id>')
+@login_required
+def hetzner_project_detail(project_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    project = HetznerProject.query.get_or_404(project_id)
+    servers = HetznerServer.query.filter_by(project_id=project_id).all()
+    
+    return render_template('hetzner_project_detail.html', project=project, servers=servers)
+
+@app.route('/hetzner-projects/<int:project_id>/sync', methods=['POST'])
+@login_required
+def sync_project_servers(project_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    project = HetznerProject.query.get_or_404(project_id)
+    
+    try:
+        hetzner_service = HetznerService(project_id=project_id)
+        result = hetzner_service.sync_servers_from_hetzner()
+        
+        if result['success']:
+            flash(f'Sync completed! {result["synced"]} new servers, {result["updated"]} updated, {result["total"]} total.', 'success')
+        else:
+            flash(f'Sync failed: {result["error"]}', 'danger')
+    except Exception as e:
+        flash(f'Error during sync: {str(e)}', 'danger')
+    
+    return redirect(url_for('hetzner_project_detail', project_id=project_id))
+
+@app.route('/hetzner-projects/<int:project_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_hetzner_project(project_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    project = HetznerProject.query.get_or_404(project_id)
+    
+    if request.method == 'POST':
+        project.name = request.form['name']
+        project.description = request.form['description']
+        project.hetzner_api_token = request.form['hetzner_api_token']
+        project.max_servers = int(request.form['max_servers'])
+        project.monthly_budget = float(request.form['monthly_budget']) if request.form['monthly_budget'] else None
+        project.is_active = 'is_active' in request.form
+        project.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        flash('Project updated successfully!', 'success')
+        return redirect(url_for('hetzner_project_detail', project_id=project_id))
+    
+    return render_template('edit_hetzner_project.html', project=project)
+
+@app.route('/hetzner-projects/new', methods=['GET', 'POST'])
+@login_required
+def new_hetzner_project():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        project = HetznerProject(
+            name=request.form['name'],
+            description=request.form['description'],
+            hetzner_api_token=request.form['hetzner_api_token'],
+            max_servers=int(request.form['max_servers']),
+            monthly_budget=float(request.form['monthly_budget']) if request.form['monthly_budget'] else None,
+            created_by=current_user.id
+        )
+        
+        db.session.add(project)
+        db.session.commit()
+        
+        flash(f'Project "{project.name}" created successfully!', 'success')
+        return redirect(url_for('hetzner_projects'))
+    
+    return render_template('new_hetzner_project.html')
+
+@app.route('/sync-all-projects', methods=['POST'])
+@login_required
+def sync_all_projects():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    projects = HetznerProject.query.filter_by(is_active=True).all()
+    total_synced = 0
+    total_updated = 0
+    errors = []
+    
+    for project in projects:
+        try:
+            hetzner_service = HetznerService(project_id=project.id)
+            result = hetzner_service.sync_servers_from_hetzner()
+            
+            if result['success']:
+                total_synced += result['synced']
+                total_updated += result['updated']
+            else:
+                errors.append(f'{project.name}: {result["error"]}')
+        except Exception as e:
+            errors.append(f'{project.name}: {str(e)}')
+    
+    if errors:
+        flash(f'Sync completed with errors. Synced: {total_synced}, Updated: {total_updated}. Errors: {", ".join(errors)}', 'warning')
+    else:
+        flash(f'All projects synced successfully! {total_synced} new servers, {total_updated} updated.', 'success')
+    
+    return redirect(url_for('hetzner_projects'))

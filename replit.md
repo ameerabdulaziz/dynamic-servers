@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Connection Pooling**: SQLAlchemy engine with connection recycling and health checks
 - **Models**: User management, server requests, notification systems, Hetzner servers, deployment scripts, and execution tracking
 - **Relationships**: Foreign key relationships between users, server requests, managed servers, and deployment executions
-- **Extended Models**: HetznerServer, DeploymentScript, DeploymentExecution for infrastructure management
+- **Extended Models**: HetznerServer, DeploymentScript, DeploymentExecution, HetznerProject for infrastructure management and project organization
 
 ### Authentication & Authorization
 - **Three-Tier Role System**: Technical Agents, Sales Agents, and Administrators with distinct permissions
@@ -116,6 +116,9 @@ Preferred communication style: Simple, everyday language.
 - **Sample User Creation**: Automatic creation of admin, technical agent, and sales agent demo accounts
 - **Subscription Management**: Sales agents can manage client hosting dates, costs, and renewal settings
 - **Server Operations Tracking**: Technical agents can initiate and monitor backups, updates, and system operations
+- **Hetzner Projects Integration**: Added project-based organization with individual API tokens for each Hetzner Cloud project
+- **Multi-Project Support**: Three initial projects created (Nova HR, Frappe ERP, Django Projects) with individual server management
+- **Project-Based Server Organization**: Servers now organized by project with budget tracking and usage monitoring
 
 ### Previous Changes (August 26, 2025)
 - **Added Hetzner Cloud Integration**: Full server listing, management, and monitoring

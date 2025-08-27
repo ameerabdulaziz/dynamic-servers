@@ -9,12 +9,26 @@ from models import HetznerServer
 from app import db
 
 class HetznerService:
-    def __init__(self):
-        api_token = os.environ.get('HETZNER_API_TOKEN')
-        if not api_token:
-            raise ValueError("HETZNER_API_TOKEN environment variable is required")
+    def __init__(self, project_id=None, api_token=None):
+        self.project_id = project_id
+        self.project = None
         
-        self.client = Client(token=api_token)
+        # Get API token from project or environment
+        if api_token:
+            self.api_token = api_token
+        elif project_id:
+            from models import HetznerProject
+            self.project = HetznerProject.query.get(project_id)
+            if self.project and self.project.is_active:
+                self.api_token = self.project.hetzner_api_token
+            else:
+                raise ValueError(f"Project {project_id} not found or inactive")
+        else:
+            self.api_token = os.environ.get('HETZNER_API_TOKEN')
+            if not self.api_token:
+                raise ValueError("No API token provided and HETZNER_API_TOKEN environment variable is not set")
+        
+        self.client = Client(token=self.api_token)
         self.logger = logging.getLogger(__name__)
     
     def sync_servers_from_hetzner(self):
@@ -84,6 +98,10 @@ class HetznerService:
         server.cpu_cores = hetzner_server.server_type.cores
         server.memory_gb = hetzner_server.server_type.memory
         server.disk_gb = hetzner_server.server_type.disk
+        
+        # Assign to project if specified
+        if self.project_id:
+            server.project_id = self.project_id
         
         server.last_synced = datetime.utcnow()
         

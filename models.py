@@ -145,6 +145,9 @@ class HetznerServer(db.Model):
     server_type = db.Column(db.String(50), nullable=False)  # cx11, cx21, etc.
     image = db.Column(db.String(100), nullable=False)  # ubuntu-20.04, etc.
     
+    # Project association
+    project_id = db.Column(db.Integer, db.ForeignKey('hetzner_projects.id'), nullable=True)
+    
     # Network information
     public_ip = db.Column(db.String(15))
     private_ip = db.Column(db.String(15))
@@ -424,3 +427,62 @@ class Notification(db.Model):
     
     def __repr__(self):
         return f'<Notification {self.title}>'
+
+class HetznerProject(db.Model):
+    """Manages Hetzner Cloud projects with individual API tokens and servers"""
+    __tablename__ = 'hetzner_projects'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.String(20), unique=True, nullable=False, default=lambda: f'PRJ{str(uuid.uuid4()).replace("-", "")[:8].upper()}')
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    hetzner_api_token = db.Column(db.String(200), nullable=False)  # Encrypted storage recommended
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Project settings
+    max_servers = db.Column(db.Integer, default=10)  # Maximum servers allowed in this project
+    monthly_budget = db.Column(db.Numeric(10, 2))  # Monthly budget limit
+    
+    # Relationships
+    creator = db.relationship('User', foreign_keys=[created_by])
+    servers = db.relationship('HetznerServer', backref='project', lazy=True)
+    
+    @property
+    def server_count(self):
+        return HetznerServer.query.filter_by(project_id=self.id).count()
+    
+    @property
+    def running_servers(self):
+        return HetznerServer.query.filter_by(project_id=self.id, status='running').count()
+    
+    @property
+    def monthly_cost(self):
+        # Calculate estimated monthly cost based on server types
+        servers = HetznerServer.query.filter_by(project_id=self.id).all()
+        total_cost = 0
+        for server in servers:
+            if server.status in ['running', 'starting']:
+                # Rough cost estimation - could be improved with actual Hetzner pricing
+                if 'cx11' in server.server_type.lower():
+                    total_cost += 4.15
+                elif 'cx21' in server.server_type.lower():
+                    total_cost += 8.25
+                elif 'cx31' in server.server_type.lower():
+                    total_cost += 16.50
+                elif 'cx41' in server.server_type.lower():
+                    total_cost += 33.00
+                else:
+                    total_cost += 10.00  # Default estimate
+        return total_cost
+    
+    def is_over_budget(self):
+        return self.monthly_budget and self.monthly_cost > float(self.monthly_budget)
+    
+    def can_add_server(self):
+        return self.server_count < self.max_servers
+    
+    def __repr__(self):
+        return f'<HetznerProject {self.name}>'

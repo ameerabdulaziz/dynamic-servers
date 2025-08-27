@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Hetzner Projects - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-6 mb-0">
+                    <i class="fas fa-project-diagram text-primary me-2"></i>Hetzner Projects
+                </h1>
+                <p class="text-muted">Manage Hetzner Cloud projects with individual API tokens and server organization</p>
+            </div>
+            <div>
+                <a href="{{ url_for('new_hetzner_project') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>New Project
+                </a>
+                <form method="POST" action="{{ url_for('sync_all_projects') }}" class="d-inline">
+                    <button type="submit" class="btn btn-outline-success">
+                        <i class="fas fa-sync me-1"></i>Sync All
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Projects Overview -->
+<div class="row">
+    {% for project in projects %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 border-0 {{ 'border-success' if project.is_active else 'border-secondary' }}">
+            <div class="card-header bg-gradient d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-folder-open me-2"></i>{{ project.name }}
+                </h5>
+                <span class="badge bg-{{ 'success' if project.is_active else 'secondary' }}">
+                    {{ 'Active' if project.is_active else 'Inactive' }}
+                </span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">{{ project.description[:100] }}{% if project.description|length > 100 %}...{% endif %}</p>
+                
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 mb-1 text-primary">{{ project.server_count }}</div>
+                            <small class="text-muted">Servers</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 mb-1 text-success">{{ project.running_servers }}</div>
+                            <small class="text-muted">Running</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h6 mb-1">{{ project.max_servers }}</div>
+                            <small class="text-muted">Max Servers</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h6 mb-1 {{ 'text-danger' if project.is_over_budget() else 'text-success' }}">
+                                ${{ "%.2f"|format(project.monthly_cost) }}
+                            </div>
+                            <small class="text-muted">Monthly Cost</small>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if project.monthly_budget %}
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar {{ 'bg-danger' if project.is_over_budget() else 'bg-success' }}" 
+                         style="width: {{ (project.monthly_cost / float(project.monthly_budget) * 100)|round(1) }}%">
+                    </div>
+                </div>
+                <small class="text-muted">Budget: ${{ "%.2f"|format(project.monthly_budget) }}</small>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('hetzner_project_detail', project_id=project.id) }}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye me-1"></i>Details
+                    </a>
+                    <a href="{{ url_for('edit_hetzner_project', project_id=project.id) }}" 
+                       class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-edit me-1"></i>Edit
+                    </a>
+                    <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            <i class="fas fa-sync me-1"></i>Sync
+                        </button>
+                    </form>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    Created: {{ project.created_at.strftime('%Y-%m-%d') }}
+                    {% if project.updated_at != project.created_at %}
+                    • Updated: {{ project.updated_at.strftime('%Y-%m-%d') }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not projects %}
+<div class="text-center py-5">
+    <i class="fas fa-project-diagram fa-4x text-muted mb-3"></i>
+    <h3 class="text-muted">No Hetzner Projects</h3>
+    <p class="text-muted">Create your first Hetzner project to organize servers by API tokens.</p>
+    <a href="{{ url_for('new_hetzner_project') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>Create First Project
+    </a>
+</div>
+{% endif %}
+
+<!-- Project Statistics -->
+{% if projects %}
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Project Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h3 text-primary">{{ projects|length }}</div>
+                            <small class="text-muted">Total Projects</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h3 text-success">{{ projects|selectattr("is_active")|list|length }}</div>
+                            <small class="text-muted">Active Projects</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h3 text-info">{{ projects|sum(attribute="server_count") }}</div>
+                            <small class="text-muted">Total Servers</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h3 text-warning">${{ "%.2f"|format(projects|sum(attribute="monthly_cost")) }}</div>
+                            <small class="text-muted">Total Monthly Cost</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
