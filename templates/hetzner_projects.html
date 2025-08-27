@@ -75,9 +75,10 @@
                 </div>
                 
                 {% if project.monthly_budget %}
+                {% set budget_percentage = (project.monthly_cost / (project.monthly_budget|float) * 100)|round(1) %}
                 <div class="progress mb-3" style="height: 8px;">
                     <div class="progress-bar {{ 'bg-danger' if project.is_over_budget() else 'bg-success' }}" 
-                         style="width: {{ (project.monthly_cost / project.monthly_budget * 100)|round(1) }}%">
+                         style="width: {{ budget_percentage }}%">
                     </div>
                 </div>
                 <small class="text-muted">Budget: ${{ "%.2f"|format(project.monthly_budget) }}</small>
@@ -154,7 +155,7 @@
                     </div>
                     <div class="col-md-3">
                         <div class="text-center">
-                            <div class="h3 text-warning">${{ "%.2f"|format(projects|sum(attribute="monthly_cost")) }}</div>
+                            <!-- <div class="h3 text-warning">${{ "%.2f"|format(projects|sum(attribute="monthly_cost")) }}</div> -->
                             <small class="text-muted">Total Monthly Cost</small>
                         </div>
                     </div>

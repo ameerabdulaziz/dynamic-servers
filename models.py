@@ -479,7 +479,9 @@ class HetznerProject(db.Model):
         return total_cost
     
     def is_over_budget(self):
-        return self.monthly_budget and self.monthly_cost > float(self.monthly_budget)
+        if not self.monthly_budget:
+            return False
+        return self.monthly_cost > float(self.monthly_budget)
     
     def can_add_server(self):
         return self.server_count < self.max_servers

@@ -101,10 +101,11 @@
             <div class="card-body">
                 <div class="row align-items-center">
                     <div class="col-md-8">
+                        {% set budget_percentage = (project.monthly_cost / (project.monthly_budget|float) * 100)|round(1) %}
                         <div class="progress" style="height: 20px;">
                             <div class="progress-bar {{ 'bg-danger' if project.is_over_budget() else 'bg-success' }}" 
-                                 style="width: {{ (project.monthly_cost / project.monthly_budget * 100)|round(1) }}%">
-                                {{ (project.monthly_cost / project.monthly_budget * 100)|round(1) }}%
+                                 style="width: {{ budget_percentage }}%">
+                                {{ budget_percentage }}%
                             </div>
                         </div>
                         <small class="text-muted">
