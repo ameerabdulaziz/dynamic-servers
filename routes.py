@@ -1,7 +1,7 @@
 import random
 import time
 from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
@@ -844,6 +844,91 @@ def create_system_update(server_id):
         flash(f'Error executing deployment script: {str(e)}', 'danger')
     
     return redirect(url_for('server_operations'))
+
+@app.route('/system-logs')
+@login_required
+def system_logs():
+    if not current_user.has_permission('server_operations'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get all system updates and backups for logging
+    updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
+    backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(50).all()
+    servers = HetznerServer.query.all()
+    
+    return render_template('system_logs.html', 
+                         updates=updates, 
+                         backups=backups, 
+                         servers=servers)
+
+@app.route('/api/logs/<log_type>/<int:log_id>')
+@login_required
+def get_log_details(log_type, log_id):
+    if not current_user.has_permission('server_operations'):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if log_type == 'update':
+        log = SystemUpdate.query.get_or_404(log_id)
+        return jsonify({
+            'description': log.update_description,
+            'execution_log': log.execution_log,
+            'error_log': log.error_log,
+            'status': log.status,
+            'started_at': log.started_at.isoformat() if log.started_at else None,
+            'completed_at': log.completed_at.isoformat() if log.completed_at else None
+        })
+    elif log_type == 'backup':
+        log = DatabaseBackup.query.get_or_404(log_id)
+        return jsonify({
+            'description': f"{log.backup_type} backup of {log.database_name}",
+            'execution_log': getattr(log, 'execution_log', 'Backup process completed'),
+            'error_log': getattr(log, 'error_log', None),
+            'status': log.status,
+            'started_at': log.started_at.isoformat() if log.started_at else None,
+            'completed_at': log.completed_at.isoformat() if log.completed_at else None
+        })
+    else:
+        return jsonify({'error': 'Invalid log type'}), 400
+
+@app.route('/api/logs/<log_type>/<int:log_id>/download')
+@login_required
+def download_log_file(log_type, log_id):
+    if not current_user.has_permission('server_operations'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if log_type == 'update':
+        log = SystemUpdate.query.get_or_404(log_id)
+        filename = f"deployment_log_{log.update_id}_{log.started_at.strftime('%Y%m%d_%H%M%S')}.txt"
+        content = f"Deployment Log - {log.update_description}\n"
+        content += f"Started: {log.started_at}\n"
+        content += f"Status: {log.status}\n"
+        content += f"Completed: {log.completed_at}\n\n"
+        content += "=== EXECUTION LOG ===\n"
+        content += log.execution_log or "No execution logs available"
+        if log.error_log:
+            content += "\n\n=== ERROR LOG ===\n"
+            content += log.error_log
+            
+    elif log_type == 'backup':
+        log = DatabaseBackup.query.get_or_404(log_id)
+        filename = f"backup_log_{log.backup_id}_{log.started_at.strftime('%Y%m%d_%H%M%S')}.txt"
+        content = f"Backup Log - {log.database_name}\n"
+        content += f"Type: {log.backup_type}\n"
+        content += f"Started: {log.started_at}\n"
+        content += f"Status: {log.status}\n"
+        content += f"Completed: {log.completed_at}\n\n"
+        content += "=== BACKUP LOG ===\n"
+        content += getattr(log, 'execution_log', 'Backup completed successfully')
+    else:
+        flash('Invalid log type', 'danger')
+        return redirect(url_for('system_logs'))
+    
+    response = make_response(content)
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-type"] = "text/plain"
+    return response
 
 @app.route('/backups')
 @login_required
