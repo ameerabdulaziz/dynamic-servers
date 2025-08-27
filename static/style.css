@@ -512,3 +512,119 @@ code {
 .feature-card .text-warning {
     color: var(--dbs-orange) !important;
 }
+
+/* Server-themed icon enhancements */
+.server-icon-stack {
+    position: relative;
+    display: inline-block;
+}
+
+.server-icon-stack .fa-server {
+    color: var(--dbs-blue);
+    filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.3));
+}
+
+.server-icon-stack .fa-network-wired {
+    color: #10b981;
+    filter: drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3));
+}
+
+.server-icon-stack .fa-cogs {
+    color: var(--dbs-orange);
+    filter: drop-shadow(0 2px 4px rgba(255, 140, 66, 0.3));
+}
+
+/* Animated server icons */
+.server-pulse {
+    animation: server-pulse 2s ease-in-out infinite;
+}
+
+@keyframes server-pulse {
+    0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.3));
+    }
+    50% {
+        transform: scale(1.05);
+        filter: drop-shadow(0 4px 8px rgba(37, 99, 235, 0.5));
+    }
+}
+
+/* Status indicator icons */
+.status-icon {
+    font-size: 0.75rem;
+    margin-right: 0.25rem;
+}
+
+.status-running .status-icon {
+    color: #10b981;
+    animation: pulse-success 2s infinite;
+}
+
+.status-stopped .status-icon {
+    color: #6b7280;
+}
+
+.status-error .status-icon {
+    color: #ef4444;
+    animation: pulse-danger 2s infinite;
+}
+
+@keyframes pulse-success {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes pulse-danger {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Server rack visualization */
+.server-rack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.server-unit {
+    width: 40px;
+    height: 6px;
+    background: var(--dbs-blue-gradient);
+    border-radius: 2px;
+    position: relative;
+}
+
+.server-unit::before {
+    content: '';
+    position: absolute;
+    right: 2px;
+    top: 1px;
+    width: 2px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 1px;
+}
+
+/* Infrastructure icons in cards */
+.infrastructure-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.infrastructure-icon.server-themed {
+    color: var(--dbs-blue);
+    text-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+.infrastructure-icon.network-themed {
+    color: #10b981;
+    text-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.infrastructure-icon.deployment-themed {
+    color: var(--dbs-orange);
+    text-shadow: 0 2px 8px rgba(255, 140, 66, 0.4);
+}

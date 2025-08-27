@@ -30,32 +30,32 @@
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('dashboard') }}">
-                                <i class="fas fa-dashboard me-1"></i>Dashboard
+                                <i class="fas fa-server me-1"></i>Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('request_server') }}">
-                                <i class="fas fa-plus-circle me-1"></i>New Request
+                                <i class="fas fa-plus me-1"></i>New Server
                             </a>
                         </li>
                         {% if current_user.is_admin %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-cogs me-1"></i>Admin
+                                    <i class="fas fa-tools me-1"></i>Admin
                                 </a>
                                 <ul class="dropdown-menu">
                                     <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
-                                        <i class="fas fa-dashboard me-2"></i>Dashboard
+                                        <i class="fas fa-chart-line me-2"></i>Dashboard
                                     </a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{{ url_for('servers_list') }}">
-                                        <i class="fas fa-server me-2"></i>Manage Servers
+                                        <i class="fas fa-server me-2"></i>Cloud Servers
                                     </a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('deployment_scripts') }}">
-                                        <i class="fas fa-code me-2"></i>Deployment Scripts
+                                        <i class="fas fa-terminal me-2"></i>Scripts
                                     </a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('deployment_executions') }}">
-                                        <i class="fas fa-rocket me-2"></i>Deployments
+                                        <i class="fas fa-play me-2"></i>Deployments
                                     </a></li>
                                 </ul>
                             </li>
