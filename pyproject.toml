@@ -21,4 +21,5 @@ dependencies = [
     "pyyaml>=6.0.2",
     "flask-dance>=7.1.0",
     "oauthlib>=3.3.1",
+    "paramiko>=4.0.0",
 ]

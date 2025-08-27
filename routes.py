@@ -9,6 +9,7 @@ from models import User, ServerRequest, Notification, HetznerServer, DeploymentS
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from ansible_service import AnsibleService
+from ssh_service import SSHService, get_default_deploy_script
 
 @app.route('/')
 def index():
@@ -777,55 +778,39 @@ def create_system_update(server_id):
     db.session.commit()
     
     try:
-        # Execute the specific deployment script at /home/dynamic/nova-hr-docker/deploy.sh
-        import subprocess
-        import os
-        
-        # Use the deployment script (check multiple possible locations)
-        possible_paths = [
-            "/home/dynamic/nova-hr-docker/deploy.sh",
-            "./test_scripts/nova-hr-deploy.sh",  # Test location
-            "./deploy.sh"
-        ]
-        
-        script_path = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                script_path = path
-                break
-        
-        if not script_path:
+        # Check if server has SSH configuration
+        if not server.ssh_private_key:
             update.status = 'failed'
-            update.error_log = f'Deployment script not found in any of the expected locations: {", ".join(possible_paths)}'
+            update.error_log = 'No SSH private key configured for this server. Please configure SSH access in server settings.'
             update.completed_at = datetime.utcnow()
             db.session.commit()
-            flash('Deployment script not found in expected locations', 'danger')
+            flash(f'Server {server.name} requires SSH key configuration for remote script execution', 'warning')
             return redirect(url_for('server_operations'))
         
-        # Make script executable
-        os.chmod(script_path, 0o755)
+        # Use SSH service to execute deployment script remotely
+        ssh_service = SSHService()
         
-        # Execute the deployment script
-        script_dir = os.path.dirname(script_path) if script_path.startswith('./') else os.path.dirname(os.path.abspath(script_path))
-        result = subprocess.run(
-            ['bash', script_path],
-            cwd=script_dir or '.',
-            capture_output=True,
-            text=True,
+        # Get the deployment script content
+        script_content = get_default_deploy_script()
+        
+        # Execute the script via SSH
+        success, stdout_output, stderr_output = ssh_service.execute_script(
+            server=server,
+            script_content=script_content,
             timeout=300  # 5 minute timeout
         )
         
         # Update record with results
         update.completed_at = datetime.utcnow()
-        update.execution_log = result.stdout
+        update.execution_log = stdout_output
         
-        if result.returncode == 0:
+        if success:
             update.status = 'completed'
-            flash(f'Deployment script executed successfully for {server.name}. Update ID: {update.update_id}', 'success')
+            flash(f'Nova HR deployment script executed successfully on {server.name}', 'success')
         else:
             update.status = 'failed'
-            update.error_log = result.stderr
-            flash(f'Deployment script failed for {server.name}. Check logs for details.', 'danger')
+            update.error_log = stderr_output
+            flash(f'Deployment script failed on {server.name}. Check logs for details.', 'danger')
         
         db.session.commit()
         
@@ -844,6 +829,75 @@ def create_system_update(server_id):
         flash(f'Error executing deployment script: {str(e)}', 'danger')
     
     return redirect(url_for('server_operations'))
+
+@app.route('/server/<int:server_id>/configure-ssh', methods=['GET', 'POST'])
+@login_required
+def configure_server_ssh(server_id):
+    if not current_user.has_permission('server_operations'):
+        flash('Access denied. Technical Agent privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    
+    if request.method == 'POST':
+        # Update SSH configuration
+        server.ssh_username = request.form.get('ssh_username', 'root')
+        server.ssh_port = int(request.form.get('ssh_port', 22))
+        server.ssh_private_key = request.form.get('ssh_private_key')
+        server.ssh_public_key = request.form.get('ssh_public_key')
+        server.ssh_key_passphrase = request.form.get('ssh_key_passphrase')
+        
+        db.session.commit()
+        flash(f'SSH configuration updated for {server.name}', 'success')
+        return redirect(url_for('configure_server_ssh', server_id=server_id))
+    
+    return render_template('configure_server_ssh.html', server=server)
+
+@app.route('/server/<int:server_id>/test-ssh', methods=['POST'])
+@login_required
+def test_ssh_connection(server_id):
+    if not current_user.has_permission('server_operations'):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    
+    # Temporarily update server with test values
+    original_values = {
+        'ssh_username': server.ssh_username,
+        'ssh_port': server.ssh_port,
+        'ssh_private_key': server.ssh_private_key,
+        'ssh_public_key': server.ssh_public_key,
+        'ssh_key_passphrase': server.ssh_key_passphrase
+    }
+    
+    # Use form values for testing
+    server.ssh_username = request.form.get('ssh_username', 'root')
+    server.ssh_port = int(request.form.get('ssh_port', 22))
+    server.ssh_private_key = request.form.get('ssh_private_key')
+    server.ssh_public_key = request.form.get('ssh_public_key')
+    server.ssh_key_passphrase = request.form.get('ssh_key_passphrase')
+    
+    try:
+        ssh_service = SSHService()
+        success, message = ssh_service.test_connection(server)
+        
+        if success:
+            # Update test timestamp
+            server.ssh_connection_tested = True
+            server.ssh_last_test = datetime.utcnow()
+            db.session.commit()
+            return jsonify({'success': True, 'message': message})
+        else:
+            # Restore original values on failure
+            for key, value in original_values.items():
+                setattr(server, key, value)
+            return jsonify({'success': False, 'error': message})
+            
+    except Exception as e:
+        # Restore original values on exception
+        for key, value in original_values.items():
+            setattr(server, key, value)
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/system-logs')
 @login_required

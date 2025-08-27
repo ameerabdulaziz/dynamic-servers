@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Configure SSH Access - {{ server.name }} - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('server_operations') }}">Server Operations</a></li>
+                <li class="breadcrumb-item active">Configure SSH - {{ server.name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-key me-2"></i>SSH Configuration for {{ server.name }}
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if server.ssh_connection_tested %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>SSH connection verified successfully
+                    {% if server.ssh_last_test %}
+                    (Last tested: {{ server.ssh_last_test.strftime('%Y-%m-%d %H:%M') }})
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('configure_server_ssh', server_id=server.id) }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">SSH Username</label>
+                            <input type="text" class="form-control" name="ssh_username" 
+                                   value="{{ server.ssh_username or 'root' }}" required>
+                            <small class="text-muted">Username for SSH connection (usually 'root' or 'ubuntu')</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">SSH Port</label>
+                            <input type="number" class="form-control" name="ssh_port" 
+                                   value="{{ server.ssh_port or 22 }}" min="1" max="65535" required>
+                            <small class="text-muted">SSH port (default: 22)</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Private SSH Key</label>
+                        <textarea class="form-control font-monospace" name="ssh_private_key" rows="15" 
+                                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+MIIEpAIBAAKCAQEA...
+-----END OPENSSH PRIVATE KEY-----" required>{{ server.ssh_private_key or '' }}</textarea>
+                        <small class="text-muted">
+                            Paste your private SSH key here. This key will be used to connect to the server for script execution.
+                            <br><strong>Security:</strong> Keys are encrypted and stored securely in the database.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Public SSH Key (Optional)</label>
+                        <textarea class="form-control font-monospace" name="ssh_public_key" rows="3" 
+                                  placeholder="ssh-rsa AAAAB3NzaC1yc2EAAA... user@hostname">{{ server.ssh_public_key or '' }}</textarea>
+                        <small class="text-muted">
+                            Public key for verification purposes (optional)
+                        </small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Key Passphrase (If Required)</label>
+                        <input type="password" class="form-control" name="ssh_key_passphrase" 
+                               placeholder="Enter passphrase if your private key is encrypted">
+                        <small class="text-muted">
+                            Only required if your private key is encrypted with a passphrase
+                        </small>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Save SSH Configuration
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="testSSHConnection()">
+                            <i class="fas fa-plug me-1"></i>Test Connection
+                        </button>
+                        <a href="{{ url_for('server_operations') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Operations
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 bg-light">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>SSH Key Requirements
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold">Supported Key Types:</h6>
+                <ul class="list-unstyled mb-3">
+                    <li><i class="fas fa-check text-success me-2"></i>RSA (recommended)</li>
+                    <li><i class="fas fa-check text-success me-2"></i>DSA</li>
+                    <li><i class="fas fa-check text-success me-2"></i>ECDSA</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Ed25519</li>
+                </ul>
+
+                <h6 class="fw-bold">Security Notes:</h6>
+                <ul class="list-unstyled mb-3">
+                    <li><i class="fas fa-shield-alt text-info me-2"></i>Keys are encrypted in database</li>
+                    <li><i class="fas fa-lock text-warning me-2"></i>Use key passphrases when possible</li>
+                    <li><i class="fas fa-eye-slash text-secondary me-2"></i>Keys are never logged or displayed</li>
+                </ul>
+
+                <h6 class="fw-bold">Key Generation:</h6>
+                <div class="bg-dark text-light p-2 rounded font-monospace small mb-3">
+                    ssh-keygen -t rsa -b 4096 -f mykey
+                </div>
+                
+                <small class="text-muted">
+                    Copy the contents of the generated private key file (without .pub extension) into the Private SSH Key field above.
+                </small>
+            </div>
+        </div>
+
+        <div class="card border-0 mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-server me-2"></i>Server Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-4"><strong>Name:</strong></div>
+                    <div class="col-8">{{ server.name }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4"><strong>IP:</strong></div>
+                    <div class="col-8">{{ server.public_ip or 'Not available' }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4"><strong>Status:</strong></div>
+                    <div class="col-8">
+                        <span class="badge {{ server.get_status_badge_class() }}">
+                            {{ server.status.title() }}
+                        </span>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4"><strong>Type:</strong></div>
+                    <div class="col-8">{{ server.server_type }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4"><strong>Location:</strong></div>
+                    <div class="col-8">{{ server.location or 'Unknown' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testSSHConnection() {
+    // Get current form values
+    const formData = new FormData();
+    formData.append('ssh_username', document.querySelector('[name="ssh_username"]').value);
+    formData.append('ssh_port', document.querySelector('[name="ssh_port"]').value);
+    formData.append('ssh_private_key', document.querySelector('[name="ssh_private_key"]').value);
+    formData.append('ssh_public_key', document.querySelector('[name="ssh_public_key"]').value);
+    formData.append('ssh_key_passphrase', document.querySelector('[name="ssh_key_passphrase"]').value);
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+    button.disabled = true;
+    
+    fetch(`{{ url_for('test_ssh_connection', server_id=server.id) }}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('SSH connection successful! ✓');
+        } else {
+            alert('SSH connection failed: ' + data.error);
+        }
+        button.innerHTML = originalText;
+        button.disabled = false;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error testing connection. Please try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+</script>
+{% endblock %}

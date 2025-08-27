@@ -172,6 +172,15 @@ class HetznerServer(db.Model):
     deployment_log = db.Column(db.Text)
     last_deployment = db.Column(db.DateTime)
     
+    # SSH Configuration for Remote Script Execution
+    ssh_username = db.Column(db.String(50), default='root')  # SSH username
+    ssh_port = db.Column(db.Integer, default=22)  # SSH port
+    ssh_private_key = db.Column(db.Text)  # Private SSH key content
+    ssh_public_key = db.Column(db.Text)   # Public SSH key content
+    ssh_key_passphrase = db.Column(db.String(255))  # Optional key passphrase
+    ssh_connection_tested = db.Column(db.Boolean, default=False)  # SSH connection verified
+    ssh_last_test = db.Column(db.DateTime)  # Last SSH connection test
+    
     manager = db.relationship('User', backref='managed_servers')
     
     def get_status_badge_class(self):
@@ -388,14 +397,18 @@ class SystemUpdate(db.Model):
     rollback_available = db.Column(db.Boolean, default=False)
     rollback_completed = db.Column(db.Boolean, default=False)
     
+    # Execution logs (missing fields that caused the error)
+    execution_log = db.Column(db.Text)  # Stdout from script execution
+    error_log = db.Column(db.Text)      # Stderr from script execution
+    
     # Error handling
     error_message = db.Column(db.Text)
     rollback_reason = db.Column(db.Text)
     
     # Relationships
     server = db.relationship('HetznerServer', backref='system_updates')
-    operator = db.relationship('User', foreign_keys=[initiated_by], backref='initiated_updates')
-    approver = db.relationship('User', foreign_keys=[approved_by], backref='approved_updates')
+    initiated_by_user = db.relationship('User', foreign_keys=[initiated_by], backref='initiated_updates')
+    approved_by_user = db.relationship('User', foreign_keys=[approved_by], backref='approved_updates')
     
     def get_status_badge_class(self):
         status_classes = {

@@ -96,6 +96,7 @@
                         <th>Server</th>
                         <th>Project</th>
                         <th>Status</th>
+                        <th>SSH</th>
                         <th>Location</th>
                         <th>Last Backup</th>
                         <th>Last Update</th>
@@ -125,6 +126,21 @@
                             </span>
                         </td>
                         <td>
+                            {% if server.ssh_connection_tested %}
+                            <span class="badge bg-success" title="SSH Connected">
+                                <i class="fas fa-check"></i>
+                            </span>
+                            {% elif server.ssh_private_key %}
+                            <span class="badge bg-warning" title="SSH Key Set, Not Tested">
+                                <i class="fas fa-key"></i>
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger" title="No SSH Key">
+                                <i class="fas fa-times"></i>
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
                             <i class="fas fa-map-marker-alt text-muted me-1"></i>
                             {{ server.location or 'Unknown' }}
                         </td>
@@ -151,6 +167,10 @@
                                         title="Health Check">
                                     <i class="fas fa-stethoscope"></i>
                                 </button>
+                                <a href="{{ url_for('configure_server_ssh', server_id=server.id) }}" 
+                                   class="btn btn-outline-secondary btn-sm" title="SSH Config">
+                                    <i class="fas fa-key"></i>
+                                </a>
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" 
                                    class="btn btn-outline-primary btn-sm" title="Details">
                                     <i class="fas fa-eye"></i>
