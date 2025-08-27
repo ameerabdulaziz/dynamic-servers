@@ -9,7 +9,7 @@ from models import User, ServerRequest, Notification, HetznerServer, DeploymentS
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from ansible_service import AnsibleService
-from ssh_service import SSHService, get_default_deploy_script
+from ssh_service import SSHService, get_default_deploy_script, get_default_backup_script
 
 @app.route('/')
 def index():
@@ -752,9 +752,51 @@ def create_backup(server_id):
     db.session.add(backup)
     db.session.commit()
     
-    # In a real implementation, this would trigger the actual backup process
-    flash(f'Backup initiated for server {server.name}. Backup ID: {backup.backup_id}', 'success')
-    return redirect(url_for('technical_dashboard'))
+    try:
+        # Check if server has SSH configuration
+        if not server.ssh_private_key:
+            backup.status = 'failed'
+            backup.error_log = 'No SSH private key configured for this server. Please configure SSH access in server settings.'
+            backup.completed_at = datetime.utcnow()
+            db.session.commit()
+            flash(f'Server {server.name} requires SSH key configuration for remote backup execution', 'warning')
+            return redirect(url_for('server_operations'))
+        
+        # Use SSH service to execute backup command remotely
+        ssh_service = SSHService()
+        
+        # Execute the backup command directly on the server
+        backup_command = get_default_backup_script()
+        
+        # Execute the command via SSH
+        success, stdout_output, stderr_output = ssh_service.execute_command(
+            server=server,
+            command=backup_command,
+            timeout=300  # 5 minute timeout
+        )
+        
+        # Update record with results
+        backup.completed_at = datetime.utcnow()
+        backup.backup_log = stdout_output
+        
+        if success:
+            backup.status = 'completed'
+            flash(f'Database backup executed successfully on {server.name}', 'success')
+        else:
+            backup.status = 'failed'
+            backup.error_log = stderr_output
+            flash(f'Database backup failed on {server.name}. Check logs for details.', 'danger')
+        
+        db.session.commit()
+        
+    except Exception as e:
+        backup.status = 'failed'
+        backup.error_log = str(e)
+        backup.completed_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Error executing backup command: {str(e)}', 'danger')
+    
+    return redirect(url_for('server_operations'))
 
 @app.route('/server/<int:server_id>/update', methods=['POST'])
 @login_required

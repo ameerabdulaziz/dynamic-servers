@@ -175,6 +175,10 @@ def get_default_deploy_script():
     """Returns the command to execute the Nova HR Docker deployment script"""
     return "cd /home/dynamic/nova-hr-docker && ./deploy.sh"
 
+def get_default_backup_script():
+    """Returns the command to execute the Nova HR Docker backup script"""
+    return "cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh"
+
 def get_nova_hr_script_content():
     """Returns the Nova HR Docker deployment script content for reference"""
     return """#!/bin/bash
