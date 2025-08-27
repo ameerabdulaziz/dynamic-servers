@@ -258,9 +258,31 @@ function initiateBackup(serverId) {
 }
 
 function initiateUpdate(serverId) {
-    if (confirm('Start system update for this server? This may require a restart.')) {
-        // TODO: Implement update initiation
-        alert('System update initiated for server ' + serverId);
+    if (confirm('Execute Nova HR Docker deployment script for this server? This will run /home/dynamic/nova-hr-docker/deploy.sh')) {
+        // Create a form and submit it to execute the deployment script
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/server/' + serverId + '/update';
+        
+        // Add CSRF token if available
+        const csrfToken = document.querySelector('meta[name=csrf-token]');
+        if (csrfToken) {
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = 'csrf_token';
+            tokenInput.value = csrfToken.getAttribute('content');
+            form.appendChild(tokenInput);
+        }
+        
+        // Add description
+        const descInput = document.createElement('input');
+        descInput.type = 'hidden';
+        descInput.name = 'description';
+        descInput.value = 'Nova HR Docker deployment script execution';
+        form.appendChild(descInput);
+        
+        document.body.appendChild(form);
+        form.submit();
     }
 }
 

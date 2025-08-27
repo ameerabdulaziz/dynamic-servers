@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Database Backups - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-6 mb-0">
+                    <i class="fas fa-database text-primary me-2"></i>Database Backups
+                </h1>
+                <p class="text-muted">Manage and monitor database backup operations</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-primary" onclick="initiateBackup()">
+                    <i class="fas fa-plus me-1"></i>Create Backup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Summary -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ backups|length }}</div>
+                        <small>Total Backups</small>
+                    </div>
+                    <i class="fas fa-database fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ backups|selectattr("status", "equalto", "completed")|list|length }}</div>
+                        <small>Successful</small>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ backups|selectattr("status", "equalto", "running")|list|length }}</div>
+                        <small>In Progress</small>
+                    </div>
+                    <i class="fas fa-clock fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4 mb-0">{{ backups|selectattr("status", "equalto", "failed")|list|length }}</div>
+                        <small>Failed</small>
+                    </div>
+                    <i class="fas fa-exclamation-triangle fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backups List -->
+<div class="card border-0">
+    <div class="card-header bg-gradient">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-list me-2"></i>Backup History
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        {% if backups %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Database</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Size</th>
+                        <th>Created</th>
+                        <th>Completed</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for backup in backups %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ backup.database_name }}</div>
+                            <small class="text-muted">{{ backup.server or 'Local Server' }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ backup.backup_type.title() }}</span>
+                        </td>
+                        <td>
+                            {% if backup.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                            {% elif backup.status == 'running' %}
+                            <span class="badge bg-warning">Running</span>
+                            {% elif backup.status == 'failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ backup.status.title() }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if backup.file_size %}
+                            {{ "%.2f"|format(backup.file_size / 1024 / 1024) }} MB
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ backup.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </td>
+                        <td>
+                            {% if backup.completed_at %}
+                            <small>{{ backup.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                {% if backup.status == 'completed' %}
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="downloadBackup({{ backup.id }})" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="restoreBackup({{ backup.id }})" title="Restore">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                {% endif %}
+                                <button type="button" class="btn btn-outline-danger btn-sm" 
+                                        onclick="deleteBackup({{ backup.id }})" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-database fa-4x text-muted mb-3"></i>
+            <h3 class="text-muted">No Backups Available</h3>
+            <p class="text-muted">No database backups found. Create your first backup to get started.</p>
+            <button type="button" class="btn btn-primary" onclick="initiateBackup()">
+                <i class="fas fa-plus me-1"></i>Create First Backup
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function initiateBackup() {
+    if (confirm('Create a new database backup?')) {
+        // TODO: Implement backup creation
+        alert('Backup creation initiated');
+    }
+}
+
+function downloadBackup(backupId) {
+    // TODO: Implement backup download
+    window.location.href = '/download-backup/' + backupId;
+}
+
+function restoreBackup(backupId) {
+    if (confirm('Restore database from this backup? This action cannot be undone.')) {
+        // TODO: Implement backup restoration
+        alert('Backup restoration initiated for backup ' + backupId);
+    }
+}
+
+function deleteBackup(backupId) {
+    if (confirm('Delete this backup? This action cannot be undone.')) {
+        // TODO: Implement backup deletion
+        alert('Backup deleted: ' + backupId);
+    }
+}
+</script>
+{% endblock %}

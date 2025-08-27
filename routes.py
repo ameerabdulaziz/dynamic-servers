@@ -767,8 +767,8 @@ def create_system_update(server_id):
     # Create system update record
     update = SystemUpdate(
         server_id=server_id,
-        update_type=request.form.get('update_type', 'system'),
-        update_description=request.form.get('description', 'System update'),
+        update_type=request.form.get('update_type', 'deployment'),
+        update_description=request.form.get('description', 'Nova HR Docker deployment script execution'),
         started_at=datetime.utcnow(),
         initiated_by=current_user.id
     )
@@ -776,9 +776,74 @@ def create_system_update(server_id):
     db.session.add(update)
     db.session.commit()
     
-    # In a real implementation, this would trigger the actual update process
-    flash(f'System update initiated for server {server.name}. Update ID: {update.update_id}', 'success')
-    return redirect(url_for('technical_dashboard'))
+    try:
+        # Execute the specific deployment script at /home/dynamic/nova-hr-docker/deploy.sh
+        import subprocess
+        import os
+        
+        # Use the deployment script (check multiple possible locations)
+        possible_paths = [
+            "/home/dynamic/nova-hr-docker/deploy.sh",
+            "./test_scripts/nova-hr-deploy.sh",  # Test location
+            "./deploy.sh"
+        ]
+        
+        script_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                script_path = path
+                break
+        
+        if not script_path:
+            update.status = 'failed'
+            update.error_log = f'Deployment script not found in any of the expected locations: {", ".join(possible_paths)}'
+            update.completed_at = datetime.utcnow()
+            db.session.commit()
+            flash('Deployment script not found in expected locations', 'danger')
+            return redirect(url_for('server_operations'))
+        
+        # Make script executable
+        os.chmod(script_path, 0o755)
+        
+        # Execute the deployment script
+        script_dir = os.path.dirname(script_path) if script_path.startswith('./') else os.path.dirname(os.path.abspath(script_path))
+        result = subprocess.run(
+            ['bash', script_path],
+            cwd=script_dir or '.',
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        # Update record with results
+        update.completed_at = datetime.utcnow()
+        update.execution_log = result.stdout
+        
+        if result.returncode == 0:
+            update.status = 'completed'
+            flash(f'Deployment script executed successfully for {server.name}. Update ID: {update.update_id}', 'success')
+        else:
+            update.status = 'failed'
+            update.error_log = result.stderr
+            flash(f'Deployment script failed for {server.name}. Check logs for details.', 'danger')
+        
+        db.session.commit()
+        
+    except subprocess.TimeoutExpired:
+        update.status = 'failed'
+        update.error_log = 'Script execution timed out after 5 minutes'
+        update.completed_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Deployment script timed out for {server.name}', 'danger')
+        
+    except Exception as e:
+        update.status = 'failed'
+        update.error_log = str(e)
+        update.completed_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Error executing deployment script: {str(e)}', 'danger')
+    
+    return redirect(url_for('server_operations'))
 
 @app.route('/backups')
 @login_required
