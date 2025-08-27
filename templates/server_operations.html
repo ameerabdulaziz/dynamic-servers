@@ -273,9 +273,39 @@ document.getElementById('bulkSchedule').addEventListener('change', function() {
 
 // Individual server operations
 function initiateBackup(serverId) {
-    if (confirm('Start database backup for this server?')) {
-        // TODO: Implement backup initiation
-        alert('Backup initiated for server ' + serverId);
+    if (confirm('Start database backup for this server? This will execute the backup script via SSH.')) {
+        // Create a form and submit it to execute the backup
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/server/' + serverId + '/backup';
+        
+        // Add CSRF token if available
+        const csrfToken = document.querySelector('meta[name=csrf-token]');
+        if (csrfToken) {
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = 'csrf_token';
+            tokenInput.value = csrfToken.getAttribute('content');
+            form.appendChild(tokenInput);
+        }
+        
+        // Add database name
+        const dbInput = document.createElement('input');
+        dbInput.type = 'hidden';
+        dbInput.name = 'database_name';
+        dbInput.value = 'main';
+        form.appendChild(dbInput);
+        
+        // Add backup type
+        const typeInput = document.createElement('input');
+        typeInput.type = 'hidden';
+        typeInput.name = 'backup_type';
+        typeInput.value = 'full';
+        form.appendChild(typeInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
     }
 }
 
