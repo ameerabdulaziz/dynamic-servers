@@ -126,16 +126,16 @@
                             </span>
                         </td>
                         <td>
-                            {% if server.ssh_connection_tested %}
-                            <span class="badge bg-success" title="SSH Connected">
+                            {% if server.project and server.project.ssh_connection_tested %}
+                            <span class="badge bg-success" title="Project SSH Connected">
                                 <i class="fas fa-check"></i>
                             </span>
-                            {% elif server.ssh_private_key %}
-                            <span class="badge bg-warning" title="SSH Key Set, Not Tested">
+                            {% elif server.project and server.project.ssh_private_key %}
+                            <span class="badge bg-warning" title="Project SSH Key Set, Not Tested">
                                 <i class="fas fa-key"></i>
                             </span>
                             {% else %}
-                            <span class="badge bg-danger" title="No SSH Key">
+                            <span class="badge bg-danger" title="No Project SSH Key">
                                 <i class="fas fa-times"></i>
                             </span>
                             {% endif %}
@@ -167,10 +167,12 @@
                                         title="Health Check">
                                     <i class="fas fa-stethoscope"></i>
                                 </button>
-                                <a href="{{ url_for('configure_server_ssh', server_id=server.id) }}" 
-                                   class="btn btn-outline-secondary btn-sm" title="SSH Config">
+                                {% if server.project %}
+                                <a href="{{ url_for('configure_project_ssh', project_id=server.project.id) }}" 
+                                   class="btn btn-outline-secondary btn-sm" title="Project SSH Config">
                                     <i class="fas fa-key"></i>
                                 </a>
+                                {% endif %}
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" 
                                    class="btn btn-outline-primary btn-sm" title="Details">
                                     <i class="fas fa-eye"></i>

@@ -753,13 +753,13 @@ def create_backup(server_id):
     db.session.commit()
     
     try:
-        # Check if server has SSH configuration
-        if not server.ssh_private_key:
+        # Check if project has SSH configuration
+        if not server.project or not server.project.ssh_private_key:
             backup.status = 'failed'
-            backup.error_log = 'No SSH private key configured for this server. Please configure SSH access in server settings.'
+            backup.error_log = 'No SSH private key configured for this project. Please configure SSH access in project settings.'
             backup.completed_at = datetime.utcnow()
             db.session.commit()
-            flash(f'Server {server.name} requires SSH key configuration for remote backup execution', 'warning')
+            flash(f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote backup execution', 'warning')
             return redirect(url_for('server_operations'))
         
         # Use SSH service to execute backup command remotely
@@ -820,13 +820,13 @@ def create_system_update(server_id):
     db.session.commit()
     
     try:
-        # Check if server has SSH configuration
-        if not server.ssh_private_key:
+        # Check if project has SSH configuration
+        if not server.project or not server.project.ssh_private_key:
             update.status = 'failed'
-            update.error_log = 'No SSH private key configured for this server. Please configure SSH access in server settings.'
+            update.error_log = 'No SSH private key configured for this project. Please configure SSH access in project settings.'
             update.completed_at = datetime.utcnow()
             db.session.commit()
-            flash(f'Server {server.name} requires SSH key configuration for remote script execution', 'warning')
+            flash(f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote script execution', 'warning')
             return redirect(url_for('server_operations'))
         
         # Use SSH service to execute deployment script remotely
@@ -872,73 +872,78 @@ def create_system_update(server_id):
     
     return redirect(url_for('server_operations'))
 
-@app.route('/server/<int:server_id>/configure-ssh', methods=['GET', 'POST'])
+@app.route('/project/<int:project_id>/configure-ssh', methods=['GET', 'POST'])
 @login_required
-def configure_server_ssh(server_id):
+def configure_project_ssh(project_id):
     if not current_user.has_permission('server_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    server = HetznerServer.query.get_or_404(server_id)
+    project = HetznerProject.query.get_or_404(project_id)
     
     if request.method == 'POST':
-        # Update SSH configuration
-        server.ssh_username = request.form.get('ssh_username', 'root')
-        server.ssh_port = int(request.form.get('ssh_port', 22))
-        server.ssh_private_key = request.form.get('ssh_private_key')
-        server.ssh_public_key = request.form.get('ssh_public_key')
-        server.ssh_key_passphrase = request.form.get('ssh_key_passphrase')
+        # Update SSH configuration for the entire project
+        project.ssh_username = request.form.get('ssh_username', 'root')
+        project.ssh_port = int(request.form.get('ssh_port', 22))
+        project.ssh_private_key = request.form.get('ssh_private_key')
+        project.ssh_public_key = request.form.get('ssh_public_key')
+        project.ssh_key_passphrase = request.form.get('ssh_key_passphrase')
         
         db.session.commit()
-        flash(f'SSH configuration updated for {server.name}', 'success')
-        return redirect(url_for('configure_server_ssh', server_id=server_id))
+        flash(f'SSH configuration updated for project {project.name}', 'success')
+        return redirect(url_for('configure_project_ssh', project_id=project_id))
     
-    return render_template('configure_server_ssh.html', server=server)
+    return render_template('configure_project_ssh.html', project=project)
 
-@app.route('/server/<int:server_id>/test-ssh', methods=['POST'])
+@app.route('/project/<int:project_id>/test-ssh', methods=['POST'])
 @login_required
-def test_ssh_connection(server_id):
+def test_project_ssh_connection(project_id):
     if not current_user.has_permission('server_operations'):
         return jsonify({'success': False, 'error': 'Access denied'}), 403
     
-    server = HetznerServer.query.get_or_404(server_id)
+    project = HetznerProject.query.get_or_404(project_id)
     
-    # Temporarily update server with test values
+    # Temporarily update project with test values
     original_values = {
-        'ssh_username': server.ssh_username,
-        'ssh_port': server.ssh_port,
-        'ssh_private_key': server.ssh_private_key,
-        'ssh_public_key': server.ssh_public_key,
-        'ssh_key_passphrase': server.ssh_key_passphrase
+        'ssh_username': project.ssh_username,
+        'ssh_port': project.ssh_port,
+        'ssh_private_key': project.ssh_private_key,
+        'ssh_public_key': project.ssh_public_key,
+        'ssh_key_passphrase': project.ssh_key_passphrase
     }
     
     # Use form values for testing
-    server.ssh_username = request.form.get('ssh_username', 'root')
-    server.ssh_port = int(request.form.get('ssh_port', 22))
-    server.ssh_private_key = request.form.get('ssh_private_key')
-    server.ssh_public_key = request.form.get('ssh_public_key')
-    server.ssh_key_passphrase = request.form.get('ssh_key_passphrase')
+    project.ssh_username = request.form.get('ssh_username', 'root')
+    project.ssh_port = int(request.form.get('ssh_port', 22))
+    project.ssh_private_key = request.form.get('ssh_private_key')
+    project.ssh_public_key = request.form.get('ssh_public_key')
+    project.ssh_key_passphrase = request.form.get('ssh_key_passphrase')
+    
+    # Test with the first server in the project
+    server = project.servers[0] if project.servers else None
+    if not server:
+        return jsonify({'success': False, 'error': 'No servers available in this project for testing'})
     
     try:
         ssh_service = SSHService()
         success, message = ssh_service.test_connection(server)
         
         if success:
-            # Update test timestamp
-            server.ssh_connection_tested = True
-            server.ssh_last_test = datetime.utcnow()
+            # Update test timestamp for project
+            project.ssh_connection_tested = True
+            project.ssh_last_test = datetime.utcnow()
             db.session.commit()
-            return jsonify({'success': True, 'message': message})
+            return jsonify({'success': True, 'message': f'Connection successful to {server.name}: {message}'})
         else:
             # Restore original values on failure
             for key, value in original_values.items():
-                setattr(server, key, value)
+                setattr(project, key, value)
             return jsonify({'success': False, 'error': message})
             
     except Exception as e:
         # Restore original values on exception
         for key, value in original_values.items():
-            setattr(server, key, value)
+            setattr(project, key, value)
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/system-logs')

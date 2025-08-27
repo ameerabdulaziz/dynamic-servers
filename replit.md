@@ -104,6 +104,17 @@ Preferred communication style: Simple, everyday language.
 - **Logging**: Built-in Python logging configured for debugging and deployment tracking
 
 ### Recent Changes (August 27, 2025)
+- **Project-Level SSH Configuration**: Moved SSH settings from individual servers to project-wide configuration for operational efficiency
+  - **SSH Settings**: Each Hetzner project now has its own SSH credentials (username, port, private key, passphrase)
+  - **Unified Access**: All servers in a project share the same SSH configuration
+  - **Connection Testing**: SSH connection verification at project level with status indicators
+  - **Remote Execution**: Both deployment and backup operations use project SSH settings
+  - **Database Migration**: Added SSH fields to hetzner_projects table successfully
+- **SSH-Based Remote Script Execution**: Fully functional remote server management via SSH
+  - **Deployment Command**: `cd /home/dynamic/nova-hr-docker && ./deploy.sh`
+  - **Backup Command**: `cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh`
+  - **Error Handling**: Comprehensive logging and status tracking for all operations
+  - **Security**: Encrypted SSH key storage and secure connection handling
 - **Simplified Branding to "Dynamic Servers"**: Removed "Business" from branding for cleaner, more concise name
 - **Implemented Three-Tier Role-Based Permission System**: 
   - **Technical Agents**: Server management, system updates, database backups, deployment operations

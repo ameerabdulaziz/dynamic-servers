@@ -103,48 +103,53 @@ class SSHService:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            # Configure connection parameters
+            # Configure connection parameters using project SSH settings
+            project = server.project
+            if not project:
+                yield None
+                return
+                
             connect_kwargs = {
                 'hostname': server.public_ip,
-                'port': server.ssh_port or 22,
-                'username': server.ssh_username or 'root',
+                'port': project.ssh_port or 22,
+                'username': project.ssh_username or 'root',
                 'timeout': 30
             }
             
-            # Use private key if available
-            if server.ssh_private_key:
+            # Use private key from project if available
+            if project.ssh_private_key:
                 try:
-                    key_file = io.StringIO(server.ssh_private_key)
+                    key_file = io.StringIO(project.ssh_private_key)
                     private_key = paramiko.RSAKey.from_private_key(
                         key_file, 
-                        password=server.ssh_key_passphrase
+                        password=project.ssh_key_passphrase
                     )
                     connect_kwargs['pkey'] = private_key
                 except Exception as key_error:
                     # Try DSA key if RSA fails
                     try:
-                        key_file = io.StringIO(server.ssh_private_key)
+                        key_file = io.StringIO(project.ssh_private_key)
                         private_key = paramiko.DSSKey.from_private_key(
                             key_file, 
-                            password=server.ssh_key_passphrase
+                            password=project.ssh_key_passphrase
                         )
                         connect_kwargs['pkey'] = private_key
                     except Exception:
                         # Try ECDSA key
                         try:
-                            key_file = io.StringIO(server.ssh_private_key)
+                            key_file = io.StringIO(project.ssh_private_key)
                             private_key = paramiko.ECDSAKey.from_private_key(
                                 key_file, 
-                                password=server.ssh_key_passphrase
+                                password=project.ssh_key_passphrase
                             )
                             connect_kwargs['pkey'] = private_key
                         except Exception:
                             # Try Ed25519 key
                             try:
-                                key_file = io.StringIO(server.ssh_private_key)
+                                key_file = io.StringIO(project.ssh_private_key)
                                 private_key = paramiko.Ed25519Key.from_private_key(
                                     key_file, 
-                                    password=server.ssh_key_passphrase
+                                    password=project.ssh_key_passphrase
                                 )
                                 connect_kwargs['pkey'] = private_key
                             except Exception as final_error:

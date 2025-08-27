@@ -459,6 +459,15 @@ class HetznerProject(db.Model):
     max_servers = db.Column(db.Integer, default=10)  # Maximum servers allowed in this project
     monthly_budget = db.Column(db.Numeric(10, 2))  # Monthly budget limit
     
+    # SSH Configuration for all servers in this project
+    ssh_username = db.Column(db.String(50), default='root')
+    ssh_port = db.Column(db.Integer, default=22)
+    ssh_private_key = db.Column(db.Text)
+    ssh_public_key = db.Column(db.Text)
+    ssh_key_passphrase = db.Column(db.String(255))
+    ssh_connection_tested = db.Column(db.Boolean, default=False)
+    ssh_last_test = db.Column(db.DateTime)
+    
     # Relationships
     creator = db.relationship('User', foreign_keys=[created_by])
     servers = db.relationship('HetznerServer', backref='project', lazy=True)

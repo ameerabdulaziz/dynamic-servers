@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Configure SSH - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="fas fa-key text-warning me-2"></i>Configure SSH Access</h2>
+                    <p class="text-muted mb-0">Project: <strong>{{ project.name }}</strong></p>
+                </div>
+                <a href="{{ url_for('server_operations') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Server Operations
+                </a>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-cogs me-2"></i>SSH Configuration
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" id="sshConfigForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="ssh_username" class="form-label">SSH Username</label>
+                                            <input type="text" class="form-control" id="ssh_username" name="ssh_username" 
+                                                   value="{{ project.ssh_username or 'root' }}" required>
+                                            <div class="form-text">Default username for SSH connections</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="ssh_port" class="form-label">SSH Port</label>
+                                            <input type="number" class="form-control" id="ssh_port" name="ssh_port" 
+                                                   value="{{ project.ssh_port or 22 }}" min="1" max="65535" required>
+                                            <div class="form-text">SSH connection port (usually 22)</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="ssh_private_key" class="form-label">Private Key</label>
+                                    <textarea class="form-control font-monospace" id="ssh_private_key" name="ssh_private_key" 
+                                              rows="12" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+MIIEpAIBAAKCAQEA...
+-----END OPENSSH PRIVATE KEY-----">{{ project.ssh_private_key }}</textarea>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Paste your SSH private key here. Supports RSA, DSA, ECDSA, and Ed25519 keys.
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="ssh_public_key" class="form-label">Public Key (Optional)</label>
+                                    <textarea class="form-control font-monospace" id="ssh_public_key" name="ssh_public_key" 
+                                              rows="3" placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...">{{ project.ssh_public_key }}</textarea>
+                                    <div class="form-text">Public key for reference (not used for authentication)</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="ssh_key_passphrase" class="form-label">Key Passphrase (Optional)</label>
+                                    <input type="password" class="form-control" id="ssh_key_passphrase" name="ssh_key_passphrase"
+                                           value="{{ project.ssh_key_passphrase or '' }}" autocomplete="new-password">
+                                    <div class="form-text">Leave blank if your private key is not encrypted</div>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-1"></i>Save Configuration
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" id="testConnectionBtn">
+                                        <i class="fas fa-plug me-1"></i>Test Connection
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <!-- Connection Status -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-signal me-2"></i>Connection Status
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if project.ssh_connection_tested %}
+                            <div class="alert alert-success mb-0">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Connection Verified</strong><br>
+                                <small>Last tested: {{ project.ssh_last_test.strftime('%Y-%m-%d %H:%M') if project.ssh_last_test else 'Unknown' }}</small>
+                            </div>
+                            {% elif project.ssh_private_key %}
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Key Set, Not Tested</strong><br>
+                                <small>Click "Test Connection" to verify</small>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-danger mb-0">
+                                <i class="fas fa-times-circle me-2"></i>
+                                <strong>No SSH Key</strong><br>
+                                <small>Private key required for remote operations</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Project Servers -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-server me-2"></i>Servers in Project
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if project.servers %}
+                            <div class="list-group list-group-flush">
+                                {% for server in project.servers %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    <div>
+                                        <strong>{{ server.name }}</strong><br>
+                                        <small class="text-muted">{{ server.public_ip }}</small>
+                                    </div>
+                                    <span class="badge {{ server.get_status_badge_class() }}">
+                                        {{ server.status.title() }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">No servers in this project</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Connection Modal -->
+<div class="modal fade" id="connectionTestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">SSH Connection Test</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="connectionTestBody">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Testing connection...</span>
+                    </div>
+                    <p class="mt-2">Testing SSH connection...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('testConnectionBtn').addEventListener('click', function() {
+    const modal = new bootstrap.Modal(document.getElementById('connectionTestModal'));
+    modal.show();
+    
+    const formData = new FormData(document.getElementById('sshConfigForm'));
+    
+    fetch('{{ url_for("test_project_ssh_connection", project_id=project.id) }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        const body = document.getElementById('connectionTestBody');
+        if (data.success) {
+            body.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Connection Successful!</strong><br>
+                    ${data.message}
+                </div>
+            `;
+            // Refresh page after 2 seconds to show updated status
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            body.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Connection Failed</strong><br>
+                    ${data.error}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('connectionTestBody').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Test Failed</strong><br>
+                ${error.message}
+            </div>
+        `;
+    });
+});
+</script>
+{% endblock %}
