@@ -89,79 +89,27 @@ def create_sample_project_access():
             access.granted_by = 1  # Admin user ID
             db.session.add(access)
     
-    # Create 4 sample servers for Nova HR project if they don't exist
-    create_nova_hr_servers(nova_project)
+    # Assign existing servers to Nova HR project for Sohila
+    assign_existing_servers_to_nova_hr(nova_project)
     
     db.session.commit()
     logging.info("Sample project access permissions created")
 
-def create_nova_hr_servers(nova_project):
-    """Create 4 sample servers for Nova HR project"""
+def assign_existing_servers_to_nova_hr(nova_project):
+    """Assign 4 existing servers to Nova HR project for Sohila"""
     import models
     
     if not nova_project:
         return
     
-    # Define 4 sample servers for Nova HR
-    server_data = [
-        {
-            'name': 'nova-hr-web-01',
-            'hetzner_id': 50001,
-            'server_type': 'cx21',
-            'image': 'ubuntu-22.04',
-            'public_ip': '168.119.249.64',
-            'private_ip': '10.0.0.10',
-            'status': 'running',
-            'location': 'nbg1'
-        },
-        {
-            'name': 'nova-hr-api-01',
-            'hetzner_id': 50002,
-            'server_type': 'cx31',
-            'image': 'ubuntu-22.04',
-            'public_ip': '168.119.249.65',
-            'private_ip': '10.0.0.11',
-            'status': 'running',
-            'location': 'nbg1'
-        },
-        {
-            'name': 'nova-hr-db-01',
-            'hetzner_id': 50003,
-            'server_type': 'cx41',
-            'image': 'ubuntu-22.04',
-            'public_ip': '168.119.249.66',
-            'private_ip': '10.0.0.12',
-            'status': 'running',
-            'location': 'nbg1'
-        },
-        {
-            'name': 'nova-hr-backup-01',
-            'hetzner_id': 50004,
-            'server_type': 'cx21',
-            'image': 'ubuntu-22.04',
-            'public_ip': '168.119.249.67',
-            'private_ip': '10.0.0.13',
-            'status': 'running',
-            'location': 'nbg1'
-        }
-    ]
+    # Get first 4 existing servers that are in project 1 (default project)
+    existing_servers = models.HetznerServer.query.filter_by(project_id=1).limit(4).all()
     
-    for server_info in server_data:
-        existing = models.HetznerServer.query.filter_by(hetzner_id=server_info['hetzner_id']).first()
-        if not existing:
-            server = models.HetznerServer()
-            server.name = server_info['name']
-            server.hetzner_id = server_info['hetzner_id']
-            server.server_type = server_info['server_type']
-            server.image = server_info['image']
-            server.public_ip = server_info['public_ip']
-            server.private_ip = server_info['private_ip']
-            server.status = server_info['status']
-            server.location = server_info['location']
-            server.project_id = nova_project.id
-            db.session.add(server)
+    # Assign them to Nova HR project
+    for server in existing_servers:
+        server.project_id = nova_project.id
     
-    logging.info("Created 4 sample servers for Nova HR project")
+    logging.info(f"Assigned {len(existing_servers)} existing servers to Nova HR project")
 
 with app.app_context():
     # Import models to ensure tables are created
