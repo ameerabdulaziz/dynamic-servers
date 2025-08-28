@@ -296,10 +296,12 @@ function initiateBackup(serverId) {
         'Start backup process?',
         'This will execute the backup script via SSH.',
         () => {
+            // Find the backup button for this server and update it
+            const backupButton = document.querySelector(`button[onclick="initiateBackup(${serverId})"]`);
             executeServerAction('/server/' + serverId + '/backup', {
                 database_name: 'main',
                 backup_type: 'full'
-            });
+            }, backupButton, serverId, 'backup');
         }
     );
 }
@@ -310,10 +312,12 @@ function initiateUpdate(serverId) {
         'Run deployment script?',
         'This will execute the Nova HR Docker deployment script.',
         () => {
+            // Find the update button for this server and update it
+            const updateButton = document.querySelector(`button[onclick="initiateUpdate(${serverId})"]`);
             executeServerAction('/server/' + serverId + '/update', {
                 update_type: 'deployment',
                 description: 'Nova HR Docker deployment script execution'
-            });
+            }, updateButton, serverId, 'update');
         }
     );
 }
@@ -343,7 +347,7 @@ function showConfirmModal(title, message, details, onConfirm) {
 }
 
 // Helper function to execute server actions with CSRF token via AJAX
-function executeServerAction(actionUrl, data = {}, button = null) {
+function executeServerAction(actionUrl, data = {}, button = null, serverId = null, actionType = null) {
     // Disable button and show loading state
     if (button) {
         button.disabled = true;
@@ -389,14 +393,18 @@ function executeServerAction(actionUrl, data = {}, button = null) {
     })
     .then(response => {
         if (response.ok) {
-            return response.text();
+            return response.json();
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     })
     .then(data => {
-        showNotification('Success!', 'Action completed successfully', 'success');
-        // Update the page status without full reload
-        updateServerStatus();
+        if (data.success) {
+            showNotification('Success!', data.message, 'success');
+            // Update timestamp in the table
+            updateTimestamp(serverId, actionType, data.timestamp);
+        } else {
+            showNotification('Error', data.message || 'Action failed', 'danger');
+        }
     })
     .catch(error => {
         console.error('Error:', error);
@@ -448,12 +456,37 @@ function showNotification(title, message, type = 'info') {
     });
 }
 
-// Update server status in the table without full page reload
-function updateServerStatus() {
-    // For now, just show a message that the status will be updated
-    setTimeout(() => {
-        showNotification('Info', 'Server status will be updated on next page refresh', 'info');
-    }, 1000);
+// Update timestamp in the table
+function updateTimestamp(serverId, actionType, timestamp) {
+    if (!timestamp) return;
+    
+    // Find the table row for this server
+    const serverRow = document.querySelector(`input[value="${serverId}"]`)?.closest('tr');
+    if (!serverRow) return;
+    
+    // Determine which column to update (backup or update)
+    let targetCell;
+    if (actionType === 'backup') {
+        // Find the "Last Backup" cell (6th column)
+        targetCell = serverRow.cells[5]; // 0-indexed
+    } else if (actionType === 'update') {
+        // Find the "Last Update" cell (7th column) 
+        targetCell = serverRow.cells[6]; // 0-indexed
+    }
+    
+    if (targetCell) {
+        // Update the cell content with new timestamp
+        targetCell.innerHTML = `
+            <small class="text-success">${timestamp}</small>
+            <br><small class="badge bg-success">completed</small>
+        `;
+        
+        // Add a brief highlight animation
+        targetCell.style.backgroundColor = '#d4edda';
+        setTimeout(() => {
+            targetCell.style.backgroundColor = '';
+        }, 2000);
+    }
 }
 
 function executeBulkOperation() {

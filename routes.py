@@ -822,6 +822,15 @@ def create_backup(server_id):
         db.session.commit()
         flash(f'Error executing backup command: {str(e)}', 'danger')
     
+    # Check if it's an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': backup.status == 'completed',
+            'message': f'Backup {"completed" if backup.status == "completed" else "failed"}',
+            'timestamp': backup.completed_at.strftime('%Y-%m-%d %H:%M') if backup.completed_at else None,
+            'status': backup.status
+        })
+    
     return redirect(url_for('server_operations'))
 
 @app.route('/server/<int:server_id>/update', methods=['POST'])
@@ -902,6 +911,15 @@ def create_system_update(server_id):
         update.completed_at = datetime.utcnow()
         db.session.commit()
         flash(f'Error executing deployment script: {str(e)}', 'danger')
+    
+    # Check if it's an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': update.status == 'completed',
+            'message': f'Update {"completed" if update.status == "completed" else "failed"}',
+            'timestamp': update.completed_at.strftime('%Y-%m-%d %H:%M') if update.completed_at else None,
+            'status': update.status
+        })
     
     return redirect(url_for('server_operations'))
 
