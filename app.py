@@ -40,6 +40,11 @@ def load_user(user_id):
     from models import User
     return User.query.get(int(user_id))
 
+@app.context_processor
+def inject_csrf_token():
+    from flask_wtf.csrf import generate_csrf
+    return dict(csrf_token=generate_csrf)
+
 def create_sohila_user():
     """Create Sohila technical user"""
     import models

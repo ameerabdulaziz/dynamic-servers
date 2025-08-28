@@ -347,12 +347,27 @@ function executeServerAction(actionUrl, data = {}) {
     
     // Add CSRF token
     const csrfToken = document.querySelector('meta[name=csrf-token]');
+    console.log('CSRF Token found:', csrfToken ? csrfToken.getAttribute('content') : 'Not found');
+    
     if (csrfToken) {
         const tokenInput = document.createElement('input');
         tokenInput.type = 'hidden';
         tokenInput.name = 'csrf_token';
         tokenInput.value = csrfToken.getAttribute('content');
         form.appendChild(tokenInput);
+    } else {
+        // Try alternative method to get CSRF token
+        const csrfTokenElement = document.querySelector('input[name=csrf_token]');
+        if (csrfTokenElement) {
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = 'csrf_token';
+            tokenInput.value = csrfTokenElement.value;
+            form.appendChild(tokenInput);
+            console.log('Using fallback CSRF token:', csrfTokenElement.value);
+        } else {
+            console.error('No CSRF token found - this will likely cause a 400 error');
+        }
     }
     
     // Add data fields
@@ -365,6 +380,7 @@ function executeServerAction(actionUrl, data = {}) {
     });
     
     document.body.appendChild(form);
+    console.log('Form being submitted:', form.innerHTML);
     form.submit();
     document.body.removeChild(form);
 }
