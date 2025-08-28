@@ -273,74 +273,58 @@ document.getElementById('bulkSchedule').addEventListener('change', function() {
 
 // Individual server operations
 function initiateBackup(serverId) {
-    if (confirm('Start database backup for this server? This will execute the backup script via SSH.')) {
-        // Create a form and submit it to execute the backup
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/server/' + serverId + '/backup';
-        
-        // Add CSRF token if available
-        const csrfToken = document.querySelector('meta[name=csrf-token]');
-        if (csrfToken) {
-            const tokenInput = document.createElement('input');
-            tokenInput.type = 'hidden';
-            tokenInput.name = 'csrf_token';
-            tokenInput.value = csrfToken.getAttribute('content');
-            form.appendChild(tokenInput);
-        }
-        
-        // Add database name
-        const dbInput = document.createElement('input');
-        dbInput.type = 'hidden';
-        dbInput.name = 'database_name';
-        dbInput.value = 'main';
-        form.appendChild(dbInput);
-        
-        // Add backup type
-        const typeInput = document.createElement('input');
-        typeInput.type = 'hidden';
-        typeInput.name = 'backup_type';
-        typeInput.value = 'full';
-        form.appendChild(typeInput);
-        
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+    if (confirm('Start backup?')) {
+        executeServerAction('/server/' + serverId + '/backup', {
+            database_name: 'main',
+            backup_type: 'full'
+        });
     }
 }
 
 function initiateUpdate(serverId) {
-    if (confirm('Execute Nova HR Docker deployment script for this server? This will run /home/dynamic/nova-hr-docker/deploy.sh')) {
-        // Create a form and submit it to execute the deployment script
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/server/' + serverId + '/update';
-        
-        // Add CSRF token if available
-        const csrfToken = document.querySelector('meta[name=csrf-token]');
-        if (csrfToken) {
-            const tokenInput = document.createElement('input');
-            tokenInput.type = 'hidden';
-            tokenInput.name = 'csrf_token';
-            tokenInput.value = csrfToken.getAttribute('content');
-            form.appendChild(tokenInput);
-        }
-        
-        // Add description
-        const descInput = document.createElement('input');
-        descInput.type = 'hidden';
-        descInput.name = 'description';
-        descInput.value = 'Nova HR Docker deployment script execution';
-        form.appendChild(descInput);
-        
-        document.body.appendChild(form);
-        form.submit();
+    if (confirm('Run deployment?')) {
+        executeServerAction('/server/' + serverId + '/update', {
+            update_type: 'deployment',
+            description: 'Nova HR Docker deployment script execution'
+        });
     }
 }
 
 function serverHealth(serverId) {
-    // TODO: Implement health check
-    alert('Health check initiated for server ' + serverId);
+    if (confirm('Check health?')) {
+        // TODO: Implement health check endpoint
+        alert('Health check initiated for server ' + serverId);
+    }
+}
+
+// Helper function to execute server actions with CSRF token
+function executeServerAction(actionUrl, data = {}) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = actionUrl;
+    
+    // Add CSRF token
+    const csrfToken = document.querySelector('meta[name=csrf-token]');
+    if (csrfToken) {
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'csrf_token';
+        tokenInput.value = csrfToken.getAttribute('content');
+        form.appendChild(tokenInput);
+    }
+    
+    // Add data fields
+    Object.entries(data).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
 
 function executeBulkOperation() {
