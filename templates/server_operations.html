@@ -2,6 +2,9 @@
 
 {% block title %}Server Operations - Dynamic Servers{% endblock %}
 
+<!-- Hidden CSRF Token Field -->
+<input type="hidden" id="csrf_token_field" name="csrf_token" value="{{ csrf_token() }}"}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
@@ -345,29 +348,43 @@ function executeServerAction(actionUrl, data = {}) {
     form.method = 'POST';
     form.action = actionUrl;
     
-    // Add CSRF token
-    const csrfToken = document.querySelector('meta[name=csrf-token]');
-    console.log('CSRF Token found:', csrfToken ? csrfToken.getAttribute('content') : 'Not found');
+    // Add CSRF token - try multiple methods
+    let tokenValue = null;
     
+    // Method 1: From meta tag
+    const csrfToken = document.querySelector('meta[name=csrf-token]');
     if (csrfToken) {
+        tokenValue = csrfToken.getAttribute('content');
+        console.log('CSRF Token from meta tag:', tokenValue);
+    }
+    
+    // Method 2: From hidden field
+    if (!tokenValue) {
+        const csrfTokenField = document.getElementById('csrf_token_field');
+        if (csrfTokenField) {
+            tokenValue = csrfTokenField.value;
+            console.log('CSRF Token from hidden field:', tokenValue);
+        }
+    }
+    
+    // Method 3: From any existing form's CSRF token
+    if (!tokenValue) {
+        const existingToken = document.querySelector('input[name=csrf_token]');
+        if (existingToken) {
+            tokenValue = existingToken.value;
+            console.log('CSRF Token from existing form:', tokenValue);
+        }
+    }
+    
+    if (tokenValue) {
         const tokenInput = document.createElement('input');
         tokenInput.type = 'hidden';
         tokenInput.name = 'csrf_token';
-        tokenInput.value = csrfToken.getAttribute('content');
+        tokenInput.value = tokenValue;
         form.appendChild(tokenInput);
+        console.log('Added CSRF token to form:', tokenValue);
     } else {
-        // Try alternative method to get CSRF token
-        const csrfTokenElement = document.querySelector('input[name=csrf_token]');
-        if (csrfTokenElement) {
-            const tokenInput = document.createElement('input');
-            tokenInput.type = 'hidden';
-            tokenInput.name = 'csrf_token';
-            tokenInput.value = csrfTokenElement.value;
-            form.appendChild(tokenInput);
-            console.log('Using fallback CSRF token:', csrfTokenElement.value);
-        } else {
-            console.error('No CSRF token found - this will likely cause a 400 error');
-        }
+        console.error('No CSRF token found anywhere - this will cause a 400 error');
     }
     
     // Add data fields
