@@ -137,11 +137,11 @@
                                     <span>{{ server.public_ip }}</span>
                                 </div>
                                 <div class="mt-2">
-                                    <button onclick="executeServerAction('{{ url_for('create_backup', server_id=server.id) }}', {database_name: 'main', backup_type: 'full'})" 
+                                    <button onclick="initiateBackup({{ server.id }})" 
                                             class="btn btn-sm btn-outline-success">
                                         <i class="fas fa-database me-1"></i>Backup
                                     </button>
-                                    <button onclick="executeServerAction('{{ url_for('create_system_update', server_id=server.id) }}', {update_type: 'system', description: 'System security updates'})" 
+                                    <button onclick="initiateUpdate({{ server.id }})" 
                                             class="btn btn-sm btn-outline-info">
                                         <i class="fas fa-download me-1"></i>Update
                                     </button>
@@ -246,10 +246,95 @@
 </div>
 {% endblock %}
 
+<!-- Custom Confirmation Modal -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    <span id="confirmTitle">Confirm Action</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-server fa-3x text-primary mb-3"></i>
+                </div>
+                <h6 id="confirmMessage" class="mb-3">Are you sure you want to perform this action?</h6>
+                <p class="text-muted small mb-0" id="confirmDetails"></p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmActionBtn">
+                    <i class="fas fa-check me-1"></i>Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% block scripts %}
 <script>
+// Individual server operations with confirmation
+function initiateBackup(serverId) {
+    showConfirmModal(
+        'Start Database Backup',
+        'Start backup process?',
+        'This will execute the backup script via SSH.',
+        () => {
+            // Find the backup button for this server and update it
+            const backupButton = document.querySelector(`button[onclick="initiateBackup(${serverId})"]`);
+            executeServerAction('/server/' + serverId + '/backup', {
+                database_name: 'main',
+                backup_type: 'full'
+            }, backupButton, serverId, 'backup');
+        }
+    );
+}
+
+function initiateUpdate(serverId) {
+    showConfirmModal(
+        'Execute Deployment',
+        'Run deployment script?',
+        'This will execute the Nova HR Docker deployment script.',
+        () => {
+            // Find the update button for this server and update it
+            const updateButton = document.querySelector(`button[onclick="initiateUpdate(${serverId})"]`);
+            executeServerAction('/server/' + serverId + '/update', {
+                update_type: 'deployment',
+                description: 'Nova HR Docker deployment script execution'
+            }, updateButton, serverId, 'update');
+        }
+    );
+}
+
+// Pretty confirmation modal
+function showConfirmModal(title, message, details, onConfirm) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmDetails').textContent = details;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Remove any existing event listeners
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    const newConfirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', () => {
+        modal.hide();
+        onConfirm();
+    });
+    
+    modal.show();
+}
+
 // Helper function to execute server actions with CSRF token via AJAX
-function executeServerAction(actionUrl, data = {}, button = null) {
+function executeServerAction(actionUrl, data = {}, button = null, serverId = null, actionType = null) {
     // Disable button and show loading state
     if (button) {
         button.disabled = true;
@@ -295,16 +380,20 @@ function executeServerAction(actionUrl, data = {}, button = null) {
     })
     .then(response => {
         if (response.ok) {
-            return response.text();
+            return response.json();
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     })
     .then(data => {
-        showNotification('Success!', 'Action completed successfully', 'success');
-        // Refresh stats or specific sections if needed
-        setTimeout(() => {
-            location.reload();
-        }, 1500);
+        if (data.success) {
+            showNotification('Success!', data.message, 'success');
+            // Refresh the page after a short delay to update statistics
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showNotification('Error', data.message || 'Action failed', 'danger');
+        }
     })
     .catch(error => {
         console.error('Error:', error);
@@ -355,21 +444,5 @@ function showNotification(title, message, type = 'info') {
         toastElement.remove();
     });
 }
-
-// Update button click handlers to pass button reference
-document.addEventListener('DOMContentLoaded', function() {
-    // Update all server action buttons to pass the button reference
-    document.querySelectorAll('button[onclick*="executeServerAction"]').forEach(button => {
-        const onclickAttr = button.getAttribute('onclick');
-        if (onclickAttr) {
-            // Extract the function call and add 'this' parameter
-            const match = onclickAttr.match(/executeServerAction\(([^)]+)\)/);
-            if (match) {
-                const params = match[1];
-                button.setAttribute('onclick', `executeServerAction(${params}, this)`);
-            }
-        }
-    });
-});
 </script>
 {% endblock %}
