@@ -161,10 +161,12 @@
                                         title="System Update">
                                     <i class="fas fa-arrow-up"></i>
                                 </button>
+                                {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" 
                                    class="btn btn-outline-primary btn-sm" title="Details">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
