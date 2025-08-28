@@ -50,17 +50,23 @@ def configure_demo_ssh():
         if not server:
             print("No servers found")
             return
+            
+        # Get the project for this server
+        project = server.project
+        if not project:
+            print(f"Server {server.name} has no associated project")
+            return
         
-        print(f"Configuring SSH for server: {server.name} ({server.public_ip})")
+        print(f"Configuring SSH for project: {project.name} (affects server: {server.name})")
         
-        # Configure SSH settings
-        server.ssh_username = 'root'  # Common default
-        server.ssh_port = 22
-        server.ssh_private_key = DEMO_SSH_KEY
-        server.ssh_connection_tested = False  # Will test after configuration
+        # Configure SSH settings at project level
+        project.ssh_username = 'root'  # Common default
+        project.ssh_port = 22
+        project.ssh_private_key = DEMO_SSH_KEY
+        project.ssh_connection_tested = False  # Will test after configuration
         
         db.session.commit()
-        print("SSH configuration saved")
+        print("SSH configuration saved at project level")
         
         # Test SSH connection
         from ssh_service import SSHService
@@ -69,8 +75,8 @@ def configure_demo_ssh():
         try:
             success, message = ssh_service.test_connection(server)
             if success:
-                server.ssh_connection_tested = True
-                server.ssh_last_test = datetime.utcnow()
+                project.ssh_connection_tested = True
+                project.ssh_last_test = datetime.utcnow()
                 db.session.commit()
                 print(f"SSH connection test: SUCCESS - {message}")
             else:

@@ -207,14 +207,7 @@ class HetznerServer(db.Model):
     deployment_log = db.Column(db.Text)
     last_deployment = db.Column(db.DateTime)
     
-    # SSH Configuration for Remote Script Execution
-    ssh_username = db.Column(db.String(50), default='root')  # SSH username
-    ssh_port = db.Column(db.Integer, default=22)  # SSH port
-    ssh_private_key = db.Column(db.Text)  # Private SSH key content
-    ssh_public_key = db.Column(db.Text)   # Public SSH key content
-    ssh_key_passphrase = db.Column(db.String(255))  # Optional key passphrase
-    ssh_connection_tested = db.Column(db.Boolean, default=False)  # SSH connection verified
-    ssh_last_test = db.Column(db.DateTime)  # Last SSH connection test
+    # SSH configuration is now handled at the project level
     
     manager = db.relationship('User', backref='managed_servers')
     
