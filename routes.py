@@ -138,15 +138,15 @@ def technical_dashboard():
         recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
         recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
     else:
-        # Regular technical agents see only servers from projects they have access to
-        accessible_project_ids = [access.project_id for access in UserProjectAccess.query.filter_by(user_id=current_user.id).all()]
-        servers = HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+        # Regular technical agents see only servers they are specifically assigned to via UserServerAccess
+        assigned_server_access = UserServerAccess.query.filter_by(user_id=current_user.id).all()
+        accessible_server_ids = [access.server_id for access in assigned_server_access]
+        servers = HetznerServer.query.filter(HetznerServer.id.in_(accessible_server_ids)).all() if accessible_server_ids else []
         
-        # Filter activities to only show data from servers they can access
-        accessible_server_ids = [s.id for s in servers]
-        recent_updates = SystemUpdate.query.filter(SystemUpdate.server_id.in_(accessible_server_ids)).order_by(SystemUpdate.started_at.desc()).limit(10).all()
-        recent_backups = DatabaseBackup.query.filter(DatabaseBackup.server_id.in_(accessible_server_ids)).order_by(DatabaseBackup.started_at.desc()).limit(10).all()
-        recent_deployments = DeploymentExecution.query.filter(DeploymentExecution.server_id.in_(accessible_server_ids)).order_by(DeploymentExecution.started_at.desc()).limit(10).all()
+        # Filter activities to only show data from servers they are specifically assigned to
+        recent_updates = SystemUpdate.query.filter(SystemUpdate.server_id.in_(accessible_server_ids)).order_by(SystemUpdate.started_at.desc()).limit(10).all() if accessible_server_ids else []
+        recent_backups = DatabaseBackup.query.filter(DatabaseBackup.server_id.in_(accessible_server_ids)).order_by(DatabaseBackup.started_at.desc()).limit(10).all() if accessible_server_ids else []
+        recent_deployments = DeploymentExecution.query.filter(DeploymentExecution.server_id.in_(accessible_server_ids)).order_by(DeploymentExecution.started_at.desc()).limit(10).all() if accessible_server_ids else []
     
     # Statistics for technical dashboard
     stats = {
@@ -746,9 +746,10 @@ def server_operations():
         # Admins and manager technical agents see all servers
         servers = HetznerServer.query.all()
     else:
-        # Regular technical agents see only servers from projects they have access to
-        accessible_project_ids = [access.project_id for access in UserProjectAccess.query.filter_by(user_id=current_user.id).all()]
-        servers = HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+        # Regular technical agents see only servers they are specifically assigned to via UserServerAccess
+        assigned_server_access = UserServerAccess.query.filter_by(user_id=current_user.id).all()
+        accessible_server_ids = [access.server_id for access in assigned_server_access]
+        servers = HetznerServer.query.filter(HetznerServer.id.in_(accessible_server_ids)).all() if accessible_server_ids else []
     
     return render_template('server_operations.html', servers=servers)
 
