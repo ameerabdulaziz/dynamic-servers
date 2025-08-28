@@ -45,11 +45,6 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('dashboard') }}">
-                                <i class="fas fa-server me-1"></i>Dashboard
-                            </a>
-                        </li>
                         
                         {% if current_user.has_permission('create_requests') %}
                         <li class="nav-item">

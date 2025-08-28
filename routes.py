@@ -13,14 +13,24 @@ from ssh_service import SSHService, get_default_deploy_script, get_default_backu
 
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return render_template('index.html')
+    if not current_user.is_authenticated:
+        return render_template('index.html')
+    
+    # Main dashboard - redirect based on user role
+    if current_user.is_admin:
+        return redirect(url_for('admin_dashboard'))
+    elif current_user.is_technical_agent:
+        return redirect(url_for('technical_dashboard'))
+    elif current_user.is_sales_agent:
+        return redirect(url_for('sales_dashboard'))
+    
+    # Fallback for any other roles
+    return redirect(url_for('sales_dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     form = LoginForm()
     if form.validate_on_submit():
@@ -34,7 +44,7 @@ def login():
             login_user(user)
             next_page = request.args.get('next')
             if not next_page or urlparse(next_page).netloc != '':
-                next_page = url_for('dashboard')
+                next_page = url_for('index')
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(next_page)
         flash('Invalid username or password', 'danger')
@@ -43,7 +53,7 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     form = RegistrationForm()
     if form.validate_on_submit():
@@ -65,26 +75,14 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    # Redirect based on user role
-    if current_user.is_admin:
-        return redirect(url_for('admin_dashboard'))
-    elif current_user.is_technical_agent:
-        return redirect(url_for('technical_dashboard'))
-    elif current_user.is_sales_agent:
-        return redirect(url_for('sales_dashboard'))
-    
-    # Fallback for any other roles
-    return redirect(url_for('sales_dashboard'))
+# Removed dashboard route - now using / as main dashboard
 
 @app.route('/admin')
 @login_required
 def admin_dashboard():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get filter parameters
     status_filter = request.args.get('status', '')
@@ -127,7 +125,7 @@ def admin_dashboard():
 def technical_dashboard():
     if not current_user.has_permission('manage_servers'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Admins see all servers and data - no filtering applied
     if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
@@ -170,7 +168,7 @@ def technical_dashboard():
 def sales_dashboard():
     if not current_user.has_permission('create_requests'):
         flash('Access denied. Sales Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get user's requests (sales agents see their own requests)
     requests = ServerRequest.query.filter_by(user_id=current_user.id).order_by(ServerRequest.created_at.desc()).all()
@@ -209,7 +207,7 @@ def request_server():
     # Only sales agents and admins can create requests
     if not current_user.has_permission('create_requests'):
         flash('Access denied. You do not have permission to create server requests.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
         
     form = ServerRequestForm()
     if form.validate_on_submit():
@@ -241,7 +239,7 @@ def request_server():
         db.session.commit()
         
         flash(f'Server request submitted successfully! Request ID: {server_request.request_id}', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     return render_template('request_server.html', form=form)
 
@@ -253,7 +251,7 @@ def request_detail(request_id):
     # Check if user can view this request
     if not current_user.is_admin and server_request.user_id != current_user.id:
         flash('Access denied.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     form = AdminReviewForm() if current_user.is_admin else None
     
@@ -264,7 +262,7 @@ def request_detail(request_id):
 def review_request(request_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server_request = ServerRequest.query.filter_by(request_id=request_id).first_or_404()
     form = AdminReviewForm()
@@ -299,7 +297,7 @@ def review_request(request_id):
 def deploy_server(request_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server_request = ServerRequest.query.filter_by(request_id=request_id).first_or_404()
     
@@ -362,7 +360,7 @@ def mark_notification_read(notification_id):
     if notification.user_id == current_user.id:
         notification.is_read = True
         db.session.commit()
-    return redirect(request.referrer or url_for('dashboard'))
+    return redirect(request.referrer or url_for('index'))
 
 # Server Management Routes
 
@@ -371,7 +369,7 @@ def mark_notification_read(notification_id):
 def servers_list():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get servers from database
     servers = HetznerServer.query.order_by(HetznerServer.last_synced.desc()).all()
@@ -391,7 +389,7 @@ def servers_list():
 def sync_servers():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     try:
         hetzner_service = HetznerService()
@@ -411,7 +409,7 @@ def sync_servers():
 def server_detail(server_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     
@@ -437,7 +435,7 @@ def server_detail(server_id):
 def manage_server(server_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     form = ServerManagementForm()
@@ -479,7 +477,7 @@ def manage_server(server_id):
 def deploy_to_server(server_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     form = ExecuteDeploymentForm()
@@ -524,7 +522,7 @@ def deploy_to_server(server_id):
 def deployment_scripts():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     scripts = DeploymentScript.query.order_by(DeploymentScript.created_at.desc()).all()
     return render_template('deployment_scripts.html', scripts=scripts)
@@ -534,7 +532,7 @@ def deployment_scripts():
 def new_deployment_script():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     form = DeploymentScriptForm()
     
@@ -578,7 +576,7 @@ def new_deployment_script():
 def edit_deployment_script(script_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     script = DeploymentScript.query.get_or_404(script_id)
     form = DeploymentScriptForm(obj=script)
@@ -621,7 +619,7 @@ def edit_deployment_script(script_id):
 def sample_deployment_scripts():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     ansible_service = AnsibleService()
     samples = ansible_service.get_sample_playbooks()
@@ -633,7 +631,7 @@ def sample_deployment_scripts():
 def create_from_sample(sample_name):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     try:
         ansible_service = AnsibleService()
@@ -669,7 +667,7 @@ def create_from_sample(sample_name):
 def deployment_executions():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     executions = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).all()
     return render_template('deployment_executions.html', executions=executions)
@@ -679,7 +677,7 @@ def deployment_executions():
 def deployment_execution(execution_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     execution = DeploymentExecution.query.filter_by(execution_id=execution_id).first_or_404()
     return render_template('deployment_execution_detail.html', execution=execution)
@@ -694,7 +692,7 @@ def inject_user():
 def subscriptions():
     if not current_user.has_permission('manage_subscriptions'):
         flash('Access denied. Sales Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Sales agents see only their managed subscriptions
     if current_user.is_sales_agent:
@@ -712,7 +710,7 @@ def edit_subscription(subscription_id):
     # Check permissions
     if not current_user.has_permission('manage_subscriptions'):
         flash('Access denied.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Sales agents can only edit their own managed subscriptions
     if current_user.is_sales_agent and subscription.managed_by != current_user.id:
@@ -739,7 +737,7 @@ def edit_subscription(subscription_id):
 def server_operations():
     if not current_user.has_permission('server_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Admins have complete system access - see all servers
     if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
@@ -758,7 +756,7 @@ def server_operations():
 def create_backup(server_id):
     if not current_user.has_permission('database_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     
@@ -831,7 +829,7 @@ def create_backup(server_id):
 def create_system_update(server_id):
     if not current_user.has_permission('system_updates'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     
@@ -912,7 +910,7 @@ def create_system_update(server_id):
 def configure_project_ssh(project_id):
     if not current_user.has_permission('server_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     project = HetznerProject.query.get_or_404(project_id)
     
@@ -986,7 +984,7 @@ def test_project_ssh_connection(project_id):
 def system_logs():
     if not current_user.has_permission('server_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get all system updates and backups for logging
     updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
@@ -1032,7 +1030,7 @@ def get_log_details(log_type, log_id):
 def download_log_file(log_type, log_id):
     if not current_user.has_permission('server_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     if log_type == 'update':
         log = SystemUpdate.query.get_or_404(log_id)
@@ -1071,7 +1069,7 @@ def download_log_file(log_type, log_id):
 def backups():
     if not current_user.has_permission('database_operations'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
     return render_template('backups.html', backups=backups)
@@ -1081,7 +1079,7 @@ def backups():
 def system_updates():
     if not current_user.has_permission('system_updates'):
         flash('Access denied. Technical Agent privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).all()
     return render_template('system_updates.html', updates=updates)
@@ -1092,7 +1090,7 @@ def system_updates():
 def project_access():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get all users and their project access
     users = User.query.filter(User.role != UserRole.ADMIN).all()
@@ -1118,7 +1116,7 @@ def project_access():
 def grant_project_access():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     user_id = request.form.get('user_id')
     project_id = request.form.get('project_id')
@@ -1151,7 +1149,7 @@ def grant_project_access():
 def revoke_project_access():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     user_id = request.form.get('user_id')
     project_id = request.form.get('project_id')
@@ -1173,7 +1171,7 @@ def revoke_project_access():
 def user_management():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get all users for management
     all_users = User.query.all()
@@ -1186,7 +1184,7 @@ def user_management():
 def approve_user():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     user_id = request.form.get('user_id')
     user = User.query.get(user_id)
@@ -1206,7 +1204,7 @@ def approve_user():
 def change_user_role():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     user_id = request.form.get('user_id')
     new_role = request.form.get('new_role')
@@ -1243,7 +1241,7 @@ def change_user_role():
 def delete_user():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     user_id = request.form.get('user_id')
     user = User.query.get(user_id)
@@ -1268,7 +1266,7 @@ def server_assignments():
     # Check if user is admin or technical manager
     if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
         flash('Access denied. Admin or Technical Manager privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Get servers based on user's access level
     servers = HetznerServer.query.all()
@@ -1284,7 +1282,7 @@ def assign_user_to_server():
     # Check if user is admin or technical manager
     if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
         flash('Access denied. Admin or Technical Manager privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     server_id = request.form.get('server_id')
     user_id = request.form.get('user_id')
@@ -1323,7 +1321,7 @@ def remove_server_assignment():
     # Check if user is admin or technical manager
     if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
         flash('Access denied. Admin or Technical Manager privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     assignment_id = request.form.get('assignment_id')
     assignment = UserServerAccess.query.get(assignment_id)
@@ -1344,7 +1342,7 @@ def remove_server_assignment():
 def promote_to_manager():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     user_id = request.form.get('user_id')
     user = User.query.get(user_id)
@@ -1403,7 +1401,7 @@ def delete_project_access(access_id):
 def hetzner_projects():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     # Use the user's get_accessible_projects method which handles permissions correctly
     projects = current_user.get_accessible_projects()
@@ -1414,7 +1412,7 @@ def hetzner_projects():
 def hetzner_project_detail(project_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     project = HetznerProject.query.get_or_404(project_id)
     servers = HetznerServer.query.filter_by(project_id=project_id).all()
@@ -1426,7 +1424,7 @@ def hetzner_project_detail(project_id):
 def sync_project_servers(project_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     project = HetznerProject.query.get_or_404(project_id)
     
@@ -1448,7 +1446,7 @@ def sync_project_servers(project_id):
 def edit_hetzner_project(project_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     project = HetznerProject.query.get_or_404(project_id)
     
@@ -1472,7 +1470,7 @@ def edit_hetzner_project(project_id):
 def new_hetzner_project():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     if request.method == 'POST':
         project = HetznerProject(
@@ -1497,7 +1495,7 @@ def new_hetzner_project():
 def sync_all_projects():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     projects = HetznerProject.query.filter_by(is_active=True).all()
     total_synced = 0

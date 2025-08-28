@@ -217,7 +217,7 @@
 
 <div class="row mt-3">
     <div class="col-12">
-        <a href="{{ url_for('admin_dashboard') if current_user.is_admin else url_for('dashboard') }}" 
+        <a href="{{ url_for('admin_dashboard') if current_user.is_admin else url_for('index') }}" 
            class="btn btn-secondary">
             <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
         </a>
