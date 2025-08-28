@@ -1154,46 +1154,99 @@ def revoke_project_access():
     
     return redirect(url_for('project_access'))
 
-# User Assignment Management Routes (Admin Only)
-@app.route('/admin/user-assignments')
+# User Management Routes (Admin Only) - Simplified for user approval and role assignment
+@app.route('/admin/user-management')
 @login_required
-def user_assignments():
+def user_management():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Get all project access assignments - simple query to avoid join issues
-    user_project_access = UserProjectAccess.query.all()
+    # Get all users for management
+    all_users = User.query.all()
     
-    # Get all technical users
-    technical_users = User.query.filter_by(role=UserRole.TECHNICAL_AGENT).all()
-    
-    # Get all technical managers
-    technical_managers = User.query.filter_by(role=UserRole.TECHNICAL_AGENT, is_manager=True).all()
-    
-    # Get all projects
-    projects = HetznerProject.query.all()
-    
-    return render_template('user_assignments.html',
-                         user_project_access=user_project_access,
-                         technical_users=technical_users, 
-                         technical_managers=technical_managers,
-                         projects=projects)
+    return render_template('user_management.html', users=all_users)
 
-@app.route('/admin/assign-user-to-project', methods=['POST'])
+# Approve User Route
+@app.route('/admin/approve-user', methods=['POST'])
 @login_required
-def assign_user_to_project():
+def approve_user():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('dashboard'))
     
     user_id = request.form.get('user_id')
-    project_id = request.form.get('project_id')
-    access_level = request.form.get('access_level')
-    
-    # Validate input
     user = User.query.get(user_id)
-    project = HetznerProject.query.get(project_id)
+    
+    if user:
+        user.is_approved = True
+        db.session.commit()
+        flash(f'User {user.username} has been approved successfully.', 'success')
+    else:
+        flash('User not found.', 'danger')
+    
+    return redirect(url_for('user_management'))
+
+# Change User Role Route
+@app.route('/admin/change-user-role', methods=['POST'])
+@login_required
+def change_user_role():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    user_id = request.form.get('user_id')
+    new_role = request.form.get('new_role')
+    is_manager = request.form.get('is_manager') == 'on'
+    
+    user = User.query.get(user_id)
+    
+    if user:
+        # Validate role
+        if new_role in ['admin', 'sales_agent', 'technical_agent']:
+            user.role = UserRole(new_role)
+            
+            # Set manager flag only for technical agents
+            if new_role == 'technical_agent':
+                user.is_manager = is_manager
+            else:
+                user.is_manager = False
+            
+            # Auto-approve user when assigning role
+            user.is_approved = True
+            
+            db.session.commit()
+            flash(f'Role changed successfully for {user.username} to {new_role.replace("_", " ").title()}.', 'success')
+        else:
+            flash('Invalid role selected.', 'danger')
+    else:
+        flash('User not found.', 'danger')
+    
+    return redirect(url_for('user_management'))
+
+# Delete User Route
+@app.route('/admin/delete-user', methods=['POST'])
+@login_required
+def delete_user():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    user_id = request.form.get('user_id')
+    user = User.query.get(user_id)
+    
+    if user:
+        if user.id == current_user.id:
+            flash('You cannot delete your own account.', 'danger')
+        else:
+            username = user.username
+            db.session.delete(user)
+            db.session.commit()
+            flash(f'User {username} has been deleted successfully.', 'success')
+    else:
+        flash('User not found.', 'danger')
+    
+    return redirect(url_for('user_management'))
     
     if not user or not project:
         flash('Invalid user or project selected.', 'danger')
