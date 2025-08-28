@@ -197,6 +197,36 @@
     </div>
 </div>
 
+<!-- Custom Confirmation Modal -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    <span id="confirmTitle">Confirm Action</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-server fa-3x text-primary mb-3"></i>
+                </div>
+                <h6 id="confirmMessage" class="mb-3">Are you sure you want to perform this action?</h6>
+                <p class="text-muted small mb-0" id="confirmDetails"></p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmActionBtn">
+                    <i class="fas fa-check me-1"></i>Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Bulk Operations Modal -->
 <div class="modal fade" id="bulkOperationModal" tabindex="-1">
     <div class="modal-dialog">
@@ -273,28 +303,65 @@ document.getElementById('bulkSchedule').addEventListener('change', function() {
 
 // Individual server operations
 function initiateBackup(serverId) {
-    if (confirm('Start backup?')) {
-        executeServerAction('/server/' + serverId + '/backup', {
-            database_name: 'main',
-            backup_type: 'full'
-        });
-    }
+    showConfirmModal(
+        'Start Database Backup',
+        'Start backup process?',
+        'This will execute the backup script via SSH.',
+        () => {
+            executeServerAction('/server/' + serverId + '/backup', {
+                database_name: 'main',
+                backup_type: 'full'
+            });
+        }
+    );
 }
 
 function initiateUpdate(serverId) {
-    if (confirm('Run deployment?')) {
-        executeServerAction('/server/' + serverId + '/update', {
-            update_type: 'deployment',
-            description: 'Nova HR Docker deployment script execution'
-        });
-    }
+    showConfirmModal(
+        'Execute Deployment',
+        'Run deployment script?',
+        'This will execute the Nova HR Docker deployment script.',
+        () => {
+            executeServerAction('/server/' + serverId + '/update', {
+                update_type: 'deployment',
+                description: 'Nova HR Docker deployment script execution'
+            });
+        }
+    );
 }
 
 function serverHealth(serverId) {
-    if (confirm('Check health?')) {
-        // TODO: Implement health check endpoint
-        alert('Health check initiated for server ' + serverId);
-    }
+    showConfirmModal(
+        'Health Check',
+        'Check server health?',
+        'This will perform a comprehensive health check.',
+        () => {
+            // TODO: Implement health check endpoint
+            alert('Health check initiated for server ' + serverId);
+        }
+    );
+}
+
+// Pretty confirmation modal
+function showConfirmModal(title, message, details, onConfirm) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmDetails').textContent = details;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Remove any existing event listeners
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    const newConfirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', () => {
+        modal.hide();
+        onConfirm();
+    });
+    
+    modal.show();
 }
 
 // Helper function to execute server actions with CSRF token
@@ -333,22 +400,52 @@ function executeBulkOperation() {
     const selected = document.querySelectorAll('.server-checkbox:checked');
     
     if (!operation) {
-        alert('Please select an operation type');
+        showSimpleAlert('Error', 'Please select an operation type', 'Choose backup, deployment, or health check');
         return;
     }
     
     if (selected.length === 0) {
-        alert('Please select at least one server');
+        showSimpleAlert('Error', 'Please select at least one server', 'Check the servers you want to operate on');
         return;
     }
     
     const serverIds = Array.from(selected).map(cb => cb.value);
     
-    if (confirm(`Execute ${operation} on ${selected.length} selected servers?`)) {
-        // TODO: Implement bulk operation
-        alert(`Bulk ${operation} scheduled for ${selected.length} servers`);
-        document.getElementById('bulkOperationModal').querySelector('.btn-close').click();
-    }
+    showConfirmModal(
+        `Bulk ${operation.charAt(0).toUpperCase() + operation.slice(1)}`,
+        `Execute ${operation} on ${selected.length} selected servers?`,
+        `This will run the ${operation} operation on all selected servers.`,
+        () => {
+            // TODO: Implement bulk operation
+            showSimpleAlert('Success', `Bulk ${operation} initiated`, `Operation scheduled for ${selected.length} servers`);
+            document.getElementById('bulkOperationModal').querySelector('.btn-close').click();
+        }
+    );
+}
+
+// Simple alert modal (for notifications)
+function showSimpleAlert(title, message, details) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmDetails').textContent = details;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Hide the confirm button for simple alerts
+    confirmBtn.style.display = 'none';
+    
+    // Show only the cancel button (which becomes "OK")
+    const cancelBtn = document.querySelector('#confirmActionModal .btn-secondary');
+    cancelBtn.innerHTML = '<i class="fas fa-check me-1"></i>OK';
+    
+    modal.show();
+    
+    // Reset buttons when modal is hidden
+    document.getElementById('confirmActionModal').addEventListener('hidden.bs.modal', function() {
+        confirmBtn.style.display = 'inline-block';
+        cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i>Cancel';
+    }, { once: true });
 }
 </script>
 {% endblock %}
