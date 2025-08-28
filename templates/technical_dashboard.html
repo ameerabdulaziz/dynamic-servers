@@ -248,64 +248,128 @@
 
 {% block scripts %}
 <script>
-// Helper function to execute server actions with CSRF token
-function executeServerAction(actionUrl, data = {}) {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = actionUrl;
+// Helper function to execute server actions with CSRF token via AJAX
+function executeServerAction(actionUrl, data = {}, button = null) {
+    // Disable button and show loading state
+    if (button) {
+        button.disabled = true;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+        button.dataset.originalText = originalText;
+    }
     
-    // Add CSRF token - try multiple methods
+    // Get CSRF token
     let tokenValue = null;
-    
-    // Method 1: From meta tag
     const csrfToken = document.querySelector('meta[name=csrf-token]');
     if (csrfToken) {
         tokenValue = csrfToken.getAttribute('content');
-        console.log('CSRF Token from meta tag:', tokenValue);
-    }
-    
-    // Method 2: From hidden field
-    if (!tokenValue) {
+    } else {
         const csrfTokenField = document.getElementById('csrf_token_field');
         if (csrfTokenField) {
             tokenValue = csrfTokenField.value;
-            console.log('CSRF Token from hidden field:', tokenValue);
+        } else {
+            const existingToken = document.querySelector('input[name=csrf_token]');
+            if (existingToken) {
+                tokenValue = existingToken.value;
+            }
         }
     }
     
-    // Method 3: From any existing form's CSRF token
-    if (!tokenValue) {
-        const existingToken = document.querySelector('input[name=csrf_token]');
-        if (existingToken) {
-            tokenValue = existingToken.value;
-            console.log('CSRF Token from existing form:', tokenValue);
-        }
-    }
-    
+    // Prepare form data
+    const formData = new FormData();
     if (tokenValue) {
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = 'csrf_token';
-        tokenInput.value = tokenValue;
-        form.appendChild(tokenInput);
-        console.log('Added CSRF token to form:', tokenValue);
-    } else {
-        console.error('No CSRF token found anywhere - this will cause a 400 error');
+        formData.append('csrf_token', tokenValue);
     }
     
-    // Add data fields
     Object.entries(data).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
+        formData.append(key, value);
     });
     
-    document.body.appendChild(form);
-    console.log('Form being submitted:', form.innerHTML);
-    form.submit();
-    document.body.removeChild(form);
+    // Make AJAX request
+    fetch(actionUrl, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.text();
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    })
+    .then(data => {
+        showNotification('Success!', 'Action completed successfully', 'success');
+        // Refresh stats or specific sections if needed
+        setTimeout(() => {
+            location.reload();
+        }, 1500);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error', 'Action failed: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        // Re-enable button
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = button.dataset.originalText || button.innerHTML;
+        }
+    });
 }
+
+// Show toast notifications
+function showNotification(title, message, type = 'info') {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast
+    const toastId = 'toast-' + Date.now();
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    // Show toast
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 4000 });
+    toast.show();
+    
+    // Remove toast after hiding
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+// Update button click handlers to pass button reference
+document.addEventListener('DOMContentLoaded', function() {
+    // Update all server action buttons to pass the button reference
+    document.querySelectorAll('button[onclick*="executeServerAction"]').forEach(button => {
+        const onclickAttr = button.getAttribute('onclick');
+        if (onclickAttr) {
+            // Extract the function call and add 'this' parameter
+            const match = onclickAttr.match(/executeServerAction\(([^)]+)\)/);
+            if (match) {
+                const params = match[1];
+                button.setAttribute('onclick', `executeServerAction(${params}, this)`);
+            }
+        }
+    });
+});
 </script>
 {% endblock %}
