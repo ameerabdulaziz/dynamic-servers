@@ -2,6 +2,9 @@
 
 {% block title %}Technical Dashboard - Dynamic Servers{% endblock %}
 
+<!-- Hidden CSRF Token Field -->
+<input type="hidden" id="csrf_token_field" name="csrf_token" value="{{ csrf_token() }}"}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
@@ -134,20 +137,14 @@
                                     <span>{{ server.public_ip }}</span>
                                 </div>
                                 <div class="mt-2">
-                                    <form method="POST" action="{{ url_for('create_backup', server_id=server.id) }}" class="d-inline">
-                                        <input type="hidden" name="database_name" value="main">
-                                        <input type="hidden" name="backup_type" value="full">
-                                        <button type="submit" class="btn btn-sm btn-outline-success">
-                                            <i class="fas fa-database me-1"></i>Backup
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="{{ url_for('create_system_update', server_id=server.id) }}" class="d-inline">
-                                        <input type="hidden" name="update_type" value="system">
-                                        <input type="hidden" name="description" value="System security updates">
-                                        <button type="submit" class="btn btn-sm btn-outline-info">
-                                            <i class="fas fa-download me-1"></i>Update
-                                        </button>
-                                    </form>
+                                    <button onclick="executeServerAction('{{ url_for('create_backup', server_id=server.id) }}', {database_name: 'main', backup_type: 'full'})" 
+                                            class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-database me-1"></i>Backup
+                                    </button>
+                                    <button onclick="executeServerAction('{{ url_for('create_system_update', server_id=server.id) }}', {update_type: 'system', description: 'System security updates'})" 
+                                            class="btn btn-sm btn-outline-info">
+                                        <i class="fas fa-download me-1"></i>Update
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -247,4 +244,68 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Helper function to execute server actions with CSRF token
+function executeServerAction(actionUrl, data = {}) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = actionUrl;
+    
+    // Add CSRF token - try multiple methods
+    let tokenValue = null;
+    
+    // Method 1: From meta tag
+    const csrfToken = document.querySelector('meta[name=csrf-token]');
+    if (csrfToken) {
+        tokenValue = csrfToken.getAttribute('content');
+        console.log('CSRF Token from meta tag:', tokenValue);
+    }
+    
+    // Method 2: From hidden field
+    if (!tokenValue) {
+        const csrfTokenField = document.getElementById('csrf_token_field');
+        if (csrfTokenField) {
+            tokenValue = csrfTokenField.value;
+            console.log('CSRF Token from hidden field:', tokenValue);
+        }
+    }
+    
+    // Method 3: From any existing form's CSRF token
+    if (!tokenValue) {
+        const existingToken = document.querySelector('input[name=csrf_token]');
+        if (existingToken) {
+            tokenValue = existingToken.value;
+            console.log('CSRF Token from existing form:', tokenValue);
+        }
+    }
+    
+    if (tokenValue) {
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'csrf_token';
+        tokenInput.value = tokenValue;
+        form.appendChild(tokenInput);
+        console.log('Added CSRF token to form:', tokenValue);
+    } else {
+        console.error('No CSRF token found anywhere - this will cause a 400 error');
+    }
+    
+    // Add data fields
+    Object.entries(data).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    console.log('Form being submitted:', form.innerHTML);
+    form.submit();
+    document.body.removeChild(form);
+}
+</script>
 {% endblock %}
