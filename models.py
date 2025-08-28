@@ -17,7 +17,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.Enum(UserRole), default=UserRole.SALES_AGENT, nullable=False)
     is_manager = db.Column(db.Boolean, default=False)  # Manager-level privileges within role
-    is_approved = db.Column(db.Boolean, default=True)  # Admin approval required - defaulting to True for existing users
+    is_approved = db.Column(db.Boolean, default=False)  # Admin approval required for new registrations
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

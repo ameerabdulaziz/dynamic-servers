@@ -26,6 +26,11 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.check_password(form.password.data):
+            # Check if user is approved before allowing login
+            if not user.is_approved:
+                flash('Your account is pending admin approval. Please contact the administrator.', 'warning')
+                return render_template('login.html', form=form)
+            
             login_user(user)
             next_page = request.args.get('next')
             if not next_page or urlparse(next_page).netloc != '':
@@ -46,9 +51,10 @@ def register():
         user.username = form.username.data
         user.email = form.email.data
         user.set_password(form.password.data)
+        user.is_approved = False  # New users require admin approval
         db.session.add(user)
         db.session.commit()
-        flash('Registration successful! You can now log in.', 'success')
+        flash('Registration successful! Your account is pending admin approval. Please contact the administrator to activate your account.', 'info')
         return redirect(url_for('login'))
     return render_template('register.html', form=form)
 
