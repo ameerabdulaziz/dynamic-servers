@@ -81,6 +81,7 @@
                                             <!-- Approve/Disapprove User -->
                                             {% if not user.is_approved %}
                                                 <form method="POST" action="{{ url_for('approve_user') }}" class="d-inline">
+                                                    {{ csrf_token() }}
                                                     <input type="hidden" name="user_id" value="{{ user.id }}">
                                                     <button type="submit" class="btn btn-success btn-sm" title="Approve User">
                                                         <i class="fas fa-check"></i>
@@ -134,6 +135,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('change_user_role') }}">
+                {{ csrf_token() }}
                 <div class="modal-body">
                     <input type="hidden" name="user_id" id="changeRoleUserId">
                     
@@ -179,6 +181,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('delete_user') }}">
+                {{ csrf_token() }}
                 <div class="modal-body">
                     <input type="hidden" name="user_id" id="deleteUserId">
                     
