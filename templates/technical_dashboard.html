@@ -3,7 +3,7 @@
 {% block title %}Technical Dashboard - Dynamic Servers{% endblock %}
 
 <!-- Hidden CSRF Token Field -->
-<input type="hidden" id="csrf_token_field" name="csrf_token" value="{{ csrf_token() }}"}
+<input type="hidden" id="csrf_token_field" name="csrf_token" value="{{ csrf_token() }}">
 
 {% block content %}
 <div class="row mb-4">
@@ -246,7 +246,7 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
 // Helper function to execute server actions with CSRF token
 function executeServerAction(actionUrl, data = {}) {
