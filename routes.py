@@ -1,7 +1,10 @@
 import random
 import time
+import os
+import subprocess
+from pathlib import Path
 from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
+from flask import render_template, redirect, url_for, flash, request, jsonify, make_response, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
@@ -26,6 +29,97 @@ def index():
     
     # Fallback for any other roles
     return redirect(url_for('sales_dashboard'))
+
+@app.route('/admin/backup-database')
+@login_required
+def create_db_backup():
+    """Create and download a database backup"""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Ensure backups directory exists
+    backup_dir = Path("static/backups")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate timestamp for filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"dynamic_servers_backup_{timestamp}.sql"
+    backup_path = backup_dir / backup_filename
+    
+    try:
+        # Create the backup using pg_dump
+        database_url = os.environ.get('DATABASE_URL')
+        if not database_url:
+            flash('Database URL not configured', 'danger')
+            return redirect(url_for('admin_dashboard'))
+        
+        with open(backup_path, 'w') as backup_file:
+            subprocess.run([
+                'pg_dump', 
+                database_url,
+                '--no-owner',
+                '--no-privileges'
+            ], stdout=backup_file, check=True)
+        
+        # Get file size for confirmation
+        file_size = backup_path.stat().st_size
+        flash(f'Database backup created successfully! Size: {file_size:,} bytes', 'success')
+        
+        # Return the file for download
+        return send_from_directory('static/backups', backup_filename, as_attachment=True)
+        
+    except subprocess.CalledProcessError as e:
+        flash(f'Failed to create backup: {str(e)}', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    except Exception as e:
+        flash(f'Unexpected error: {str(e)}', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/list-backups')
+@login_required
+def list_db_backups():
+    """List all available database backups"""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    backup_dir = Path("static/backups")
+    backups = []
+    
+    if backup_dir.exists():
+        backup_files = list(backup_dir.glob("dynamic_servers_backup_*.sql"))
+        backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        
+        for backup_file in backup_files:
+            stat = backup_file.stat()
+            backups.append({
+                'filename': backup_file.name,
+                'size': stat.st_size,
+                'created': datetime.fromtimestamp(stat.st_mtime),
+                'download_url': url_for('static', filename=f'backups/{backup_file.name}')
+            })
+    
+    return render_template('admin/backup_list.html', backups=backups)
+
+@app.route('/download/backup/<filename>')
+@login_required
+def download_backup(filename):
+    """Download a specific backup file"""
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Security check - only allow downloading backup files
+    if not filename.startswith('dynamic_servers_backup_') or not filename.endswith('.sql'):
+        flash('Invalid backup file requested', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        return send_from_directory('static/backups', filename, as_attachment=True)
+    except FileNotFoundError:
+        flash('Backup file not found', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

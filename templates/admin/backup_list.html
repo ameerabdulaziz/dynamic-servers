@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Database Backups - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h4 mb-1">
+                        <i class="fas fa-database me-2"></i>Database Backups
+                    </h2>
+                    <p class="text-muted mb-0">Manage and download database backups</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('create_db_backup') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Create New Backup
+                    </a>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0">
+                <div class="card-header bg-gradient">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-archive me-2"></i>Available Backups
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if backups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="fas fa-file me-1"></i>Filename</th>
+                                    <th><i class="fas fa-weight me-1"></i>Size</th>
+                                    <th><i class="fas fa-calendar me-1"></i>Created</th>
+                                    <th><i class="fas fa-cog me-1"></i>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in backups %}
+                                <tr>
+                                    <td>
+                                        <code class="text-primary">{{ backup.filename }}</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ "%.1f KB"|format(backup.size / 1024) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ backup.created.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        <small class="text-muted">
+                                            ({{ (now() - backup.created).days }} days ago)
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ backup.download_url }}" 
+                                           class="btn btn-sm btn-outline-success"
+                                           title="Download Backup">
+                                            <i class="fas fa-download me-1"></i>Download
+                                        </a>
+                                        <a href="{{ url_for('download_backup', filename=backup.filename) }}" 
+                                           class="btn btn-sm btn-outline-primary"
+                                           title="Direct Download">
+                                            <i class="fas fa-file-download me-1"></i>Direct
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Backup Information:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Backups are created without ownership and privilege information for easier restoration</li>
+                                <li>Use <code>psql -U username -d database_name -f backup_file.sql</code> to restore</li>
+                                <li>Backups include all tables, data, and schema definitions</li>
+                                <li>Files are stored in <code>static/backups/</code> directory</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No backups available</h5>
+                        <p class="text-muted">Create your first database backup to get started.</p>
+                        <a href="{{ url_for('create_db_backup') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Create First Backup
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Docker Restore Instructions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0">
+                <div class="card-header bg-gradient">
+                    <h5 class="card-title mb-0">
+                        <i class="fab fa-docker me-2"></i>Docker Restore Instructions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">To restore a backup in your Docker environment:</p>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-terminal me-1"></i>Command Line Restore:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code># Copy backup file to Docker container
+docker cp backup_file.sql container_name:/tmp/
+
+# Restore the backup
+docker-compose exec db psql -U dynamic_user -d dynamic_servers -f /tmp/backup_file.sql
+
+# Or restore directly from host
+cat backup_file.sql | docker-compose exec -T db psql -U dynamic_user -d dynamic_servers</code></pre>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6><i class="fas fa-cogs me-1"></i>Fresh Database Setup:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code># Stop services
+docker-compose down
+
+# Remove old database volume
+docker volume rm dynamic-servers_postgres_data
+
+# Start services
+docker-compose up -d
+
+# Wait for database to be ready
+sleep 10
+
+# Restore backup
+cat backup_file.sql | docker-compose exec -T db psql -U dynamic_user -d dynamic_servers</code></pre>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> Make sure to stop the web application before restoring to avoid database conflicts.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
