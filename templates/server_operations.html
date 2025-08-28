@@ -96,7 +96,6 @@
                         <th>Server</th>
                         <th>Project</th>
                         <th>Status</th>
-                        <th>SSH</th>
                         <th>Location</th>
                         <th>Last Backup</th>
                         <th>Last Update</th>
@@ -126,29 +125,26 @@
                             </span>
                         </td>
                         <td>
-                            {% if server.project and server.project.ssh_connection_tested %}
-                            <span class="badge bg-success" title="Project SSH Connected">
-                                <i class="fas fa-check"></i>
-                            </span>
-                            {% elif server.project and server.project.ssh_private_key %}
-                            <span class="badge bg-warning" title="Project SSH Key Set, Not Tested">
-                                <i class="fas fa-key"></i>
-                            </span>
-                            {% else %}
-                            <span class="badge bg-danger" title="No Project SSH Key">
-                                <i class="fas fa-times"></i>
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td>
                             <i class="fas fa-map-marker-alt text-muted me-1"></i>
                             {{ server.location or 'Unknown' }}
                         </td>
                         <td>
-                            <small class="text-muted">Never</small>
+                            {% set last_backup = server.backups | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}
+                            {% if last_backup and last_backup.completed_at %}
+                                <small class="text-success">{{ last_backup.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                <br><small class="badge bg-{{ 'success' if last_backup.status == 'completed' else 'danger' }}">{{ last_backup.status }}</small>
+                            {% else %}
+                                <small class="text-muted">Never</small>
+                            {% endif %}
                         </td>
                         <td>
-                            <small class="text-muted">Never</small>
+                            {% set last_update = server.system_updates | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}
+                            {% if last_update and last_update.completed_at %}
+                                <small class="text-success">{{ last_update.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                <br><small class="badge bg-{{ 'success' if last_update.status == 'completed' else 'danger' }}">{{ last_update.status }}</small>
+                            {% else %}
+                                <small class="text-muted">Never</small>
+                            {% endif %}
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
@@ -162,17 +158,6 @@
                                         title="System Update">
                                     <i class="fas fa-arrow-up"></i>
                                 </button>
-                                <button type="button" class="btn btn-outline-info btn-sm" 
-                                        onclick="serverHealth({{ server.id }})" 
-                                        title="Health Check">
-                                    <i class="fas fa-stethoscope"></i>
-                                </button>
-                                {% if server.project %}
-                                <a href="{{ url_for('configure_project_ssh', project_id=server.project.id) }}" 
-                                   class="btn btn-outline-secondary btn-sm" title="Project SSH Config">
-                                    <i class="fas fa-key"></i>
-                                </a>
-                                {% endif %}
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" 
                                    class="btn btn-outline-primary btn-sm" title="Details">
                                     <i class="fas fa-eye"></i>
@@ -330,17 +315,7 @@ function initiateUpdate(serverId) {
     );
 }
 
-function serverHealth(serverId) {
-    showConfirmModal(
-        'Health Check',
-        'Check server health?',
-        'This will perform a comprehensive health check.',
-        () => {
-            // TODO: Implement health check endpoint
-            alert('Health check initiated for server ' + serverId);
-        }
-    );
-}
+
 
 // Pretty confirmation modal
 function showConfirmModal(title, message, details, onConfirm) {
