@@ -103,7 +103,25 @@ Preferred communication style: Simple, everyday language.
 - **Ansible Execution**: Secure playbook execution with variable injection
 - **Logging**: Built-in Python logging configured for debugging and deployment tracking
 
-### Recent Changes (August 27, 2025)
+### Recent Changes (August 28, 2025)
+- **Server Table Cleanup**: Removed redundant SSH configuration columns from hetzner_server table
+  - **Removed Fields**: ssh_username, ssh_port, ssh_private_key, ssh_public_key, ssh_key_passphrase, ssh_connection_tested, ssh_last_test
+  - **Database Optimization**: SSH configuration now exclusively managed at project level for operational efficiency
+  - **Model Updates**: Updated HetznerServer model to remove server-level SSH fields, maintaining only project-level SSH configuration
+  - **Service Updates**: SSH service and demo scripts updated to use project-level configuration exclusively
+- **Server-Level User Assignment System**: Implemented granular server assignment functionality
+  - **UserServerAccess Model**: New database model for assigning specific technical agents to specific servers
+  - **Access Levels**: Read, write, and admin access levels for fine-grained server permissions
+  - **Management Interface**: Technical managers and admins can assign users to servers with specific access levels
+  - **Navigation Integration**: Server Assignments page accessible to technical managers and admins
+- **User Approval Workflow**: Enforced proper user registration approval process
+  - **Registration Security**: New users marked as unapproved by default, preventing immediate login
+  - **Login Validation**: Login process checks user approval status before allowing access
+  - **Admin Control**: Only approved users can access the system, ensuring proper access control
+  - **Template Fixes**: Resolved UserRole enum availability in Jinja2 templates for proper navigation
+- **CSRF Security**: Fixed all form CSRF token implementations across user management interfaces
+
+### Previous Changes (August 27, 2025)
 - **Admin User Assignment Interface**: New comprehensive interface for admins to assign technical users to projects and promote users to managers
   - **User Assignments Page**: Dedicated admin interface showing all technical user assignments with detailed project access
   - **Assign Users to Projects**: Modal interface for assigning technical agents to specific projects with read/write/admin access levels
