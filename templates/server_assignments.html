@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Server Assignments - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-server text-primary me-2"></i>
+                    Server Assignments
+                </h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignUserToServerModal">
+                    <i class="fas fa-plus me-1"></i>Assign User to Server
+                </button>
+            </div>
+
+            <!-- Server Assignment Cards -->
+            <div class="row">
+                {% for server in servers %}
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-server text-primary me-2"></i>
+                                {{ server.name }}
+                            </h6>
+                            <span class="badge {% if server.status == 'running' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ server.status.title() }}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <small class="text-muted">IP Address:</small>
+                                <div class="fw-bold">{{ server.ip_address }}</div>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">Server Type:</small>
+                                <div class="fw-bold">{{ server.server_type }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Project:</small>
+                                <div class="fw-bold text-primary">{{ server.project.name }}</div>
+                            </div>
+
+                            <!-- Assigned Users -->
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-2">Assigned Technical Agents:</small>
+                                {% if server.assigned_users %}
+                                    {% for assignment in server.assigned_users %}
+                                    <div class="d-flex justify-content-between align-items-center mb-1 p-2 bg-light rounded">
+                                        <div>
+                                            <strong>{{ assignment.user.username }}</strong>
+                                            <span class="badge bg-info ms-2">{{ assignment.access_level.title() }}</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="removeServerAssignment('{{ assignment.id }}', '{{ assignment.user.username }}', '{{ server.name }}')"
+                                                title="Remove Assignment">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-muted">No users assigned</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-primary" 
+                                    onclick="assignUserToSpecificServer('{{ server.id }}', '{{ server.name }}')">
+                                <i class="fas fa-user-plus me-1"></i>Assign User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign User to Server Modal -->
+<div class="modal fade" id="assignUserToServerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Assign Technical Agent to Server
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assign_user_to_server') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="server_id" class="form-label">Server</label>
+                        <select class="form-select" name="server_id" id="server_id" required>
+                            <option value="">Select a server...</option>
+                            {% for server in servers %}
+                            <option value="{{ server.id }}">
+                                {{ server.name }} ({{ server.project.name }}) - {{ server.ip_address }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="user_id" class="form-label">Technical Agent</label>
+                        <select class="form-select" name="user_id" id="user_id" required>
+                            <option value="">Select a technical agent...</option>
+                            {% for user in technical_users %}
+                            <option value="{{ user.id }}">
+                                {{ user.username }} - {{ user.email }}
+                                {% if user.is_manager %} (Manager){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="access_level" class="form-label">Access Level</label>
+                        <select class="form-select" name="access_level" id="access_level" required>
+                            <option value="read">Read - View server status and logs</option>
+                            <option value="write" selected>Write - Execute operations and deployments</option>
+                            <option value="admin">Admin - Full server control</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Assign User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Remove Assignment Confirmation Modal -->
+<div class="modal fade" id="removeAssignmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Remove Server Assignment
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('remove_server_assignment') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-body">
+                    <input type="hidden" name="assignment_id" id="removeAssignmentId">
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        This will remove the user's access to this server.
+                    </div>
+                    
+                    <p>Remove server assignment for:</p>
+                    <p><strong>User:</strong> <span id="removeUsername"></span></p>
+                    <p><strong>Server:</strong> <span id="removeServerName"></span></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Remove Assignment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function assignUserToSpecificServer(serverId, serverName) {
+    document.getElementById('server_id').value = serverId;
+    new bootstrap.Modal(document.getElementById('assignUserToServerModal')).show();
+}
+
+function removeServerAssignment(assignmentId, username, serverName) {
+    document.getElementById('removeAssignmentId').value = assignmentId;
+    document.getElementById('removeUsername').textContent = username;
+    document.getElementById('removeServerName').textContent = serverName;
+    new bootstrap.Modal(document.getElementById('removeAssignmentModal')).show();
+}
+</script>
+{% endblock %}

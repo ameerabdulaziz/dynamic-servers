@@ -571,3 +571,25 @@ class UserProjectAccess(db.Model):
     
     def __repr__(self):
         return f'<UserProjectAccess {self.user.username} -> {self.project.name} ({self.access_level})>'
+
+class UserServerAccess(db.Model):
+    """Manages user access to specific servers - server-level assignments"""
+    __tablename__ = 'user_server_access'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    server_id = db.Column(db.Integer, db.ForeignKey('hetzner_server.id'), nullable=False)
+    access_level = db.Column(db.String(20), default='read')  # read, write, admin
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    assigned_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='server_access')
+    server = db.relationship('HetznerServer', backref='assigned_users')
+    assigned_by_user = db.relationship('User', foreign_keys=[assigned_by])
+    
+    # Unique constraint on user-server combination
+    __table_args__ = (db.UniqueConstraint('user_id', 'server_id', name='unique_user_server'),)
+    
+    def __repr__(self):
+        return f'<UserServerAccess {self.user.username} -> {self.server.name} ({self.access_level})>'

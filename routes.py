@@ -5,7 +5,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify, m
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
-from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess
+from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess, UserServerAccess
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from ansible_service import AnsibleService
@@ -1253,36 +1253,84 @@ def delete_user():
         flash('User not found.', 'danger')
     
     return redirect(url_for('user_management'))
+
+# Server Assignment Routes (Admin and Technical Managers Only)
+@app.route('/admin/server-assignments')
+@login_required
+def server_assignments():
+    # Check if user is admin or technical manager
+    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
+        flash('Access denied. Admin or Technical Manager privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
     
-    if not user or not project:
-        flash('Invalid user or project selected.', 'danger')
-        return redirect(url_for('user_assignments'))
+    # Get servers based on user's access level
+    servers = HetznerServer.query.all()
     
-    if user.role != UserRole.TECHNICAL_AGENT:
-        flash('Only technical agents can be assigned to projects.', 'danger')
-        return redirect(url_for('user_assignments'))
-        
-    if access_level not in ['read', 'write', 'admin']:
-        flash('Invalid access level specified.', 'danger')
-        return redirect(url_for('user_assignments'))
+    # Get all technical users for assignment
+    technical_users = User.query.filter_by(role=UserRole.TECHNICAL_AGENT).all()
+    
+    return render_template('server_assignments.html', servers=servers, technical_users=technical_users)
+
+@app.route('/admin/assign-user-to-server', methods=['POST'])
+@login_required
+def assign_user_to_server():
+    # Check if user is admin or technical manager
+    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
+        flash('Access denied. Admin or Technical Manager privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    server_id = request.form.get('server_id')
+    user_id = request.form.get('user_id')
+    access_level = request.form.get('access_level')
+    
+    # Validate input
+    server = HetznerServer.query.get(server_id)
+    user = User.query.get(user_id)
+    
+    if not server or not user:
+        flash('Invalid server or user selected.', 'danger')
+        return redirect(url_for('server_assignments'))
     
     # Check if assignment already exists
-    existing = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
+    existing = UserServerAccess.query.filter_by(user_id=user_id, server_id=server_id).first()
     if existing:
-        existing.access_level = access_level
-        flash(f'Updated {user.username}\'s access to {project.name} as {access_level}', 'success')
-    else:
-        # Create new assignment
-        access = UserProjectAccess()
-        access.user_id = user_id
-        access.project_id = project_id 
-        access.access_level = access_level
-        access.granted_by = current_user.id
-        db.session.add(access)
-        flash(f'Assigned {user.username} to {project.name} with {access_level} access', 'success')
+        flash(f'User {user.username} is already assigned to server {server.name}.', 'warning')
+        return redirect(url_for('server_assignments'))
     
+    # Create new assignment
+    assignment = UserServerAccess()
+    assignment.user_id = user_id
+    assignment.server_id = server_id
+    assignment.access_level = access_level
+    assignment.assigned_by = current_user.id
+    
+    db.session.add(assignment)
     db.session.commit()
-    return redirect(url_for('user_assignments'))
+    
+    flash(f'Successfully assigned {user.username} to server {server.name} with {access_level} access.', 'success')
+    return redirect(url_for('server_assignments'))
+
+@app.route('/admin/remove-server-assignment', methods=['POST'])
+@login_required
+def remove_server_assignment():
+    # Check if user is admin or technical manager
+    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
+        flash('Access denied. Admin or Technical Manager privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    assignment_id = request.form.get('assignment_id')
+    assignment = UserServerAccess.query.get(assignment_id)
+    
+    if assignment:
+        username = assignment.user.username
+        server_name = assignment.server.name
+        db.session.delete(assignment)
+        db.session.commit()
+        flash(f'Removed server assignment for {username} from {server_name}.', 'success')
+    else:
+        flash('Assignment not found.', 'danger')
+    
+    return redirect(url_for('server_assignments'))
 
 @app.route('/admin/promote-to-manager', methods=['POST'])
 @login_required 

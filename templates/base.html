@@ -83,6 +83,15 @@
                             </a>
                         </li>
                         {% endif %}
+                        
+                        {% if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager) %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('server_assignments') }}">
+                                    <i class="fas fa-user-cog me-1"></i>Server Assignments
+                                </a>
+                            </li>
+                        {% endif %}
+                        
                         {% if current_user.is_admin %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
@@ -110,6 +119,9 @@
                                     </a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('user_management') }}">
                                         <i class="fas fa-users-cog me-2"></i>User Management
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('server_assignments') }}">
+                                        <i class="fas fa-user-cog me-2"></i>Server Assignments
                                     </a></li>
                                 </ul>
                             </li>
