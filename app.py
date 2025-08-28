@@ -216,5 +216,11 @@ with app.app_context():
     
     logging.info("Application initialization completed")
 
+# Make UserRole available in all templates
+from models import UserRole
+@app.context_processor
+def inject_user_role():
+    return dict(UserRole=UserRole)
+
 # Import routes
 import routes
