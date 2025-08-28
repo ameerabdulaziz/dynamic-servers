@@ -57,3 +57,32 @@ Preferred communication style: Simple, everyday language.
 - **Font Awesome 6**: Icon library.
 - **Werkzeug**: WSGI utilities and security.
 - **PostgreSQL**: Production database.
+
+## Docker Deployment
+
+The system now includes comprehensive Docker support for containerized deployment:
+
+### Docker Configuration
+- **Dockerfile**: Multi-stage Python 3.11 slim-based container with SSH client support
+- **docker-compose.yml**: Production deployment with PostgreSQL database
+- **docker-compose.override.yml**: Development configuration with live reload
+- **Health Checks**: Automated health monitoring for web and database services
+- **Volume Management**: Persistent PostgreSQL data and SSH key mounting
+- **Environment Configuration**: Comprehensive .env support for secrets and configuration
+
+### Deployment Options
+- **Production**: `docker-compose up -d` for production deployment
+- **Development**: Combined compose files for development with live reload
+- **SSH Integration**: Automatic mounting of SSH keys for server management
+- **Database Management**: Built-in PostgreSQL with backup and restore capabilities
+
+### Added Files
+- `Dockerfile`: Container definition with UV package manager
+- `docker-compose.yml`: Multi-service orchestration
+- `docker-compose.override.yml`: Development overrides
+- `.dockerignore`: Optimized build context
+- `.env.example`: Environment variable template
+- `README-Docker.md`: Comprehensive deployment guide
+- `docker-test.sh`: Automated testing and validation script
+
+Date: August 28, 2025

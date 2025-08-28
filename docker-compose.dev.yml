@@ -1,0 +1,23 @@
+# Development Docker Compose override
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    ports:
+      - "5000:5000"
+    command: ["uv", "run", "python", "main.py"]
+
+  db:
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=dynamic_servers_dev
