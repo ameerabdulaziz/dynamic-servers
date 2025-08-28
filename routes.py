@@ -762,10 +762,13 @@ def create_backup(server_id):
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this server's project
-    if not current_user.has_project_access(server.project_id):
-        flash('Access denied. You do not have access to this project.', 'danger')
-        return redirect(url_for('server_operations'))
+    # Check if user has access to this specific server (admins and managers have full access)
+    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
+        # Regular technical agents need specific server access
+        server_access = UserServerAccess.query.filter_by(user_id=current_user.id, server_id=server_id).first()
+        if not server_access or server_access.access_level not in ['write', 'admin']:
+            flash('Access denied. You do not have write access to this server.', 'danger')
+            return redirect(url_for('server_operations'))
     
     # Create backup record
     backup = DatabaseBackup()
@@ -832,10 +835,13 @@ def create_system_update(server_id):
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this server's project
-    if not current_user.has_project_access(server.project_id):
-        flash('Access denied. You do not have access to this project.', 'danger')
-        return redirect(url_for('server_operations'))
+    # Check if user has access to this specific server (admins and managers have full access)
+    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
+        # Regular technical agents need specific server access
+        server_access = UserServerAccess.query.filter_by(user_id=current_user.id, server_id=server_id).first()
+        if not server_access or server_access.access_level not in ['write', 'admin']:
+            flash('Access denied. You do not have write access to this server.', 'danger')
+            return redirect(url_for('server_operations'))
     
     # Create system update record
     update = SystemUpdate()
