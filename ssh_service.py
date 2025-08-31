@@ -96,6 +96,55 @@ class SSHService:
             logger.error(f"Error executing command on {server.name}: {str(e)}")
             return False, "", f"Command execution error: {str(e)}"
     
+    def download_file(self, server, remote_path, local_path):
+        """Download a file from remote server to local system using SFTP"""
+        try:
+            with self._get_ssh_client(server) as client:
+                if not client:
+                    logger.error(f"Failed to establish SSH connection to {server.name}")
+                    return False
+                
+                # Create SFTP client
+                sftp = client.open_sftp()
+                
+                # Download the file
+                sftp.get(remote_path, local_path)
+                sftp.close()
+                
+                logger.info(f"Successfully downloaded {remote_path} from {server.name} to {local_path}")
+                return True
+                
+        except paramiko.SSHException as e:
+            logger.error(f"SSH error downloading file from {server.name}: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error downloading file from {server.name}: {str(e)}")
+            return False
+    
+    def get_latest_backup_file(self, server, backup_dir="/home/dynamic/nova-hr-docker/mssql/backup/"):
+        """Get the latest backup file from the remote backup directory"""
+        try:
+            with self._get_ssh_client(server) as client:
+                if not client:
+                    return None
+                
+                # Find the latest backup file
+                command = f"ls -t {backup_dir}*.sql | head -n 1"
+                stdin, stdout, stderr = client.exec_command(command)
+                output = stdout.read().decode('utf-8').strip()
+                error_output = stderr.read().decode('utf-8')
+                exit_code = stdout.channel.recv_exit_status()
+                
+                if exit_code == 0 and output:
+                    return output
+                else:
+                    logger.error(f"No backup files found in {backup_dir} on {server.name}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error finding latest backup file: {str(e)}")
+            return None
+    
     @contextmanager
     def _get_ssh_client(self, server):
         """Create and configure SSH client for a server"""

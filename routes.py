@@ -981,8 +981,8 @@ def create_backup(server_id):
         backup_filename = f"{backup.database_name}_{timestamp}.sql"
         local_backup_path = server_backup_dir / backup_filename
         
-        # Execute the backup command to create remote backup and get size
-        backup_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh > /tmp/backup_{timestamp}.sql && echo 'BACKUP_SIZE:' && wc -c < /tmp/backup_{timestamp}.sql && echo 'BACKUP_CREATED: /tmp/backup_{timestamp}.sql'"
+        # Execute the backup command - backup files are created in /home/dynamic/nova-hr-docker/mssql/backup/
+        backup_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh && echo 'BACKUP_COMPLETED' && ls -la /home/dynamic/nova-hr-docker/mssql/backup/ | tail -1"
         
         success, stdout_output, stderr_output = ssh_service.execute_command(
             server=server,
@@ -995,22 +995,40 @@ def create_backup(server_id):
         backup.backup_log = stdout_output
         
         if success:
-            # Create a placeholder local file (in production, implement SCP/SFTP transfer)
-            backup.file_path = str(local_backup_path)
-            backup.status = 'completed'
-            
-            # Try to extract file size from output
-            if "BACKUP_SIZE:" in stdout_output:
-                try:
-                    lines = stdout_output.split('\n')
-                    for i, line in enumerate(lines):
-                        if "BACKUP_SIZE:" in line and i + 1 < len(lines):
-                            backup.file_size = int(lines[i + 1].strip())
-                            break
-                except:
-                    backup.file_size = 0
-            
-            flash(f'Database backup completed successfully on {server.name}', 'success')
+            # Step 2: Find and download the latest backup file from the server
+            try:
+                # Get the latest backup file from the remote server
+                latest_backup = ssh_service.get_latest_backup_file(server)
+                
+                if latest_backup:
+                    # Download the backup file from remote server to our local storage
+                    download_success = ssh_service.download_file(
+                        server=server,
+                        remote_path=latest_backup,
+                        local_path=str(local_backup_path)
+                    )
+                    
+                    if download_success and local_backup_path.exists():
+                        # Get actual file size
+                        file_size = local_backup_path.stat().st_size
+                        backup.file_path = str(local_backup_path)
+                        backup.file_size = file_size
+                        backup.status = 'completed'
+                        
+                        flash(f'Database backup completed and downloaded for {server.name} ({file_size:,} bytes)', 'success')
+                    else:
+                        backup.status = 'failed'
+                        backup.error_log = 'Backup created on server but failed to download to management system'
+                        flash(f'Backup created on {server.name} but failed to download to management system', 'warning')
+                else:
+                    backup.status = 'failed'
+                    backup.error_log = 'No backup file found after backup command execution'
+                    flash(f'Backup command executed but no backup file found on {server.name}', 'warning')
+                    
+            except Exception as transfer_error:
+                backup.status = 'failed'
+                backup.error_log = f'File transfer error: {str(transfer_error)}'
+                flash(f'Backup process failed during file transfer: {str(transfer_error)}', 'warning')
         else:
             backup.status = 'failed'
             backup.error_log = stderr_output
