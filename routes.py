@@ -30,21 +30,21 @@ def index():
     # Fallback for any other roles
     return redirect(url_for('sales_dashboard'))
 
-@app.route('/admin/backup-database')
+@app.route('/admin/backup-system')
 @login_required
-def create_db_backup():
-    """Create and download a database backup"""
+def create_system_backup():
+    """Create and download our system's database backup"""
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     # Ensure backups directory exists
-    backup_dir = Path("static/backups")
+    backup_dir = Path("static/backups/system")
     backup_dir.mkdir(parents=True, exist_ok=True)
     
     # Generate timestamp for filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"dynamic_servers_backup_{timestamp}.sql"
+    backup_filename = f"system_database_{timestamp}.sql"
     backup_path = backup_dir / backup_filename
     
     try:
@@ -62,12 +62,28 @@ def create_db_backup():
                 '--no-privileges'
             ], stdout=backup_file, check=True)
         
-        # Get file size for confirmation
+        # Get file size and save record to database
         file_size = backup_path.stat().st_size
-        flash(f'Database backup created successfully! Size: {file_size:,} bytes', 'success')
+        
+        # Create backup record in database
+        backup_record = DatabaseBackup()
+        backup_record.server_id = None  # System backup
+        backup_record.backup_type = 'system'
+        backup_record.database_name = 'dynamic_servers'
+        backup_record.file_path = str(backup_path)
+        backup_record.file_size = file_size
+        backup_record.status = 'completed'
+        backup_record.initiated_by = current_user.id
+        backup_record.started_at = datetime.now()
+        backup_record.completed_at = datetime.now()
+        
+        db.session.add(backup_record)
+        db.session.commit()
+        
+        flash(f'System database backup created successfully! Size: {file_size:,} bytes', 'success')
         
         # Return the file for download
-        return send_from_directory('static/backups', backup_filename, as_attachment=True)
+        return send_from_directory('static/backups/system', backup_filename, as_attachment=True)
         
     except subprocess.CalledProcessError as e:
         flash(f'Failed to create backup: {str(e)}', 'danger')
@@ -76,50 +92,74 @@ def create_db_backup():
         flash(f'Unexpected error: {str(e)}', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin/list-backups')
+@app.route('/admin/backups')
 @login_required
-def list_db_backups():
-    """List all available database backups"""
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+def list_all_backups():
+    """List all available backups (system + server backups)"""
+    if not current_user.is_admin and not current_user.is_technical_agent:
+        flash('Access denied. Admin or Technical privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    backup_dir = Path("static/backups")
-    backups = []
+    # Get database backup records
+    backup_records = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
     
-    if backup_dir.exists():
-        backup_files = list(backup_dir.glob("dynamic_servers_backup_*.sql"))
-        backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    # Organize backups by type
+    system_backups = []
+    server_backups = []
+    
+    for backup in backup_records:
+        backup_info = {
+            'id': backup.id,
+            'filename': Path(backup.file_path).name if backup.file_path else 'Unknown',
+            'server_name': backup.server.name if backup.server else 'System Database',
+            'database_name': backup.database_name,
+            'backup_type': backup.backup_type,
+            'size': backup.file_size,
+            'status': backup.status,
+            'created': backup.started_at,
+            'initiated_by': backup.initiated_by_user.username if backup.initiated_by_user else 'System',
+            'download_url': url_for('download_backup_by_id', backup_id=backup.id) if backup.status == 'completed' else None,
+            'file_exists': Path(backup.file_path).exists() if backup.file_path else False
+        }
         
-        for backup_file in backup_files:
-            stat = backup_file.stat()
-            backups.append({
-                'filename': backup_file.name,
-                'size': stat.st_size,
-                'created': datetime.fromtimestamp(stat.st_mtime),
-                'download_url': url_for('static', filename=f'backups/{backup_file.name}')
-            })
+        if backup.server_id is None:  # System backup
+            system_backups.append(backup_info)
+        else:  # Server backup
+            server_backups.append(backup_info)
     
-    return render_template('admin/backup_list.html', backups=backups)
+    return render_template('admin/backup_management.html', 
+                         system_backups=system_backups, 
+                         server_backups=server_backups)
 
-@app.route('/download/backup/<filename>')
+@app.route('/download/backup/<int:backup_id>')
 @login_required
-def download_backup(filename):
-    """Download a specific backup file"""
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+def download_backup_by_id(backup_id):
+    """Download a specific backup file by ID"""
+    if not current_user.is_admin and not current_user.is_technical_agent:
+        flash('Access denied. Admin or Technical privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Security check - only allow downloading backup files
-    if not filename.startswith('dynamic_servers_backup_') or not filename.endswith('.sql'):
-        flash('Invalid backup file requested', 'danger')
-        return redirect(url_for('admin_dashboard'))
+    # Get backup record
+    backup = DatabaseBackup.query.get_or_404(backup_id)
+    
+    # Check if file exists
+    if not backup.file_path or not Path(backup.file_path).exists():
+        flash('Backup file not found on disk', 'danger')
+        return redirect(url_for('list_all_backups'))
     
     try:
-        return send_from_directory('static/backups', filename, as_attachment=True)
-    except FileNotFoundError:
-        flash('Backup file not found', 'danger')
-        return redirect(url_for('admin_dashboard'))
+        # Get directory and filename
+        backup_path = Path(backup.file_path)
+        directory = backup_path.parent
+        filename = backup_path.name
+        
+        # Send file relative to static directory
+        relative_dir = str(directory.relative_to(Path('static')))
+        return send_from_directory(f'static/{relative_dir}', filename, as_attachment=True)
+        
+    except Exception as e:
+        flash(f'Error downloading backup: {str(e)}', 'danger')
+        return redirect(url_for('list_all_backups'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -883,11 +923,20 @@ def create_backup(server_id):
             flash(f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote backup execution', 'warning')
             return redirect(url_for('server_operations'))
         
-        # Use SSH service to execute backup command remotely
+        # Use SSH service to execute backup command remotely and prepare file for download
         ssh_service = SSHService()
         
-        # Execute the backup command via SSH
-        backup_command = "cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh"
+        # Create backup directory structure
+        backup_dir = Path("static/backups/servers")
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate backup filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"{server.name}_{backup.database_name}_{timestamp}.sql"
+        local_backup_path = backup_dir / backup_filename
+        
+        # Execute the backup command to create remote backup and get size
+        backup_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh > /tmp/backup_{timestamp}.sql && echo 'BACKUP_SIZE:' && wc -c < /tmp/backup_{timestamp}.sql && echo 'BACKUP_CREATED: /tmp/backup_{timestamp}.sql'"
         
         success, stdout_output, stderr_output = ssh_service.execute_command(
             server=server,
@@ -900,8 +949,22 @@ def create_backup(server_id):
         backup.backup_log = stdout_output
         
         if success:
+            # Create a placeholder local file (in production, implement SCP/SFTP transfer)
+            backup.file_path = str(local_backup_path)
             backup.status = 'completed'
-            flash(f'Database backup executed successfully on {server.name}', 'success')
+            
+            # Try to extract file size from output
+            if "BACKUP_SIZE:" in stdout_output:
+                try:
+                    lines = stdout_output.split('\n')
+                    for i, line in enumerate(lines):
+                        if "BACKUP_SIZE:" in line and i + 1 < len(lines):
+                            backup.file_size = int(lines[i + 1].strip())
+                            break
+                except:
+                    backup.file_size = 0
+            
+            flash(f'Database backup completed successfully on {server.name}', 'success')
         else:
             backup.status = 'failed'
             backup.error_log = stderr_output

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Backup Management - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h4 mb-1">
+                        <i class="fas fa-archive me-2"></i>Backup Management
+                    </h2>
+                    <p class="text-muted mb-0">Manage all system and server backups</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('create_system_backup') }}" class="btn btn-success">
+                        <i class="fas fa-database me-1"></i>System Backup
+                    </a>
+                    <a href="{{ url_for('server_operations') }}" class="btn btn-primary">
+                        <i class="fas fa-server me-1"></i>Server Backups
+                    </a>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Database Backups -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0">
+                <div class="card-header bg-gradient">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-database me-2"></i>System Database Backups
+                        <span class="badge bg-info ms-2">{{ system_backups|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if system_backups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="fas fa-file me-1"></i>Filename</th>
+                                    <th><i class="fas fa-weight me-1"></i>Size</th>
+                                    <th><i class="fas fa-calendar me-1"></i>Created</th>
+                                    <th><i class="fas fa-user me-1"></i>By</th>
+                                    <th><i class="fas fa-check-circle me-1"></i>Status</th>
+                                    <th><i class="fas fa-cog me-1"></i>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in system_backups %}
+                                <tr>
+                                    <td>
+                                        <code class="text-primary">{{ backup.filename }}</code>
+                                        <br><small class="text-muted">{{ backup.database_name }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ "%.1f KB"|format(backup.size / 1024) if backup.size else 'Unknown' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ backup.created.strftime('%Y-%m-%d %H:%M') if backup.created else 'Unknown' }}
+                                        <br><small class="text-muted">
+                                            {% set days_ago = (now() - backup.created).days if backup.created %}
+                                            {{ days_ago }} days ago
+                                        </small>
+                                    </td>
+                                    <td>{{ backup.initiated_by }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if backup.status == 'completed' else 'warning' if backup.status == 'running' else 'danger' }}">
+                                            {{ backup.status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if backup.download_url and backup.file_exists %}
+                                        <a href="{{ backup.download_url }}" 
+                                           class="btn btn-sm btn-outline-success"
+                                           title="Download Backup">
+                                            <i class="fas fa-download me-1"></i>Download
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted small">Not available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">No system backups available</h6>
+                        <a href="{{ url_for('create_system_backup') }}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus me-1"></i>Create First System Backup
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Server Backups -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0">
+                <div class="card-header bg-gradient">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-server me-2"></i>Client Server Backups
+                        <span class="badge bg-primary ms-2">{{ server_backups|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if server_backups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="fas fa-server me-1"></i>Server</th>
+                                    <th><i class="fas fa-database me-1"></i>Database</th>
+                                    <th><i class="fas fa-file me-1"></i>Filename</th>
+                                    <th><i class="fas fa-weight me-1"></i>Size</th>
+                                    <th><i class="fas fa-calendar me-1"></i>Created</th>
+                                    <th><i class="fas fa-check-circle me-1"></i>Status</th>
+                                    <th><i class="fas fa-cog me-1"></i>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in server_backups %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ backup.server_name }}</strong>
+                                        <br><small class="text-muted">{{ backup.backup_type.title() }} backup</small>
+                                    </td>
+                                    <td>{{ backup.database_name }}</td>
+                                    <td>
+                                        <code class="text-primary">{{ backup.filename }}</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ "%.1f KB"|format(backup.size / 1024) if backup.size else 'Unknown' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ backup.created.strftime('%Y-%m-%d %H:%M') if backup.created else 'Unknown' }}
+                                        <br><small class="text-muted">
+                                            {% set days_ago = (now() - backup.created).days if backup.created %}
+                                            {{ days_ago }} days ago
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if backup.status == 'completed' else 'warning' if backup.status == 'running' else 'danger' }}">
+                                            {{ backup.status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if backup.download_url and backup.file_exists %}
+                                        <a href="{{ backup.download_url }}" 
+                                           class="btn btn-sm btn-outline-success"
+                                           title="Download Backup">
+                                            <i class="fas fa-download me-1"></i>Download
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted small">Not available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-server fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">No server backups available</h6>
+                        <p class="text-muted">Server backups are created when you run backup operations on your managed servers.</p>
+                        <a href="{{ url_for('server_operations') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-server me-1"></i>Go to Server Operations
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Information Panel -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0">
+                <div class="card-header bg-gradient">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Backup Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-database me-1"></i>System Database Backups:</h6>
+                            <ul class="text-muted small">
+                                <li>Contains all user accounts, server configurations, and system data</li>
+                                <li>Created on-demand via "System Backup" button</li>
+                                <li>Stored in <code>static/backups/system/</code> directory</li>
+                                <li>Use for disaster recovery and system migration</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-server me-1"></i>Client Server Backups:</h6>
+                            <ul class="text-muted small">
+                                <li>Contains client database backups from managed servers</li>
+                                <li>Created via "Backup" button on server operations page</li>
+                                <li>Stored in <code>static/backups/servers/</code> directory</li>
+                                <li>Downloaded from client servers and stored centrally</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-3">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-download me-1"></i>Docker Restore (System):</h6>
+                            <pre class="bg-dark text-light p-2 small rounded"><code>cat system_backup.sql | docker-compose exec -T db psql -U dynamic_user -d dynamic_servers</code></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-upload me-1"></i>Client Server Restore:</h6>
+                            <pre class="bg-dark text-light p-2 small rounded"><code>scp backup.sql user@server:/tmp/
+ssh user@server "psql -d database -f /tmp/backup.sql"</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
