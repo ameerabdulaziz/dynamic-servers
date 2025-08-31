@@ -131,12 +131,13 @@ def list_all_backups():
         for server_dir in server_backup_root.iterdir():
             if server_dir.is_dir():
                 server_name = server_dir.name
-                # Find backup files in this server's directory
-                for backup_file in server_dir.glob("*.sql"):
+                # Find backup files in this server's directory (.bak files)
+                for backup_file in server_dir.glob("*.bak"):
                     if backup_file.is_file():
                         stat = backup_file.stat()
-                        # Parse database name from filename
-                        database_name = backup_file.name.split('_')[0] if '_' in backup_file.name else 'main'
+                        # Parse database name from filename (e.g., ehaf_backup_2025-08-31_15-28.bak)
+                        filename_parts = backup_file.name.split('_')
+                        database_name = filename_parts[0] if filename_parts else 'main'
                         server_backups.append({
                             'id': None,  # Use server/filename path instead
                             'filename': backup_file.name,
@@ -191,8 +192,8 @@ def download_server_backup_file(server_name, filename):
         flash('Access denied. Admin or Technical privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Security check - only allow downloading .sql backup files and prevent path traversal
-    if not filename.endswith('.sql') or '..' in filename or '..' in server_name:
+    # Security check - only allow downloading .bak backup files and prevent path traversal
+    if not filename.endswith('.bak') or '..' in filename or '..' in server_name:
         flash('Invalid backup file requested', 'danger')
         return redirect(url_for('list_all_backups'))
     
@@ -976,9 +977,9 @@ def create_backup(server_id):
         server_backup_dir = Path(f"static/backups/servers/{server.name}")
         server_backup_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate backup filename
+        # Generate backup filename (will be updated with actual filename from server)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"{backup.database_name}_{timestamp}.sql"
+        backup_filename = f"{backup.database_name}_{timestamp}.bak"
         local_backup_path = server_backup_dir / backup_filename
         
         # Execute the backup command - backup files are created in /home/dynamic/nova-hr-docker/mssql/backup/
@@ -1001,6 +1002,10 @@ def create_backup(server_id):
                 latest_backup = ssh_service.get_latest_backup_file(server)
                 
                 if latest_backup:
+                    # Update local filename to match the actual backup filename
+                    actual_filename = Path(latest_backup).name
+                    local_backup_path = server_backup_dir / actual_filename
+                    
                     # Download the backup file from remote server to our local storage
                     download_success = ssh_service.download_file(
                         server=server,

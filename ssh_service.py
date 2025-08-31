@@ -128,14 +128,15 @@ class SSHService:
                 if not client:
                     return None
                 
-                # Find the latest backup file
-                command = f"ls -t {backup_dir}*.sql | head -n 1"
+                # Find the latest backup file (.bak files)
+                command = f"ls -t {backup_dir}*.bak | head -n 1"
                 stdin, stdout, stderr = client.exec_command(command)
                 output = stdout.read().decode('utf-8').strip()
                 error_output = stderr.read().decode('utf-8')
                 exit_code = stdout.channel.recv_exit_status()
                 
                 if exit_code == 0 and output:
+                    logger.info(f"Found latest backup file: {output}")
                     return output
                 else:
                     logger.error(f"No backup files found in {backup_dir} on {server.name}")
