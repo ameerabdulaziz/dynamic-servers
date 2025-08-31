@@ -184,6 +184,42 @@ def download_backup_file(filename):
         flash(f'Error downloading backup: {str(e)}', 'danger')
         return redirect(url_for('list_all_backups'))
 
+@app.route('/download-backup/<int:backup_id>')
+@login_required
+def download_backup_by_id(backup_id):
+    """Download a backup file by database record ID (legacy route)"""
+    if not current_user.is_admin and not current_user.is_technical_agent:
+        flash('Access denied. Admin or Technical privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Find the backup record in the database
+    backup = DatabaseBackup.query.get_or_404(backup_id)
+    
+    if not backup.file_path:
+        flash('Backup file path not available', 'danger')
+        return redirect(url_for('list_all_backups'))
+    
+    backup_path = Path(backup.file_path)
+    if not backup_path.exists():
+        flash('Backup file not found on disk', 'danger')
+        return redirect(url_for('list_all_backups'))
+    
+    try:
+        # Determine the directory and filename for send_from_directory
+        if 'servers/' in str(backup_path):
+            # Server backup file
+            parts = backup_path.parts
+            servers_index = parts.index('servers')
+            server_name = parts[servers_index + 1]
+            filename = backup_path.name
+            return send_from_directory(f'static/backups/servers/{server_name}', filename, as_attachment=True)
+        else:
+            # System backup file
+            return send_from_directory('static/backups', backup_path.name, as_attachment=True)
+    except Exception as e:
+        flash(f'Error downloading backup: {str(e)}', 'danger')
+        return redirect(url_for('list_all_backups'))
+
 @app.route('/download/server-backup/<server_name>/<filename>')
 @login_required
 def download_server_backup_file(server_name, filename):
