@@ -124,27 +124,32 @@ def list_all_backups():
                     'file_exists': True
                 })
     
-    # Check for server backup files
-    server_backup_dir = Path("static/backups/servers")
-    if server_backup_dir.exists():
-        for backup_file in server_backup_dir.glob("*.sql"):
-            if backup_file.is_file():
-                stat = backup_file.stat()
-                # Try to parse server name from filename
-                server_name = backup_file.name.split('_')[0] if '_' in backup_file.name else 'Unknown Server'
-                server_backups.append({
-                    'id': None,  # Use filename instead
-                    'filename': backup_file.name,
-                    'server_name': server_name,
-                    'database_name': 'main',
-                    'backup_type': 'server',
-                    'size': stat.st_size,
-                    'status': 'completed',
-                    'created': datetime.fromtimestamp(stat.st_mtime),
-                    'initiated_by': 'System',
-                    'download_url': url_for('download_server_backup_file', filename=backup_file.name),
-                    'file_exists': True
-                })
+    # Check for server backup files organized by server name
+    server_backup_root = Path("static/backups/servers")
+    if server_backup_root.exists():
+        # Go through each server directory
+        for server_dir in server_backup_root.iterdir():
+            if server_dir.is_dir():
+                server_name = server_dir.name
+                # Find backup files in this server's directory
+                for backup_file in server_dir.glob("*.sql"):
+                    if backup_file.is_file():
+                        stat = backup_file.stat()
+                        # Parse database name from filename
+                        database_name = backup_file.name.split('_')[0] if '_' in backup_file.name else 'main'
+                        server_backups.append({
+                            'id': None,  # Use server/filename path instead
+                            'filename': backup_file.name,
+                            'server_name': server_name,
+                            'database_name': database_name,
+                            'backup_type': 'server',
+                            'size': stat.st_size,
+                            'status': 'completed',
+                            'created': datetime.fromtimestamp(stat.st_mtime),
+                            'initiated_by': 'System',
+                            'download_url': url_for('download_server_backup_file', server_name=server_name, filename=backup_file.name),
+                            'file_exists': True
+                        })
     
     # Sort backups by creation date (newest first)
     system_backups.sort(key=lambda x: x['created'], reverse=True)
@@ -178,26 +183,26 @@ def download_backup_file(filename):
         flash(f'Error downloading backup: {str(e)}', 'danger')
         return redirect(url_for('list_all_backups'))
 
-@app.route('/download/server-backup/<filename>')
+@app.route('/download/server-backup/<server_name>/<filename>')
 @login_required
-def download_server_backup_file(filename):
+def download_server_backup_file(server_name, filename):
     """Download a specific server backup file"""
     if not current_user.is_admin and not current_user.is_technical_agent:
         flash('Access denied. Admin or Technical privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Security check - only allow downloading .sql backup files
-    if not filename.endswith('.sql') or '..' in filename:
+    # Security check - only allow downloading .sql backup files and prevent path traversal
+    if not filename.endswith('.sql') or '..' in filename or '..' in server_name:
         flash('Invalid backup file requested', 'danger')
         return redirect(url_for('list_all_backups'))
     
-    backup_path = Path("static/backups/servers") / filename
+    backup_path = Path("static/backups/servers") / server_name / filename
     if not backup_path.exists():
         flash('Server backup file not found', 'danger')
         return redirect(url_for('list_all_backups'))
     
     try:
-        return send_from_directory('static/backups/servers', filename, as_attachment=True)
+        return send_from_directory(f'static/backups/servers/{server_name}', filename, as_attachment=True)
     except Exception as e:
         flash(f'Error downloading backup: {str(e)}', 'danger')
         return redirect(url_for('list_all_backups'))
@@ -967,14 +972,14 @@ def create_backup(server_id):
         # Use SSH service to execute backup command remotely and prepare file for download
         ssh_service = SSHService()
         
-        # Create backup directory structure
-        backup_dir = Path("static/backups/servers")
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        # Create backup directory structure organized by server name
+        server_backup_dir = Path(f"static/backups/servers/{server.name}")
+        server_backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate backup filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"{server.name}_{backup.database_name}_{timestamp}.sql"
-        local_backup_path = backup_dir / backup_filename
+        backup_filename = f"{backup.database_name}_{timestamp}.sql"
+        local_backup_path = server_backup_dir / backup_filename
         
         # Execute the backup command to create remote backup and get size
         backup_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec backup ./usr/src/app/backup-db.sh > /tmp/backup_{timestamp}.sql && echo 'BACKUP_SIZE:' && wc -c < /tmp/backup_{timestamp}.sql && echo 'BACKUP_CREATED: /tmp/backup_{timestamp}.sql'"
