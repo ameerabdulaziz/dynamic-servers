@@ -100,63 +100,104 @@ def list_all_backups():
         flash('Access denied. Admin or Technical privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Get database backup records
-    backup_records = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
-    
-    # Organize backups by type
+    # Get existing backup files from filesystem
     system_backups = []
     server_backups = []
     
-    for backup in backup_records:
-        backup_info = {
-            'id': backup.id,
-            'filename': Path(backup.file_path).name if backup.file_path else 'Unknown',
-            'server_name': backup.server.name if backup.server else 'System Database',
-            'database_name': backup.database_name,
-            'backup_type': backup.backup_type,
-            'size': backup.file_size,
-            'status': backup.status,
-            'created': backup.started_at,
-            'initiated_by': backup.initiated_by_user.username if backup.initiated_by_user else 'System',
-            'download_url': url_for('download_backup_by_id', backup_id=backup.id) if backup.status == 'completed' else None,
-            'file_exists': Path(backup.file_path).exists() if backup.file_path else False
-        }
-        
-        if backup.server_id is None:  # System backup
-            system_backups.append(backup_info)
-        else:  # Server backup
-            server_backups.append(backup_info)
+    # Check for system backup files
+    system_backup_dir = Path("static/backups")
+    if system_backup_dir.exists():
+        for backup_file in system_backup_dir.glob("*.sql"):
+            if backup_file.is_file():
+                stat = backup_file.stat()
+                system_backups.append({
+                    'id': None,  # Use filename instead
+                    'filename': backup_file.name,
+                    'server_name': 'System Database',
+                    'database_name': 'dynamic_servers',
+                    'backup_type': 'system',
+                    'size': stat.st_size,
+                    'status': 'completed',
+                    'created': datetime.fromtimestamp(stat.st_mtime),
+                    'initiated_by': 'System',
+                    'download_url': url_for('download_backup_file', filename=backup_file.name),
+                    'file_exists': True
+                })
+    
+    # Check for server backup files
+    server_backup_dir = Path("static/backups/servers")
+    if server_backup_dir.exists():
+        for backup_file in server_backup_dir.glob("*.sql"):
+            if backup_file.is_file():
+                stat = backup_file.stat()
+                # Try to parse server name from filename
+                server_name = backup_file.name.split('_')[0] if '_' in backup_file.name else 'Unknown Server'
+                server_backups.append({
+                    'id': None,  # Use filename instead
+                    'filename': backup_file.name,
+                    'server_name': server_name,
+                    'database_name': 'main',
+                    'backup_type': 'server',
+                    'size': stat.st_size,
+                    'status': 'completed',
+                    'created': datetime.fromtimestamp(stat.st_mtime),
+                    'initiated_by': 'System',
+                    'download_url': url_for('download_server_backup_file', filename=backup_file.name),
+                    'file_exists': True
+                })
+    
+    # Sort backups by creation date (newest first)
+    system_backups.sort(key=lambda x: x['created'], reverse=True)
+    server_backups.sort(key=lambda x: x['created'], reverse=True)
     
     return render_template('admin/backup_management.html', 
                          system_backups=system_backups, 
                          server_backups=server_backups)
 
-@app.route('/download/backup/<int:backup_id>')
+@app.route('/download/backup/<filename>')
 @login_required
-def download_backup_by_id(backup_id):
-    """Download a specific backup file by ID"""
+def download_backup_file(filename):
+    """Download a specific system backup file"""
     if not current_user.is_admin and not current_user.is_technical_agent:
         flash('Access denied. Admin or Technical privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Get backup record
-    backup = DatabaseBackup.query.get_or_404(backup_id)
+    # Security check - only allow downloading .sql backup files
+    if not filename.endswith('.sql') or '..' in filename:
+        flash('Invalid backup file requested', 'danger')
+        return redirect(url_for('list_all_backups'))
     
-    # Check if file exists
-    if not backup.file_path or not Path(backup.file_path).exists():
-        flash('Backup file not found on disk', 'danger')
+    backup_path = Path("static/backups") / filename
+    if not backup_path.exists():
+        flash('Backup file not found', 'danger')
         return redirect(url_for('list_all_backups'))
     
     try:
-        # Get directory and filename
-        backup_path = Path(backup.file_path)
-        directory = backup_path.parent
-        filename = backup_path.name
-        
-        # Send file relative to static directory
-        relative_dir = str(directory.relative_to(Path('static')))
-        return send_from_directory(f'static/{relative_dir}', filename, as_attachment=True)
-        
+        return send_from_directory('static/backups', filename, as_attachment=True)
+    except Exception as e:
+        flash(f'Error downloading backup: {str(e)}', 'danger')
+        return redirect(url_for('list_all_backups'))
+
+@app.route('/download/server-backup/<filename>')
+@login_required
+def download_server_backup_file(filename):
+    """Download a specific server backup file"""
+    if not current_user.is_admin and not current_user.is_technical_agent:
+        flash('Access denied. Admin or Technical privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Security check - only allow downloading .sql backup files
+    if not filename.endswith('.sql') or '..' in filename:
+        flash('Invalid backup file requested', 'danger')
+        return redirect(url_for('list_all_backups'))
+    
+    backup_path = Path("static/backups/servers") / filename
+    if not backup_path.exists():
+        flash('Server backup file not found', 'danger')
+        return redirect(url_for('list_all_backups'))
+    
+    try:
+        return send_from_directory('static/backups/servers', filename, as_attachment=True)
     except Exception as e:
         flash(f'Error downloading backup: {str(e)}', 'danger')
         return redirect(url_for('list_all_backups'))
