@@ -183,17 +183,10 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='app.js') }}"></script>
     
-    <!-- Custom fixes for dropdown and select styling -->
+    <!-- Custom fixes for select styling only -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Force dropdown positioning
-            const dropdowns = document.querySelectorAll('.navbar .dropdown-menu');
-            dropdowns.forEach(dropdown => {
-                dropdown.style.zIndex = '9999';
-                dropdown.style.position = 'absolute';
-            });
-            
-            // Force select option styling
+            // Force select option styling without affecting dropdowns
             const selects = document.querySelectorAll('select.form-select');
             selects.forEach(select => {
                 const options = select.querySelectorAll('option');

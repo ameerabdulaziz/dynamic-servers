@@ -855,26 +855,20 @@ select.form-select[multiple] option {
     padding: 0.5rem !important;
 }
 
-/* Ultimate fix for dropdown positioning and visibility */
-.navbar-nav .dropdown .dropdown-menu {
-    z-index: 9999 !important;
+/* Proper Bootstrap dropdown fix without breaking functionality */
+.navbar .dropdown-menu {
+    z-index: 1050 !important;
     position: absolute !important;
-    top: 100% !important;
-    left: 0 !important;
-    display: none;
-    transform: none !important;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    border: 1px solid rgba(37, 99, 235, 0.2) !important;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
 }
 
-.navbar-nav .dropdown.show .dropdown-menu {
-    display: block !important;
-    z-index: 9999 !important;
-}
-
-/* Force dropdown items color */
 .navbar .dropdown-menu .dropdown-item {
     color: #ffffff !important;
     background-color: transparent !important;
+    padding: 0.5rem 1rem !important;
 }
 
 .navbar .dropdown-menu .dropdown-item:hover,
