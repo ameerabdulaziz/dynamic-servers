@@ -195,11 +195,11 @@ def download_backup_by_id(backup_id):
     # Find the backup record in the database
     backup = DatabaseBackup.query.get_or_404(backup_id)
     
-    if not backup.file_path:
+    if not backup.backup_path:
         flash('Backup file path not available', 'danger')
         return redirect(url_for('list_all_backups'))
     
-    backup_path = Path(backup.file_path)
+    backup_path = Path(backup.backup_path)
     if not backup_path.exists():
         flash('Backup file not found on disk', 'danger')
         return redirect(url_for('list_all_backups'))
@@ -1052,8 +1052,8 @@ def create_backup(server_id):
                     if download_success and local_backup_path.exists():
                         # Get actual file size
                         file_size = local_backup_path.stat().st_size
-                        backup.file_path = str(local_backup_path)
-                        backup.file_size = file_size
+                        backup.backup_path = str(local_backup_path)
+                        backup.backup_size = file_size
                         backup.status = 'completed'
                         
                         flash(f'Database backup completed and downloaded for {server.name} ({file_size:,} bytes)', 'success')
