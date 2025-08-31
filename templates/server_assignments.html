@@ -49,9 +49,9 @@
                                 <small class="text-muted d-block mb-2">Assigned Technical Agents:</small>
                                 {% if server.assigned_users %}
                                     {% for assignment in server.assigned_users %}
-                                    <div class="d-flex justify-content-between align-items-center mb-1 p-2 bg-light rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-1 p-2 bg-dark border border-primary rounded">
                                         <div>
-                                            <strong>{{ assignment.user.username }}</strong>
+                                            <strong class="text-light">{{ assignment.user.username }}</strong>
                                             <span class="badge bg-info ms-2">{{ assignment.access_level.title() }}</span>
                                         </div>
                                         <button class="btn btn-sm btn-outline-danger" 
