@@ -1,0 +1,71 @@
+services:
+  postgress:
+    image: postgres:15-alpine
+    container_name: dynamic-servers-postgress
+    environment:
+      - POSTGRES_DB=dynamic_servers
+      - POSTGRES_USER=dynamic_user
+      - POSTGRES_PASSWORD=dynamic_pass
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dynamic_user -d dynamic_servers"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dynamic-servers
+
+  flask:
+    build: .
+    container_name: dynamic-servers-flask
+    environment:
+      - DATABASE_URL=postgresql://dynamic_user:dynamic_pass@postgress:5432/dynamic_servers
+      - SESSION_SECRET=${SESSION_SECRET:-your-secret-key-change-this}
+      - HETZNER_API_TOKEN=${HETZNER_API_TOKEN}
+      - FLASK_ENV=production
+      - REPL_ID=${REPL_ID:-dynamic-servers}
+    depends_on:
+      postgress:
+        condition: service_healthy
+    volumes:
+      # Mount SSH keys if they exist locally
+      - ~/.ssh:/root/.ssh:ro
+    restart: unless-stopped
+    networks:
+      - dynamic-servers
+  
+  nginx:
+    image: nginx:alpine
+    container_name: dynamic-servers-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/etc/:/etc/letsencrypt:ro
+    networks:
+      - dynamic-servers
+    
+
+        
+  # Optional: Redis for session storage (if needed in future)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+  #   networks:
+  #     - dynamic-servers
+
+volumes:
+  postgres_data:
+
+networks:
+  dynamic-servers:
+    name: dynamic-servers-network
+    driver: bridge
+

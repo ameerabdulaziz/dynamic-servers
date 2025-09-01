@@ -73,3 +73,6 @@ test_scripts/
 
 # Attachments
 attached_assets/
+
+# SSL CERTs
+certbot/
