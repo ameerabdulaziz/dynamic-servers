@@ -33,12 +33,22 @@ def provision_server_and_dns(server_request: ServerRequest):
         
         hetzner_service = HetznerService(project_id=server_request.project_id)
         
-        # Prepare server labels
+        # Prepare server labels (sanitized for Hetzner Cloud requirements)
+        def sanitize_label_value(value):
+            """Sanitize label values to meet Hetzner requirements: a-z, 0-9, -, _"""
+            if not value:
+                return 'none'
+            # Convert to lowercase and replace invalid characters
+            sanitized = ''.join(c if c.isalnum() or c in '-_' else '-' for c in str(value).lower())
+            # Remove consecutive dashes and trim
+            sanitized = '-'.join(filter(None, sanitized.split('-')))
+            return sanitized[:63]  # Max length is 63 characters
+        
         labels = {
-            'client': server_request.client_name,
-            'request_id': server_request.request_id,
-            'managed_by': 'dynamic_servers',
-            'subdomain': server_request.subdomain
+            'client': sanitize_label_value(server_request.client_name),
+            'request-id': sanitize_label_value(server_request.request_id),
+            'managed-by': 'dynamic-servers',
+            'subdomain': sanitize_label_value(server_request.subdomain)
         }
         
         # Update progress
