@@ -7,6 +7,41 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
+    // Handle admin dropdown overlay
+    const adminDropdown = document.getElementById('adminDropdown');
+    if (adminDropdown) {
+        adminDropdown.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.body.classList.add('admin-dropdown-open');
+            const dropdown = document.querySelector('#adminDropdown + .dropdown-menu');
+            if (dropdown) {
+                dropdown.classList.add('show');
+            }
+        });
+
+        // Close dropdown when clicking outside or on backdrop
+        document.addEventListener('click', function(e) {
+            const dropdown = document.querySelector('#adminDropdown + .dropdown-menu');
+            if (dropdown && dropdown.classList.contains('show')) {
+                if (!dropdown.contains(e.target) && !adminDropdown.contains(e.target)) {
+                    document.body.classList.remove('admin-dropdown-open');
+                    dropdown.classList.remove('show');
+                }
+            }
+        });
+
+        // Close dropdown on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const dropdown = document.querySelector('#adminDropdown + .dropdown-menu');
+                if (dropdown && dropdown.classList.contains('show')) {
+                    document.body.classList.remove('admin-dropdown-open');
+                    dropdown.classList.remove('show');
+                }
+            }
+        });
+    }
+
     // Auto-dismiss alerts after 5 seconds
     const alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
     alerts.forEach(function(alert) {

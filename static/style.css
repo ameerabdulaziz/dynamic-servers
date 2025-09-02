@@ -427,43 +427,48 @@ select.form-select option:hover {
     min-width: 200px !important;
 }
 
-/* Horizontal Admin Dropdown Menu - Fixed positioning to ensure it's above everything */
-#adminDropdown + .dropdown-menu {
-    display: none !important; /* Hidden by default */
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    position: fixed !important; /* Fixed position to escape stacking context */
-    top: 70px !important; /* Below navbar height */
-    left: 50% !important;
-    transform: translateX(-50%) !important; /* Center horizontally */
-    width: auto !important;
-    min-width: 700px !important;
-    max-width: 900px !important;
-    padding: 1.5rem !important;
-    background: rgba(15, 23, 42, 0.98) !important;
-    border: 1px solid rgba(37, 99, 235, 0.2) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
-    z-index: 999999 !important; /* Extremely high z-index */
-    backdrop-filter: blur(10px) !important;
+/* Create overlay container for admin dropdown */
+body.admin-dropdown-open {
+    overflow: hidden;
 }
 
-/* Show dropdown when Bootstrap makes it active */
-#adminDropdown + .dropdown-menu.show {
-    display: flex !important;
-}
-
-/* Add overlay backdrop to ensure clickability */
-#adminDropdown + .dropdown-menu.show::before {
+body.admin-dropdown-open::after {
     content: '';
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: -1;
-    background: rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(2px);
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    pointer-events: none;
+}
+
+/* Admin dropdown with overlay approach */
+#adminDropdown + .dropdown-menu {
+    display: none !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: auto !important;
+    min-width: 800px !important;
+    max-width: 90vw !important;
+    padding: 2rem !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    border: 2px solid rgba(37, 99, 235, 0.3) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6) !important;
+    z-index: 10001 !important;
+    backdrop-filter: blur(15px) !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+}
+
+/* Show dropdown when active */
+#adminDropdown + .dropdown-menu.show {
+    display: flex !important;
 }
 
 /* Dropdown groups styling */
