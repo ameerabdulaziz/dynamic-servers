@@ -428,12 +428,24 @@ def request_server():
     form = ServerRequestForm()
     
     # Populate project choices based on user's access
+    # For sales agents and admins creating requests, show all available projects 
+    # (sales agents need to create requests for any project)
     if current_user.is_admin:
         projects = HetznerProject.query.all()
-        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain}") for p in projects]
+        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain if p.base_domain else 'No domain'}") for p in projects]
+    elif current_user.is_sales_agent:
+        # Sales agents can create requests for any project
+        projects = HetznerProject.query.all()
+        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain if p.base_domain else 'No domain'}") for p in projects]
     else:
+        # Technical agents only see their assigned projects
         accessible_projects = current_user.get_accessible_projects()
-        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain}") for p in accessible_projects]
+        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain if p.base_domain else 'No domain'}") for p in accessible_projects]
+    
+    # Debug logging
+    app.logger.info(f"User: {current_user.username}, Role: {current_user.role}, IsAdmin: {current_user.is_admin}")
+    app.logger.info(f"Available projects count: {len(form.project_id.choices)}")
+    app.logger.info(f"Project choices: {form.project_id.choices}")
     
     # Add empty choice at the beginning for proper form validation
     if form.project_id.choices:
