@@ -85,4 +85,15 @@ The system now includes comprehensive Docker support for containerized deploymen
 - `README-Docker.md`: Comprehensive deployment guide
 - `docker-test.sh`: Automated testing and validation script
 
-Date: August 28, 2025
+## Recent Changes
+
+### September 2, 2025 - Enhanced Project Access Control
+- **Fixed Project-Based Access Control**: Technical users now only see projects they are assigned to, not all projects
+- **Updated Routes**: Modified `/hetzner-projects` and `/hetzner-projects/<id>` routes to allow technical agents access to their assigned projects
+- **Enhanced Permission Checking**: Added proper project-specific permission validation for technical users
+- **User Assignment**: All technical users now have proper project assignments with appropriate access levels
+- **Dropdown Menu UX**: Implemented hover-based dropdown menu for improved user experience
+- **Domain Display**: Changed "Reverse DNS" column to "Domain" with clickable links that open in new tabs
+- **Server Operations**: Fixed authorization issues by implementing project-specific API token usage
+
+Date: September 2, 2025

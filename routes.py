@@ -1721,8 +1721,9 @@ def delete_project_access(access_id):
 @app.route('/hetzner-projects')
 @login_required
 def hetzner_projects():
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+    # Allow technical agents to see their assigned projects
+    if not (current_user.is_admin or current_user.is_technical_agent):
+        flash('Access denied. Technical Agent or Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     # Use the user's get_accessible_projects method which handles permissions correctly
@@ -1732,11 +1733,20 @@ def hetzner_projects():
 @app.route('/hetzner-projects/<int:project_id>')
 @login_required
 def hetzner_project_detail(project_id):
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+    # Allow technical agents to see their assigned projects
+    if not (current_user.is_admin or current_user.is_technical_agent):
+        flash('Access denied. Technical Agent or Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     project = HetznerProject.query.get_or_404(project_id)
+    
+    # Check if technical user has access to this specific project
+    if current_user.is_technical_agent and not current_user.is_admin:
+        accessible_project_ids = [p.id for p in current_user.get_accessible_projects()]
+        if project_id not in accessible_project_ids:
+            flash('Access denied. You do not have permission to view this project.', 'danger')
+            return redirect(url_for('hetzner_projects'))
+    
     servers = HetznerServer.query.filter_by(project_id=project_id).all()
     
     return render_template('hetzner_project_detail.html', project=project, servers=servers)
@@ -1744,11 +1754,21 @@ def hetzner_project_detail(project_id):
 @app.route('/hetzner-projects/<int:project_id>/sync', methods=['POST'])
 @login_required
 def sync_project_servers(project_id):
-    if not current_user.is_admin:
+    # Allow technical agents to sync their assigned projects
+    if not (current_user.is_admin or current_user.is_technical_agent):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
-        flash('Access denied. Admin privileges required.', 'danger')
+            return jsonify({'success': False, 'error': 'Access denied. Technical Agent or Admin privileges required.'}), 403
+        flash('Access denied. Technical Agent or Admin privileges required.', 'danger')
         return redirect(url_for('index'))
+    
+    # Check if technical user has access to this specific project
+    if current_user.is_technical_agent and not current_user.is_admin:
+        accessible_project_ids = [p.id for p in current_user.get_accessible_projects()]
+        if project_id not in accessible_project_ids:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'error': 'Access denied. You do not have permission to sync this project.'}), 403
+            flash('Access denied. You do not have permission to sync this project.', 'danger')
+            return redirect(url_for('hetzner_projects'))
     
     project = HetznerProject.query.get_or_404(project_id)
     
