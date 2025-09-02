@@ -1,0 +1,225 @@
+docker compose exec -T postgress psql -U dynamic_user -d dynamic_servers < database_backup_20250902_201556.sql
+SET
+SET
+SET
+ERROR:  unrecognized configuration parameter "transaction_timeout"
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+ERROR:  role "neondb_owner" does not exist
+COMMENT
+CREATE TYPE
+ERROR:  role "neondb_owner" does not exist
+ERROR:  type "userrole" already exists
+ERROR:  role "neondb_owner" does not exist
+SET
+SET
+ERROR:  relation "client_subscription" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "client_subscription_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "database_backup" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "database_backup_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "deployment_execution" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "deployment_execution_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "deployment_script" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "deployment_script_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "hetzner_projects" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "hetzner_projects_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "hetzner_server" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "hetzner_server_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "notification" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "notification_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "server_request" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "server_request_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "system_update" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "system_update_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "user" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "user_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "user_project_access" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "user_project_access_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ERROR:  relation "user_server_access" already exists
+ERROR:  role "neondb_owner" does not exist
+ERROR:  relation "user_server_access_id_seq" already exists
+ERROR:  role "neondb_owner" does not exist
+ALTER SEQUENCE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+COPY 0
+ERROR:  insert or update on table "database_backup" violates foreign key constraint "database_backup_server_id_fkey"
+DETAIL:  Key (server_id)=(9) is not present in table "hetzner_server".
+COPY 0
+COPY 0
+COPY 3
+COPY 42
+ERROR:  insert or update on table "notification" violates foreign key constraint "notification_user_id_fkey"
+DETAIL:  Key (user_id)=(8) is not present in table "user".
+ERROR:  insert or update on table "server_request" violates foreign key constraint "server_request_user_id_fkey"
+DETAIL:  Key (user_id)=(8) is not present in table "user".
+ERROR:  insert or update on table "system_update" violates foreign key constraint "system_update_initiated_by_fkey"
+DETAIL:  Key (initiated_by)=(4) is not present in table "user".
+ERROR:  duplicate key value violates unique constraint "user_pkey"
+DETAIL:  Key (id)=(1) already exists.
+CONTEXT:  COPY user, line 1
+ERROR:  insert or update on table "user_project_access" violates foreign key constraint "user_project_access_user_id_fkey"
+DETAIL:  Key (user_id)=(4) is not present in table "user".
+ERROR:  insert or update on table "user_server_access" violates foreign key constraint "user_server_access_user_id_fkey"
+DETAIL:  Key (user_id)=(4) is not present in table "user".
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+     19
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      1
+(1 row)
+
+ setval 
+--------
+      3
+(1 row)
+
+ setval 
+--------
+     48
+(1 row)
+
+ setval 
+--------
+      2
+(1 row)
+
+ setval 
+--------
+      2
+(1 row)
+
+ setval 
+--------
+      8
+(1 row)
+
+ setval 
+--------
+      8
+(1 row)
+
+ setval 
+--------
+     12
+(1 row)
+
+ setval 
+--------
+     10
+(1 row)
+
+ERROR:  multiple primary keys for table "client_subscription" are not allowed
+ERROR:  relation "database_backup_backup_id_key" already exists
+ERROR:  multiple primary keys for table "database_backup" are not allowed
+ERROR:  relation "deployment_execution_execution_id_key" already exists
+ERROR:  multiple primary keys for table "deployment_execution" are not allowed
+ERROR:  multiple primary keys for table "deployment_script" are not allowed
+ERROR:  multiple primary keys for table "hetzner_projects" are not allowed
+ERROR:  relation "hetzner_projects_project_id_key" already exists
+ERROR:  relation "hetzner_server_hetzner_id_key" already exists
+ERROR:  multiple primary keys for table "hetzner_server" are not allowed
+ERROR:  multiple primary keys for table "notification" are not allowed
+ERROR:  multiple primary keys for table "server_request" are not allowed
+ERROR:  relation "server_request_request_id_key" already exists
+ERROR:  multiple primary keys for table "system_update" are not allowed
+ERROR:  relation "system_update_update_id_key" already exists
+ERROR:  relation "unique_user_server" already exists
+ERROR:  relation "user_email_key" already exists
+ERROR:  multiple primary keys for table "user" are not allowed
+ERROR:  multiple primary keys for table "user_project_access" are not allowed
+ALTER TABLE
+ERROR:  multiple primary keys for table "user_server_access" are not allowed
+ERROR:  relation "user_username_key" already exists
+CREATE INDEX
+ERROR:  constraint "client_subscription_managed_by_fkey" for relation "client_subscription" already exists
+ERROR:  constraint "client_subscription_server_id_fkey" for relation "client_subscription" already exists
+ERROR:  constraint "database_backup_initiated_by_fkey" for relation "database_backup" already exists
+ERROR:  constraint "database_backup_server_id_fkey" for relation "database_backup" already exists
+ERROR:  constraint "deployment_execution_executed_by_fkey" for relation "deployment_execution" already exists
+ERROR:  constraint "deployment_execution_script_id_fkey" for relation "deployment_execution" already exists
+ERROR:  constraint "deployment_execution_server_id_fkey" for relation "deployment_execution" already exists
+ERROR:  constraint "deployment_script_created_by_fkey" for relation "deployment_script" already exists
+ERROR:  constraint "hetzner_projects_created_by_fkey" for relation "hetzner_projects" already exists
+ERROR:  constraint "hetzner_server_managed_by_fkey" for relation "hetzner_server" already exists
+ERROR:  constraint "hetzner_server_project_id_fkey" for relation "hetzner_server" already exists
+ERROR:  constraint "notification_request_id_fkey" for relation "notification" already exists
+ERROR:  constraint "notification_user_id_fkey" for relation "notification" already exists
+ERROR:  constraint "server_request_project_id_fkey" for relation "server_request" already exists
+ERROR:  constraint "server_request_reviewed_by_fkey" for relation "server_request" already exists
+ERROR:  constraint "server_request_user_id_fkey" for relation "server_request" already exists
+ERROR:  constraint "system_update_approved_by_fkey" for relation "system_update" already exists
+ERROR:  constraint "system_update_initiated_by_fkey" for relation "system_update" already exists
+ERROR:  constraint "system_update_server_id_fkey" for relation "system_update" already exists
+ERROR:  constraint "user_project_access_granted_by_fkey" for relation "user_project_access" already exists
+ERROR:  constraint "user_project_access_project_id_fkey" for relation "user_project_access" already exists
+ERROR:  constraint "user_project_access_user_id_fkey" for relation "user_project_access" already exists
+ERROR:  constraint "user_server_access_assigned_by_fkey" for relation "user_server_access" already exists
+ERROR:  constraint "user_server_access_server_id_fkey" for relation "user_server_access" already exists
+ERROR:  constraint "user_server_access_user_id_fkey" for relation "user_server_access" already exists
+REVOKE
