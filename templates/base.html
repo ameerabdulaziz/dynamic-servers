@@ -208,30 +208,58 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='app.js') }}"></script>
     
-    <!-- Custom fixes for select styling -->
+    <!-- Aggressive select styling fix -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Force select option styling and remove any unwanted borders/lines
+            // Aggressive select reset and styling
             const selects = document.querySelectorAll('select.form-select');
             selects.forEach(select => {
-                // Remove any background images that cause lines
-                select.style.backgroundImage = 'none';
-                select.style.textIndent = '0';
-                select.style.lineHeight = 'normal';
+                // Nuclear option - override everything
+                select.style.cssText = `
+                    appearance: none !important;
+                    -webkit-appearance: none !important;
+                    -moz-appearance: none !important;
+                    background: #374151 !important;
+                    background-image: none !important;
+                    background-repeat: no-repeat !important;
+                    background-position: right !important;
+                    background-size: auto !important;
+                    border: 2px solid rgba(37, 99, 235, 0.3) !important;
+                    border-radius: 8px !important;
+                    color: #ffffff !important;
+                    padding: 0.5rem 2.5rem 0.5rem 0.75rem !important;
+                    font-size: 1rem !important;
+                    line-height: 1.5 !important;
+                    text-decoration: none !important;
+                    text-indent: 0 !important;
+                    text-shadow: none !important;
+                    box-shadow: none !important;
+                    outline: none !important;
+                    width: 100% !important;
+                `;
                 
+                // Style options
                 const options = select.querySelectorAll('option');
                 options.forEach(option => {
-                    option.style.backgroundColor = '#1e293b';
-                    option.style.color = '#ffffff';
-                    option.style.padding = '0.5rem';
-                    option.style.border = 'none';
-                    option.style.outline = 'none';
+                    option.style.cssText = `
+                        background-color: #1e293b !important;
+                        color: #ffffff !important;
+                        padding: 0.5rem !important;
+                        border: none !important;
+                        outline: none !important;
+                    `;
                 });
                 
-                // Wrap select in container for custom arrow
+                // Wrap and add arrow only if not already wrapped
                 if (!select.parentElement.classList.contains('select-wrapper')) {
                     const wrapper = document.createElement('div');
-                    wrapper.className = 'select-wrapper position-relative';
+                    wrapper.className = 'select-wrapper';
+                    wrapper.style.cssText = `
+                        position: relative !important;
+                        display: inline-block !important;
+                        width: 100% !important;
+                    `;
+                    
                     select.parentNode.insertBefore(wrapper, select);
                     wrapper.appendChild(select);
                     
@@ -240,13 +268,14 @@
                     arrow.innerHTML = '▼';
                     arrow.className = 'select-arrow';
                     arrow.style.cssText = `
-                        position: absolute;
-                        right: 1rem;
-                        top: 50%;
-                        transform: translateY(-50%);
-                        color: #e2e8f0;
-                        pointer-events: none;
-                        font-size: 0.8rem;
+                        position: absolute !important;
+                        right: 1rem !important;
+                        top: 50% !important;
+                        transform: translateY(-50%) !important;
+                        color: #e2e8f0 !important;
+                        pointer-events: none !important;
+                        font-size: 0.8rem !important;
+                        z-index: 1 !important;
                     `;
                     wrapper.appendChild(arrow);
                 }

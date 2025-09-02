@@ -182,24 +182,47 @@ body {
 }
 
 /* Form improvements with Dynamic Business Servers styling */
-.form-control, .form-select {
+.form-control {
     border: 2px solid rgba(37, 99, 235, 0.1);
     border-radius: 8px;
     transition: all 0.3s ease;
     background: rgba(255, 255, 255, 0.02) !important;
     color: #e2e8f0 !important;
-    background-image: none !important; /* Remove any default background images */
-    text-indent: 0 !important;
-    padding-top: 0.5rem !important;
-    line-height: 1.5 !important;
 }
 
-.form-control:focus, .form-select:focus {
+.form-control:focus {
     border-color: var(--dbs-blue);
     box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.15);
     background: rgba(255, 255, 255, 0.05) !important;
     color: #e2e8f0 !important;
+}
+
+/* Complete select reset and styling */
+.form-select {
+    /* Reset everything */
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: #374151 !important;
     background-image: none !important;
+    background-repeat: no-repeat !important;
+    background-position: right !important;
+    background-size: auto !important;
+    
+    /* Our styling */
+    border: 2px solid rgba(37, 99, 235, 0.3) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    transition: all 0.3s ease !important;
+    
+    /* Prevent any decorative elements */
+    text-decoration: none !important;
+    text-indent: 0 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
 }
 
 /* Fix select dropdown options with higher specificity */
@@ -221,34 +244,35 @@ select.form-select option:hover {
     color: #ffffff !important;
 }
 
-/* Force select styling */
-.form-select {
-    background-color: #374151 !important;
+.form-select:focus {
+    background: #374151 !important;
+    background-image: none !important;
+    border-color: var(--dbs-blue) !important;
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.15) !important;
     color: #ffffff !important;
-    border: 2px solid rgba(37, 99, 235, 0.3) !important;
-    background-image: none !important; /* Remove dropdown arrow styling */
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
+}
+
+/* Custom select wrapper with arrow */
+.select-wrapper {
+    position: relative !important;
+    display: inline-block !important;
+    width: 100% !important;
+}
+
+.select-wrapper .form-select {
+    width: 100% !important;
     padding-right: 2.5rem !important;
 }
 
-.form-select:focus {
-    background-color: #374151 !important;
-    color: #ffffff !important;
-    border-color: var(--dbs-blue) !important;
-    background-image: none !important;
-}
-
-/* Add custom dropdown arrow */
-.form-select:after {
-    content: '▼';
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #e2e8f0;
-    pointer-events: none;
+.select-wrapper .select-arrow {
+    position: absolute !important;
+    right: 1rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: #e2e8f0 !important;
+    pointer-events: none !important;
+    font-size: 0.8rem !important;
+    z-index: 1 !important;
 }
 
 /* Modal select fixes */
