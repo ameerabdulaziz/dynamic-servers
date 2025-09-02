@@ -493,7 +493,8 @@ select[multiple].form-select option:hover {
     right: 0 !important;
     z-index: 99999 !important; /* Even higher z-index */
     margin-top: 0.5rem !important;
-    min-width: 200px !important;
+    min-width: auto !important;
+    width: max-content !important;
 }
 
 /* Fix for dropdowns on the left side of navbar */
