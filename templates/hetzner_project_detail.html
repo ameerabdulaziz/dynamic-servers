@@ -22,10 +22,11 @@
                 <a href="{{ url_for('edit_hetzner_project', project_id=project.id) }}" class="btn btn-outline-primary">
                     <i class="fas fa-edit me-1"></i>Edit Project
                 </a>
-                <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline">
+                <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline" id="sync-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-sync me-1"></i>Sync Servers
+                    <button type="submit" class="btn btn-success" id="sync-btn">
+                        <i class="fas fa-sync me-1" id="sync-icon"></i>
+                        <span id="sync-text">Sync Servers</span>
                     </button>
                 </form>
             </div>
@@ -270,10 +271,11 @@
                 {% endif %}
             </p>
             {% if not project.hetzner_api_token.startswith('REQUIRES_') %}
-            <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline">
+            <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline sync-form-empty">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-sync me-1"></i>Sync Servers Now
+                <button type="submit" class="btn btn-primary sync-btn-empty">
+                    <i class="fas fa-sync me-1 sync-icon-empty"></i>
+                    <span class="sync-text-empty">Sync Servers Now</span>
                 </button>
             </form>
             {% else %}
@@ -325,4 +327,162 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle main sync button
+    const syncForm = document.getElementById('sync-form');
+    if (syncForm) {
+        syncForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            performSync(this, 'sync-btn', 'sync-icon', 'sync-text');
+        });
+    }
+    
+    // Handle empty state sync button
+    const syncFormEmpty = document.querySelector('.sync-form-empty');
+    if (syncFormEmpty) {
+        syncFormEmpty.addEventListener('submit', function(e) {
+            e.preventDefault();
+            performSync(this, '.sync-btn-empty', '.sync-icon-empty', '.sync-text-empty');
+        });
+    }
+    
+    function performSync(form, btnSelector, iconSelector, textSelector) {
+        const btn = typeof btnSelector === 'string' ? document.querySelector(btnSelector) : document.getElementById(btnSelector);
+        const icon = typeof iconSelector === 'string' ? document.querySelector(iconSelector) : document.getElementById(iconSelector);
+        const text = typeof textSelector === 'string' ? document.querySelector(textSelector) : document.getElementById(textSelector);
+        
+        if (!btn || !icon || !text) return;
+        
+        // Show processing state
+        btn.disabled = true;
+        btn.classList.remove('btn-success', 'btn-primary');
+        btn.classList.add('btn-warning');
+        icon.classList.remove('fa-sync');
+        icon.classList.add('fa-spinner', 'fa-spin');
+        text.textContent = 'Syncing...';
+        
+        // Show toast notification
+        showToast('Sync started', 'Synchronizing servers from Hetzner Cloud...', 'info');
+        
+        // Perform AJAX request
+        const formData = new FormData(form);
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': formData.get('csrf_token')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Reset button state
+            btn.disabled = false;
+            icon.classList.remove('fa-spinner', 'fa-spin');
+            icon.classList.add('fa-sync');
+            
+            if (data.success) {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                text.textContent = 'Sync Complete';
+                
+                showToast('Sync successful!', data.message, 'success');
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    if (btnSelector.includes('empty')) {
+                        text.textContent = 'Sync Servers Now';
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-primary');
+                    } else {
+                        text.textContent = 'Sync Servers';
+                    }
+                }, 3000);
+                
+                // Refresh page after 2 seconds to show updated data
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                
+            } else {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-danger');
+                text.textContent = 'Sync Failed';
+                
+                showToast('Sync failed', data.error, 'error');
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    if (btnSelector.includes('empty')) {
+                        text.textContent = 'Sync Servers Now';
+                        btn.classList.remove('btn-danger');
+                        btn.classList.add('btn-primary');
+                    } else {
+                        text.textContent = 'Sync Servers';
+                        btn.classList.remove('btn-danger');
+                        btn.classList.add('btn-success');
+                    }
+                }, 3000);
+            }
+        })
+        .catch(error => {
+            console.error('Sync error:', error);
+            
+            // Reset button state
+            btn.disabled = false;
+            icon.classList.remove('fa-spinner', 'fa-spin');
+            icon.classList.add('fa-sync');
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-danger');
+            text.textContent = 'Sync Failed';
+            
+            showToast('Connection error', 'Failed to connect to server. Please try again.', 'error');
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                if (btnSelector.includes('empty')) {
+                    text.textContent = 'Sync Servers Now';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-primary');
+                } else {
+                    text.textContent = 'Sync Servers';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-success');
+                }
+            }, 3000);
+        });
+    }
+    
+    function showToast(title, message, type) {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'success' ? 'success' : type === 'info' ? 'info' : 'danger'} alert-dismissible fade show position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 350px;';
+        
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'info' ? 'info-circle' : 'exclamation-triangle'} me-2"></i>
+                <div>
+                    <div class="fw-bold">${title}</div>
+                    <small>${message}</small>
+                </div>
+                <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto-remove toast after 5 seconds
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+
 {% endblock %}

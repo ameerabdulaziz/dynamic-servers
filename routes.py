@@ -1745,6 +1745,8 @@ def hetzner_project_detail(project_id):
 @login_required
 def sync_project_servers(project_id):
     if not current_user.is_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
@@ -1754,12 +1756,40 @@ def sync_project_servers(project_id):
         hetzner_service = HetznerService(project_id=project_id)
         result = hetzner_service.sync_servers_from_hetzner()
         
-        if result['success']:
-            flash(f'Sync completed! {result["synced"]} new servers, {result["updated"]} updated, {result["total"]} total.', 'success')
+        # Check if it's an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if result['success']:
+                return jsonify({
+                    'success': True,
+                    'message': f'Sync completed! {result["synced"]} new servers, {result["updated"]} updated, {result["total"]} total.',
+                    'synced': result["synced"],
+                    'updated': result["updated"],
+                    'total': result["total"],
+                    'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': result["error"]
+                })
         else:
-            flash(f'Sync failed: {result["error"]}', 'danger')
+            # Regular form submission
+            if result['success']:
+                flash(f'Sync completed! {result["synced"]} new servers, {result["updated"]} updated, {result["total"]} total.', 'success')
+            else:
+                flash(f'Sync failed: {result["error"]}', 'danger')
+                
     except Exception as e:
-        flash(f'Error during sync: {str(e)}', 'danger')
+        error_msg = f'Error during sync: {str(e)}'
+        
+        # Check if it's an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            })
+        else:
+            flash(error_msg, 'danger')
     
     return redirect(url_for('hetzner_project_detail', project_id=project_id))
 
