@@ -55,7 +55,7 @@
                         <i class="fas fa-network-wired me-2"></i>Network Information
                     </h6>
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <strong>Public IPv4:</strong>
                             {% if server.public_ip %}
                                 <code>{{ server.public_ip }}</code>
@@ -63,7 +63,7 @@
                                 <span class="text-muted">None</span>
                             {% endif %}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <strong>Private IPv4:</strong>
                             {% if server.private_ip %}
                                 <code>{{ server.private_ip }}</code>
@@ -71,10 +71,18 @@
                                 <span class="text-muted">None</span>
                             {% endif %}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <strong>IPv6:</strong>
                             {% if server.ipv6 %}
                                 <code>{{ server.ipv6 }}</code>
+                            {% else %}
+                                <span class="text-muted">None</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Reverse DNS:</strong>
+                            {% if server.reverse_dns %}
+                                <code>{{ server.reverse_dns }}</code>
                             {% else %}
                                 <span class="text-muted">None</span>
                             {% endif %}

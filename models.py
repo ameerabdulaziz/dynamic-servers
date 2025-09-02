@@ -187,6 +187,7 @@ class HetznerServer(db.Model):
     public_ip = db.Column(db.String(15))
     private_ip = db.Column(db.String(15))
     ipv6 = db.Column(db.String(39))
+    reverse_dns = db.Column(db.String(255))  # Reverse DNS for public IP
     
     # Location and datacenter
     datacenter = db.Column(db.String(50))

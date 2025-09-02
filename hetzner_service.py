@@ -91,6 +91,9 @@ class HetznerService:
         server.public_ip = hetzner_server.public_net.ipv4.ip if hetzner_server.public_net.ipv4 else None
         server.ipv6 = hetzner_server.public_net.ipv6.ip if hetzner_server.public_net.ipv6 else None
         
+        # Get reverse DNS
+        server.reverse_dns = self._get_reverse_dns(hetzner_server)
+        
         # Private networks
         if hetzner_server.private_net:
             server.private_ip = hetzner_server.private_net[0].ip if hetzner_server.private_net else None
@@ -135,6 +138,12 @@ class HetznerService:
         new_ipv6 = hetzner_server.public_net.ipv6.ip if hetzner_server.public_net.ipv6 else None
         if local_server.ipv6 != new_ipv6:
             local_server.ipv6 = new_ipv6
+            updated = True
+        
+        # Update reverse DNS
+        new_reverse_dns = self._get_reverse_dns(hetzner_server)
+        if local_server.reverse_dns != new_reverse_dns:
+            local_server.reverse_dns = new_reverse_dns
             updated = True
         
         if updated:
@@ -287,3 +296,22 @@ class HetznerService:
         except Exception as e:
             self.logger.error(f"Error getting available locations: {str(e)}")
             return []
+    
+    def _get_reverse_dns(self, hetzner_server):
+        """Get reverse DNS for server's public IP"""
+        try:
+            if not hetzner_server.public_net.ipv4:
+                return None
+            
+            # Get reverse DNS for IPv4
+            rdns_entries = hetzner_server.public_net.ipv4.dns_ptr
+            
+            if rdns_entries:
+                # Return the first reverse DNS entry
+                return rdns_entries[0]['dns_ptr']
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error getting reverse DNS: {str(e)}")
+            return None

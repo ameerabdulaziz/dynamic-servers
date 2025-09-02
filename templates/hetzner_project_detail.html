@@ -189,6 +189,7 @@
                         <th>Type</th>
                         <th>Location</th>
                         <th>Public IP</th>
+                        <th>Reverse DNS</th>
                         <th>Resources</th>
                         <th>Last Sync</th>
                         <th>Actions</th>
@@ -218,6 +219,13 @@
                             <code>{{ server.public_ip }}</code>
                             {% else %}
                             <span class="text-muted">No public IP</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if server.reverse_dns %}
+                            <small class="text-muted">{{ server.reverse_dns }}</small>
+                            {% else %}
+                            <span class="text-muted">No reverse DNS</span>
                             {% endif %}
                         </td>
                         <td>
