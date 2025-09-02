@@ -45,6 +45,11 @@ def inject_csrf_token():
     from flask_wtf.csrf import generate_csrf
     return dict(csrf_token=generate_csrf)
 
+@app.context_processor
+def inject_current_year():
+    from datetime import datetime
+    return dict(current_year=datetime.now().year)
+
 def create_sohila_user():
     """Create Sohila technical user"""
     import models
