@@ -140,6 +140,11 @@ class ServerRequest(db.Model):
     storage_gb = db.Column(db.Integer, nullable=False)  # Auto-assigned
     operating_system = db.Column(db.String(50), default='ubuntu-22.04', nullable=False)  # Default OS
     
+    # Legacy application fields (now optional for simplified sales process)
+    application_name = db.Column(db.String(100), nullable=True)  # Optional - can be set later
+    application_type = db.Column(db.String(50), nullable=True)  # Optional - can be set later
+    application_description = db.Column(db.Text, nullable=True)
+    
     # Request details (simplified for sales agents)
     business_justification = db.Column(db.Text, nullable=True)  # Made optional
     estimated_usage = db.Column(db.String(50), nullable=False)  # < 50, low, medium, high
