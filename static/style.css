@@ -427,14 +427,15 @@ select.form-select option:hover {
     min-width: 200px !important;
 }
 
-/* Horizontal Admin Dropdown Menu - Only show when dropdown is shown */
+/* Horizontal Admin Dropdown Menu - Fixed positioning to ensure it's above everything */
 #adminDropdown + .dropdown-menu {
     display: none !important; /* Hidden by default */
     flex-direction: row !important;
     flex-wrap: wrap !important;
-    position: absolute !important;
-    top: 100% !important;
-    left: 0 !important;
+    position: fixed !important; /* Fixed position to escape stacking context */
+    top: 70px !important; /* Below navbar height */
+    left: 50% !important;
+    transform: translateX(-50%) !important; /* Center horizontally */
     width: auto !important;
     min-width: 700px !important;
     max-width: 900px !important;
@@ -442,13 +443,27 @@ select.form-select option:hover {
     background: rgba(15, 23, 42, 0.98) !important;
     border: 1px solid rgba(37, 99, 235, 0.2) !important;
     border-radius: 12px !important;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
-    z-index: 9999 !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
+    z-index: 999999 !important; /* Extremely high z-index */
+    backdrop-filter: blur(10px) !important;
 }
 
 /* Show dropdown when Bootstrap makes it active */
 #adminDropdown + .dropdown-menu.show {
     display: flex !important;
+}
+
+/* Add overlay backdrop to ensure clickability */
+#adminDropdown + .dropdown-menu.show::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    background: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(2px);
 }
 
 /* Dropdown groups styling */
@@ -497,6 +512,11 @@ select.form-select option:hover {
 
 #adminDropdown + .dropdown-menu .dropdown-divider {
     display: none !important;
+}
+
+/* Ensure admin dropdown is above Bootstrap modals and other high z-index elements */
+.navbar .nav-item.dropdown {
+    position: static !important; /* Allow fixed positioning to work */
 }
 
 /* Fallback for other dropdowns to keep normal behavior */
