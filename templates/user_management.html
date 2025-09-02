@@ -49,11 +49,11 @@
                                     </td>
                                     <td>{{ user.email }}</td>
                                     <td>
-                                        {% if user.role == 'admin' %}
+                                        {% if user.is_admin %}
                                             <span class="badge bg-danger">Administrator</span>
-                                        {% elif user.role == 'sales_agent' %}
+                                        {% elif user.is_sales_agent %}
                                             <span class="badge bg-success">Sales Agent</span>
-                                        {% elif user.role == 'technical_agent' %}
+                                        {% elif user.is_technical_agent %}
                                             <span class="badge bg-primary">Technical Agent</span>
                                             {% if user.is_manager %}
                                                 <span class="badge bg-warning ms-1">Manager</span>
@@ -91,7 +91,7 @@
                                             
                                             <!-- Change Role Button -->
                                             <button class="btn btn-primary btn-sm" 
-                                                    onclick="showChangeRoleModal('{{ user.id }}', '{{ user.username }}', '{{ user.role or '' }}')" 
+                                                    onclick="showChangeRoleModal('{{ user.id }}', '{{ user.username }}', '{{ user.role.value if user.role else '' }}')" 
                                                     title="Change Role">
                                                 <i class="fas fa-user-tag"></i>
                                             </button>
