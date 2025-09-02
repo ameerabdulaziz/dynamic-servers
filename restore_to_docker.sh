@@ -42,11 +42,11 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo "🗑️  Dropping existing database..."
-docker compose exec postgres psql -U $POSTGRES_USER -c "DROP DATABASE IF EXISTS $DATABASE_NAME;"
+docker compose exec postgres psql -U postgres -c "DROP DATABASE IF EXISTS $DATABASE_NAME;"
 
 echo "🏗️  Creating fresh database..."
-docker compose exec postgres psql -U $POSTGRES_USER -c "CREATE DATABASE $DATABASE_NAME;"
-docker compose exec postgres psql -U $POSTGRES_USER -c "GRANT ALL PRIVILEGES ON DATABASE $DATABASE_NAME TO $POSTGRES_USER;"
+docker compose exec postgres psql -U postgres -c "CREATE DATABASE $DATABASE_NAME;"
+docker compose exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $DATABASE_NAME TO $POSTGRES_USER;"
 
 echo "📊 Restoring database schema..."
 if docker compose exec -T postgres psql -U $POSTGRES_USER -d $DATABASE_NAME < $SCHEMA_FILE; then
