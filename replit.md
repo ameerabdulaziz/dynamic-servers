@@ -87,6 +87,25 @@ The system now includes comprehensive Docker support for containerized deploymen
 
 ## Recent Changes
 
+### September 2, 2025 - Server Request Form Simplification & Subdomain Feature
+- **Simplified Server Request Form**: Completely redesigned for sales agents with client-focused workflow
+  - Replaced server name input with client name (auto-generates server name)
+  - Removed technical fields (server type, hardware specs, OS, application details) 
+  - Added automatic hardware assignment based on usage estimates (< 50, low, medium, high)
+  - Made business justification optional
+  - Added project selection dropdown with base domain display
+- **Subdomain Management**: Implemented automatic subdomain suggestion system
+  - Added base_domain field to HetznerProject model
+  - Created subdomain field in ServerRequest with auto-suggestion from client name
+  - Built JavaScript functionality for real-time subdomain generation and domain preview
+  - Shows full domain as: subdomain.project-base-domain.com
+- **Project Base Domains**: Configured existing projects with base domains
+  - Nova HR: novahr.dynamicservers.io
+  - Frappe ERP: erp.dynamicservers.io  
+  - Django Projects: django.dynamicservers.io
+- **Database Schema Updates**: Added client_name, subdomain, and project_id columns to server_request table
+- **UI Enhancements**: Updated admin dashboard to display client information and project associations
+
 ### September 2, 2025 - Enhanced Project Access Control
 - **Fixed Project-Based Access Control**: Technical users now only see projects they are assigned to, not all projects
 - **Updated Routes**: Modified `/hetzner-projects` and `/hetzner-projects/<id>` routes to allow technical agents access to their assigned projects
