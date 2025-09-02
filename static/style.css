@@ -484,27 +484,39 @@ select[multiple].form-select option:hover {
 
 /* Fix navbar dropdown positioning and hover behavior */
 .navbar .dropdown {
-    position: relative;
+    position: relative !important;
 }
 
 .navbar .dropdown-menu {
     position: absolute !important;
-    top: 100% !important;
+    top: calc(100% + 0.25rem) !important;
     right: 0 !important;
     left: auto !important;
-    transform: none !important;
-    z-index: 99999 !important; /* Even higher z-index */
-    margin-top: 0.5rem !important;
-    min-width: auto !important;
+    transform: translateX(0) !important;
+    z-index: 99999 !important;
+    margin: 0 !important;
+    min-width: 120px !important;
     width: max-content !important;
-    display: none !important; /* Initially hidden */
-    transition: opacity 0.2s ease !important;
+    display: none !important;
+    opacity: 0 !important;
+    transition: all 0.15s ease-in-out !important;
 }
 
-/* Show dropdown on hover */
+/* Show dropdown on hover with smooth animation */
 .navbar .dropdown:hover .dropdown-menu {
     display: block !important;
     opacity: 1 !important;
+}
+
+/* Ensure hover area includes small gap */
+.navbar .dropdown::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    height: 0.25rem;
+    background: transparent;
 }
 
 /* Fix for dropdowns on the left side of navbar */
