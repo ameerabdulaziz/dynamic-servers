@@ -45,6 +45,16 @@ class ServerRequestForm(FlaskForm):
     project_id = SelectField('Project', validators=[DataRequired()], coerce=int, 
                            description='Select which project this server should be created in')
     
+    def validate_project_id(self, project_id):
+        if project_id.data == 0:
+            raise ValidationError('Please select a valid project.')
+    
+    # Subdomain (auto-suggested but editable)
+    subdomain = StringField('Subdomain', validators=[
+        DataRequired(), 
+        Length(min=2, max=100, message='Subdomain must be between 2 and 100 characters')
+    ], description='Subdomain for this server (auto-suggested from server name, editable)')
+    
     # Business details (simplified)
     business_justification = TextAreaField('Business Justification', validators=[
         Length(max=1000, message='Business justification must be less than 1000 characters')

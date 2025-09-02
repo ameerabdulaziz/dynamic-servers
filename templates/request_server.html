@@ -27,7 +27,7 @@
                             <div class="col-md-12">
                                 {{ form.client_name.label(class="form-label") }}
                                 <small class="text-muted d-block">{{ form.client_name.description }}</small>
-                                {{ form.client_name(class="form-control" + (" is-invalid" if form.client_name.errors else ""), placeholder="e.g., Acme Corporation") }}
+                                {{ form.client_name(class="form-control" + (" is-invalid" if form.client_name.errors else ""), placeholder="e.g., Acme Corporation", id="client_name") }}
                                 {% if form.client_name.errors %}
                                     <div class="invalid-feedback">
                                         {% for error in form.client_name.errors %}{{ error }}{% endfor %}
@@ -47,10 +47,27 @@
                             <div class="col-md-12">
                                 {{ form.project_id.label(class="form-label") }}
                                 <small class="text-muted d-block">{{ form.project_id.description }}</small>
-                                {{ form.project_id(class="form-select" + (" is-invalid" if form.project_id.errors else "")) }}
+                                {{ form.project_id(class="form-select" + (" is-invalid" if form.project_id.errors else ""), id="project_id") }}
                                 {% if form.project_id.errors %}
                                     <div class="invalid-feedback">
                                         {% for error in form.project_id.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-12">
+                                {{ form.subdomain.label(class="form-label") }}
+                                <small class="text-muted d-block">{{ form.subdomain.description }}</small>
+                                <div class="input-group">
+                                    {{ form.subdomain(class="form-control" + (" is-invalid" if form.subdomain.errors else ""), id="subdomain", placeholder="auto-generated") }}
+                                    <span class="input-group-text" id="domain-suffix">.example.com</span>
+                                </div>
+                                <small class="text-muted">Full domain will be: <span id="full-domain-preview">subdomain.example.com</span></small>
+                                {% if form.subdomain.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.subdomain.errors %}{{ error }}{% endfor %}
                                     </div>
                                 {% endif %}
                             </div>
@@ -137,4 +154,69 @@
     border-left: 4px solid var(--bs-info);
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const clientNameInput = document.getElementById('client_name');
+    const subdomainInput = document.getElementById('subdomain');
+    const projectSelect = document.getElementById('project_id');
+    const domainSuffix = document.getElementById('domain-suffix');
+    const fullDomainPreview = document.getElementById('full-domain-preview');
+    
+    // Store project domains
+    const projectDomains = {
+        {% for choice in form.project_id.choices %}
+        {% if choice[0] != 0 %}
+        '{{ choice[0] }}': '{{ choice[1].split(" - ")[1] if " - " in choice[1] else "example.com" }}',
+        {% endif %}
+        {% endfor %}
+    };
+    
+    function generateSubdomain(clientName) {
+        return clientName.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+            .replace(/\s+/g, '-') // Replace spaces with dashes
+            .replace(/-+/g, '-') // Remove duplicate dashes
+            .replace(/^-|-$/g, ''); // Remove leading/trailing dashes
+    }
+    
+    function updateDomainSuffix() {
+        const selectedProject = projectSelect.value;
+        if (selectedProject && selectedProject !== '0' && projectDomains[selectedProject]) {
+            const domain = projectDomains[selectedProject];
+            domainSuffix.textContent = '.' + domain;
+            updateFullDomainPreview();
+        }
+    }
+    
+    function updateFullDomainPreview() {
+        const subdomain = subdomainInput.value || 'subdomain';
+        const domain = domainSuffix.textContent.substring(1); // Remove leading dot
+        fullDomainPreview.textContent = subdomain + '.' + domain;
+    }
+    
+    // Auto-suggest subdomain when client name changes
+    clientNameInput.addEventListener('input', function() {
+        if (this.value.trim()) {
+            const suggestedSubdomain = generateSubdomain(this.value);
+            subdomainInput.value = suggestedSubdomain;
+            updateFullDomainPreview();
+        }
+    });
+    
+    // Update domain suffix when project changes
+    projectSelect.addEventListener('change', function() {
+        updateDomainSuffix();
+    });
+    
+    // Update preview when subdomain changes
+    subdomainInput.addEventListener('input', function() {
+        updateFullDomainPreview();
+    });
+    
+    // Initialize on page load
+    updateDomainSuffix();
+    updateFullDomainPreview();
+});
+</script>
 {% endblock %}

@@ -130,6 +130,7 @@ class ServerRequest(db.Model):
     # Client and project details
     client_name = db.Column(db.String(100), nullable=False)
     server_name = db.Column(db.String(100), nullable=False)  # Auto-generated from client_name
+    subdomain = db.Column(db.String(100), nullable=False)  # Subdomain for the server (auto-suggested, editable)
     project_id = db.Column(db.Integer, db.ForeignKey('hetzner_projects.id'), nullable=False)
     
     # Auto-assigned server specifications based on estimated usage
@@ -543,6 +544,7 @@ class HetznerProject(db.Model):
     # Project settings
     max_servers = db.Column(db.Integer, default=10)  # Maximum servers allowed in this project
     monthly_budget = db.Column(db.Numeric(10, 2))  # Monthly budget limit
+    base_domain = db.Column(db.String(100))  # Base domain for server subdomains (e.g., project.example.com)
     
     # SSH Configuration for all servers in this project
     ssh_username = db.Column(db.String(50), default='root')

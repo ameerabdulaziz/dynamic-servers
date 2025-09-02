@@ -429,10 +429,17 @@ def request_server():
     
     # Populate project choices based on user's access
     if current_user.is_admin:
-        form.project_id.choices = [(p.id, p.name) for p in HetznerProject.query.all()]
+        projects = HetznerProject.query.all()
+        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain}") for p in projects]
     else:
         accessible_projects = current_user.get_accessible_projects()
-        form.project_id.choices = [(p.id, p.name) for p in accessible_projects]
+        form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain}") for p in accessible_projects]
+    
+    # Add empty choice at the beginning for proper form validation
+    if form.project_id.choices:
+        form.project_id.choices.insert(0, (0, 'Select a project...'))
+    else:
+        form.project_id.choices = [(0, 'No projects available')]
     
     if form.validate_on_submit():
         # Auto-generate server name from client name
@@ -445,6 +452,7 @@ def request_server():
         server_request.user_id = current_user.id
         server_request.client_name = form.client_name.data
         server_request.server_name = server_name
+        server_request.subdomain = form.subdomain.data
         server_request.project_id = form.project_id.data
         server_request.server_type = hardware_specs['server_type']
         server_request.cpu_cores = hardware_specs['cpu_cores']
