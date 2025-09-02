@@ -392,7 +392,7 @@ select.form-select option:hover {
     background: rgba(15, 23, 42, 0.98) !important;
     border: 1px solid rgba(37, 99, 235, 0.2) !important;
     backdrop-filter: blur(10px);
-    z-index: 9999 !important; /* Much higher z-index */
+    z-index: 99999 !important; /* Even higher z-index to be above all dashboard widgets */
     position: absolute !important;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
 }
@@ -422,17 +422,41 @@ select.form-select option:hover {
     position: absolute !important;
     top: 100% !important;
     left: 0 !important;
-    z-index: 9999 !important;
+    z-index: 99999 !important; /* Even higher z-index */
     margin-top: 0.5rem !important;
     min-width: 200px !important;
 }
 
 /* Bootstrap override for dropdown */
 .navbar .nav-item.dropdown .dropdown-menu {
-    z-index: 9999 !important;
+    z-index: 99999 !important; /* Even higher z-index */
     position: absolute !important;
     inset: auto auto auto 0px !important;
     transform: translate3d(0px, 38px, 0px) !important;
+}
+
+/* Ensure navbar dropdown is above everything */
+.navbar .nav-item.dropdown {
+    position: static !important;
+}
+
+.navbar .nav-item.dropdown .dropdown-menu {
+    position: fixed !important;
+    z-index: 99999 !important;
+    top: auto !important;
+    margin-top: 0 !important;
+}
+
+/* Override any Bootstrap z-index conflicts */
+.dropdown-menu[data-bs-popper] {
+    z-index: 99999 !important;
+    position: absolute !important;
+}
+
+/* Ensure admin dropdown works properly */
+#adminDropdown + .dropdown-menu {
+    z-index: 99999 !important;
+    position: absolute !important;
 }
 
 /* Footer adjustments */
