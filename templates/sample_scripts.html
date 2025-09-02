@@ -53,6 +53,7 @@
                     </button>
                     
                     <form method="POST" action="{{ url_for('create_from_sample', sample_name=sample_key) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-primary btn-sm">
                             <i class="fas fa-plus me-1"></i>Create Script
                         </button>
@@ -100,6 +101,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <form method="POST" action="{{ url_for('create_from_sample', sample_name=sample_key) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Create Script
                     </button>

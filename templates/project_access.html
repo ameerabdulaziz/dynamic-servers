@@ -71,6 +71,7 @@
                                                                 {{ access.access_level.title() }}
                                                             </span>
                                                             <form method="POST" action="{{ url_for('revoke_project_access') }}" class="mb-0">
+                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                                 <input type="hidden" name="user_id" value="{{ user_data.user.id }}">
                                                                 <input type="hidden" name="project_id" value="{{ project.id }}">
                                                                 <button type="submit" class="btn btn-sm btn-outline-danger" 
@@ -81,6 +82,7 @@
                                                         </div>
                                                     {% else %}
                                                         <form method="POST" action="{{ url_for('grant_project_access') }}" class="d-inline-block">
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                             <input type="hidden" name="user_id" value="{{ user_data.user.id }}">
                                                             <input type="hidden" name="project_id" value="{{ project.id }}">
                                                             <div class="input-group input-group-sm">

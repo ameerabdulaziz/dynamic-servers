@@ -34,6 +34,7 @@
                 {% endif %}
 
                 <form method="POST" action="{{ url_for('configure_server_ssh', server_id=server.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">SSH Username</label>

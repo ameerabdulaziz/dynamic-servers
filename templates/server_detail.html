@@ -156,6 +156,7 @@
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('manage_server', server_id=server.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     {{ management_form.hidden_tag() }}
                     
                     <div class="mb-3">
@@ -180,6 +181,7 @@
             <div class="card-body">
                 {% if execution_form.script_id.choices %}
                 <form method="POST" action="{{ url_for('deploy_to_server', server_id=server.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     {{ execution_form.hidden_tag() }}
                     
                     <div class="mb-3">

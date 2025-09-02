@@ -243,7 +243,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form method="POST" action="{{ url_for('deploy_to_server', server_id=execution.server.id) }}" class="d-inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <input type="hidden" name="script_id" value="{{ execution.script.id }}">
                     <input type="hidden" name="execution_variables" value="{{ execution.execution_variables or '{}' }}">
                     <button type="submit" class="btn btn-warning">
