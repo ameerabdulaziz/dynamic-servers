@@ -188,6 +188,10 @@ body {
     transition: all 0.3s ease;
     background: rgba(255, 255, 255, 0.02) !important;
     color: #e2e8f0 !important;
+    background-image: none !important; /* Remove any default background images */
+    text-indent: 0 !important;
+    padding-top: 0.5rem !important;
+    line-height: 1.5 !important;
 }
 
 .form-control:focus, .form-select:focus {
@@ -195,6 +199,7 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.15);
     background: rgba(255, 255, 255, 0.05) !important;
     color: #e2e8f0 !important;
+    background-image: none !important;
 }
 
 /* Fix select dropdown options with higher specificity */
@@ -221,12 +226,29 @@ select.form-select option:hover {
     background-color: #374151 !important;
     color: #ffffff !important;
     border: 2px solid rgba(37, 99, 235, 0.3) !important;
+    background-image: none !important; /* Remove dropdown arrow styling */
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    padding-right: 2.5rem !important;
 }
 
 .form-select:focus {
     background-color: #374151 !important;
     color: #ffffff !important;
     border-color: var(--dbs-blue) !important;
+    background-image: none !important;
+}
+
+/* Add custom dropdown arrow */
+.form-select:after {
+    content: '▼';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #e2e8f0;
+    pointer-events: none;
 }
 
 /* Modal select fixes */

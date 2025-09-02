@@ -208,18 +208,48 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='app.js') }}"></script>
     
-    <!-- Custom fixes for select styling only -->
+    <!-- Custom fixes for select styling -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Force select option styling without affecting dropdowns
+            // Force select option styling and remove any unwanted borders/lines
             const selects = document.querySelectorAll('select.form-select');
             selects.forEach(select => {
+                // Remove any background images that cause lines
+                select.style.backgroundImage = 'none';
+                select.style.textIndent = '0';
+                select.style.lineHeight = 'normal';
+                
                 const options = select.querySelectorAll('option');
                 options.forEach(option => {
                     option.style.backgroundColor = '#1e293b';
                     option.style.color = '#ffffff';
                     option.style.padding = '0.5rem';
+                    option.style.border = 'none';
+                    option.style.outline = 'none';
                 });
+                
+                // Wrap select in container for custom arrow
+                if (!select.parentElement.classList.contains('select-wrapper')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'select-wrapper position-relative';
+                    select.parentNode.insertBefore(wrapper, select);
+                    wrapper.appendChild(select);
+                    
+                    // Add custom arrow
+                    const arrow = document.createElement('span');
+                    arrow.innerHTML = '▼';
+                    arrow.className = 'select-arrow';
+                    arrow.style.cssText = `
+                        position: absolute;
+                        right: 1rem;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        color: #e2e8f0;
+                        pointer-events: none;
+                        font-size: 0.8rem;
+                    `;
+                    wrapper.appendChild(arrow);
+                }
             });
         });
     </script>
