@@ -353,12 +353,11 @@ def technical_dashboard():
         recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
         recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
     else:
-        # Regular technical agents see only servers they are specifically assigned to via UserServerAccess
-        assigned_server_access = UserServerAccess.query.filter_by(user_id=current_user.id).all()
-        accessible_server_ids = [access.server_id for access in assigned_server_access]
-        servers = HetznerServer.query.filter(HetznerServer.id.in_(accessible_server_ids)).all() if accessible_server_ids else []
+        # Regular technical agents see only servers from projects they have access to
+        servers = current_user.get_accessible_servers()
+        accessible_server_ids = [server.id for server in servers]
         
-        # Filter activities to only show data from servers they are specifically assigned to
+        # Filter activities to only show data from servers in accessible projects
         recent_updates = SystemUpdate.query.filter(SystemUpdate.server_id.in_(accessible_server_ids)).order_by(SystemUpdate.started_at.desc()).limit(10).all() if accessible_server_ids else []
         recent_backups = DatabaseBackup.query.filter(DatabaseBackup.server_id.in_(accessible_server_ids)).order_by(DatabaseBackup.started_at.desc()).limit(10).all() if accessible_server_ids else []
         recent_deployments = DeploymentExecution.query.filter(DeploymentExecution.server_id.in_(accessible_server_ids)).order_by(DeploymentExecution.started_at.desc()).limit(10).all() if accessible_server_ids else []
@@ -624,11 +623,20 @@ def sync_servers():
 @app.route('/servers/<int:server_id>')
 @login_required
 def server_detail(server_id):
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+    # Allow technical agents access to servers in their projects
+    if not (current_user.is_admin or current_user.is_technical_agent):
+        flash('Access denied. Technical Agent or Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
+    
+    # Check if technical agent has access to this server's project
+    if current_user.is_technical_agent and not current_user.is_admin:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        if server_id not in accessible_server_ids:
+            flash('Access denied. You do not have permission to view this server.', 'danger')
+            return redirect(url_for('server_operations'))
     
     # Get deployment scripts for execution form
     scripts = DeploymentScript.query.all()
@@ -650,11 +658,20 @@ def server_detail(server_id):
 @app.route('/servers/<int:server_id>/manage', methods=['POST'])
 @login_required
 def manage_server(server_id):
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+    # Allow technical agents access to servers in their projects
+    if not (current_user.is_admin or current_user.is_technical_agent):
+        flash('Access denied. Technical Agent or Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
+    
+    # Check if technical agent has access to this server's project
+    if current_user.is_technical_agent and not current_user.is_admin:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        if server_id not in accessible_server_ids:
+            flash('Access denied. You do not have permission to manage this server.', 'danger')
+            return redirect(url_for('server_operations'))
     form = ServerManagementForm()
     
     if form.validate_on_submit():
@@ -692,11 +709,20 @@ def manage_server(server_id):
 @app.route('/servers/<int:server_id>/deploy', methods=['POST'])
 @login_required
 def deploy_to_server(server_id):
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
+    # Allow technical agents access to servers in their projects
+    if not (current_user.is_admin or current_user.is_technical_agent):
+        flash('Access denied. Technical Agent or Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
+    
+    # Check if technical agent has access to this server's project
+    if current_user.is_technical_agent and not current_user.is_admin:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        if server_id not in accessible_server_ids:
+            flash('Access denied. You do not have permission to deploy to this server.', 'danger')
+            return redirect(url_for('server_operations'))
     form = ExecuteDeploymentForm()
     
     # Set choices for the form
@@ -961,10 +987,8 @@ def server_operations():
         # Admins and manager technical agents see all servers
         servers = HetznerServer.query.all()
     else:
-        # Regular technical agents see only servers they are specifically assigned to via UserServerAccess
-        assigned_server_access = UserServerAccess.query.filter_by(user_id=current_user.id).all()
-        accessible_server_ids = [access.server_id for access in assigned_server_access]
-        servers = HetznerServer.query.filter(HetznerServer.id.in_(accessible_server_ids)).all() if accessible_server_ids else []
+        # Regular technical agents see only servers from projects they have access to
+        servers = current_user.get_accessible_servers()
     
     return render_template('server_operations.html', servers=servers)
 
@@ -977,12 +1001,13 @@ def create_backup(server_id):
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this specific server (admins and managers have full access)
+    # Check if user has access to this server's project (admins and managers have full access)
     if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
-        # Regular technical agents need specific server access
-        server_access = UserServerAccess.query.filter_by(user_id=current_user.id, server_id=server_id).first()
-        if not server_access or server_access.access_level not in ['write', 'admin']:
-            flash('Access denied. You do not have write access to this server.', 'danger')
+        # Regular technical agents need project access
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        if server_id not in accessible_server_ids:
+            flash('Access denied. You do not have access to this server.', 'danger')
             return redirect(url_for('server_operations'))
     
     # Create backup record
@@ -1104,12 +1129,13 @@ def create_system_update(server_id):
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this specific server (admins and managers have full access)
+    # Check if user has access to this server's project (admins and managers have full access)
     if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
-        # Regular technical agents need specific server access
-        server_access = UserServerAccess.query.filter_by(user_id=current_user.id, server_id=server_id).first()
-        if not server_access or server_access.access_level not in ['write', 'admin']:
-            flash('Access denied. You do not have write access to this server.', 'danger')
+        # Regular technical agents need project access
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        if server_id not in accessible_server_ids:
+            flash('Access denied. You do not have access to this server.', 'danger')
             return redirect(url_for('server_operations'))
     
     # Create system update record
