@@ -482,7 +482,7 @@ select[multiple].form-select option:hover {
     color: var(--dbs-orange) !important;
 }
 
-/* Fix navbar dropdown positioning */
+/* Fix navbar dropdown positioning and hover behavior */
 .navbar .dropdown {
     position: relative;
 }
@@ -497,6 +497,14 @@ select[multiple].form-select option:hover {
     margin-top: 0.5rem !important;
     min-width: auto !important;
     width: max-content !important;
+    display: none !important; /* Initially hidden */
+    transition: opacity 0.2s ease !important;
+}
+
+/* Show dropdown on hover */
+.navbar .dropdown:hover .dropdown-menu {
+    display: block !important;
+    opacity: 1 !important;
 }
 
 /* Fix for dropdowns on the left side of navbar */
