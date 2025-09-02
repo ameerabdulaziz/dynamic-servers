@@ -490,10 +490,16 @@ select[multiple].form-select option:hover {
 .navbar .dropdown-menu {
     position: absolute !important;
     top: 100% !important;
-    left: 0 !important;
+    right: 0 !important;
     z-index: 99999 !important; /* Even higher z-index */
     margin-top: 0.5rem !important;
     min-width: 200px !important;
+}
+
+/* Fix for dropdowns on the left side of navbar */
+.navbar .dropdown-menu.dropdown-menu-start {
+    left: 0 !important;
+    right: auto !important;
 }
 
 /* Admin Mega Menu - Full Screen Overlay */
