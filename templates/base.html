@@ -89,53 +89,10 @@
                         {% endif %}
                         
                         {% if current_user.is_admin %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" id="adminMegaMenuToggle">
                                     <i class="fas fa-tools me-1"></i>Admin
                                 </a>
-                                <ul class="dropdown-menu">
-                                    <!-- Server Management Group -->
-                                    <li class="dropdown-group">
-                                        <div class="dropdown-group-header">
-                                            <i class="fas fa-server me-2"></i>Server Management
-                                        </div>
-                                        <a class="dropdown-item" href="{{ url_for('hetzner_projects') }}">
-                                            <i class="fas fa-project-diagram me-2"></i>Hetzner Projects
-                                        </a>
-                                        <a class="dropdown-item" href="{{ url_for('servers_list') }}">
-                                            <i class="fas fa-server me-2"></i>Cloud Servers
-                                        </a>
-                                    </li>
-                                    
-                                    <!-- Deployment & Scripts Group -->
-                                    <li class="dropdown-group">
-                                        <div class="dropdown-group-header">
-                                            <i class="fas fa-cogs me-2"></i>Deployments
-                                        </div>
-                                        <a class="dropdown-item" href="{{ url_for('deployment_scripts') }}">
-                                            <i class="fas fa-terminal me-2"></i>Scripts
-                                        </a>
-                                        <a class="dropdown-item" href="{{ url_for('deployment_executions') }}">
-                                            <i class="fas fa-play me-2"></i>Deployments
-                                        </a>
-                                    </li>
-                                    
-                                    <!-- User & Access Management Group -->
-                                    <li class="dropdown-group">
-                                        <div class="dropdown-group-header">
-                                            <i class="fas fa-users me-2"></i>User Management
-                                        </div>
-                                        <a class="dropdown-item" href="{{ url_for('user_management') }}">
-                                            <i class="fas fa-users-cog me-2"></i>Users
-                                        </a>
-                                        <a class="dropdown-item" href="{{ url_for('project_access') }}">
-                                            <i class="fas fa-shield-alt me-2"></i>Project Access
-                                        </a>
-                                        <a class="dropdown-item" href="{{ url_for('server_assignments') }}">
-                                            <i class="fas fa-user-cog me-2"></i>Server Assignments
-                                        </a>
-                                    </li>
-                                </ul>
                             </li>
                         {% endif %}
                     {% endif %}
@@ -169,6 +126,58 @@
             </div>
         </div>
     </nav>
+
+    <!-- Admin Mega Menu Overlay -->
+    {% if current_user.is_admin %}
+    <div id="adminMegaMenu" class="admin-mega-menu">
+        <div class="mega-menu-content">
+            <div class="mega-menu-header">
+                <h4><i class="fas fa-tools me-2"></i>Admin Panel</h4>
+                <button id="closeMegaMenu" class="btn-close"></button>
+            </div>
+            <div class="mega-menu-sections">
+                <div class="mega-menu-section">
+                    <h5><i class="fas fa-server me-2"></i>Server Management</h5>
+                    <div class="mega-menu-links">
+                        <a href="{{ url_for('hetzner_projects') }}" class="mega-menu-link">
+                            <i class="fas fa-project-diagram me-2"></i>Hetzner Projects
+                        </a>
+                        <a href="{{ url_for('servers_list') }}" class="mega-menu-link">
+                            <i class="fas fa-server me-2"></i>Cloud Servers
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="mega-menu-section">
+                    <h5><i class="fas fa-cogs me-2"></i>Deployments</h5>
+                    <div class="mega-menu-links">
+                        <a href="{{ url_for('deployment_scripts') }}" class="mega-menu-link">
+                            <i class="fas fa-terminal me-2"></i>Scripts
+                        </a>
+                        <a href="{{ url_for('deployment_executions') }}" class="mega-menu-link">
+                            <i class="fas fa-play me-2"></i>Deployments
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="mega-menu-section">
+                    <h5><i class="fas fa-users me-2"></i>User Management</h5>
+                    <div class="mega-menu-links">
+                        <a href="{{ url_for('user_management') }}" class="mega-menu-link">
+                            <i class="fas fa-users-cog me-2"></i>Users
+                        </a>
+                        <a href="{{ url_for('project_access') }}" class="mega-menu-link">
+                            <i class="fas fa-shield-alt me-2"></i>Project Access
+                        </a>
+                        <a href="{{ url_for('server_assignments') }}" class="mega-menu-link">
+                            <i class="fas fa-user-cog me-2"></i>Server Assignments
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Main Content -->
     <main class="container my-4">

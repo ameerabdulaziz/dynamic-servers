@@ -7,37 +7,40 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
-    // Handle admin dropdown overlay
-    const adminDropdown = document.getElementById('adminDropdown');
-    if (adminDropdown) {
-        adminDropdown.addEventListener('click', function(e) {
+    // Handle admin mega menu
+    const adminMegaMenuToggle = document.getElementById('adminMegaMenuToggle');
+    const adminMegaMenu = document.getElementById('adminMegaMenu');
+    const closeMegaMenu = document.getElementById('closeMegaMenu');
+    
+    if (adminMegaMenuToggle && adminMegaMenu) {
+        adminMegaMenuToggle.addEventListener('click', function(e) {
             e.preventDefault();
-            document.body.classList.add('admin-dropdown-open');
-            const dropdown = document.querySelector('#adminDropdown + .dropdown-menu');
-            if (dropdown) {
-                dropdown.classList.add('show');
+            adminMegaMenu.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        });
+
+        // Close mega menu
+        function closeMegaMenuFunc() {
+            adminMegaMenu.classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close button
+        if (closeMegaMenu) {
+            closeMegaMenu.addEventListener('click', closeMegaMenuFunc);
+        }
+
+        // Close on backdrop click
+        adminMegaMenu.addEventListener('click', function(e) {
+            if (e.target === adminMegaMenu) {
+                closeMegaMenuFunc();
             }
         });
 
-        // Close dropdown when clicking outside or on backdrop
-        document.addEventListener('click', function(e) {
-            const dropdown = document.querySelector('#adminDropdown + .dropdown-menu');
-            if (dropdown && dropdown.classList.contains('show')) {
-                if (!dropdown.contains(e.target) && !adminDropdown.contains(e.target)) {
-                    document.body.classList.remove('admin-dropdown-open');
-                    dropdown.classList.remove('show');
-                }
-            }
-        });
-
-        // Close dropdown on escape key
+        // Close on escape key
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const dropdown = document.querySelector('#adminDropdown + .dropdown-menu');
-                if (dropdown && dropdown.classList.contains('show')) {
-                    document.body.classList.remove('admin-dropdown-open');
-                    dropdown.classList.remove('show');
-                }
+            if (e.key === 'Escape' && adminMegaMenu.classList.contains('show')) {
+                closeMegaMenuFunc();
             }
         });
     }
