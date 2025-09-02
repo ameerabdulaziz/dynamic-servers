@@ -80,9 +80,12 @@
                             {% endif %}
                         </div>
                         <div class="col-md-3">
-                            <strong>Reverse DNS:</strong>
+                            <strong>Domain:</strong>
                             {% if server.reverse_dns %}
-                                <code>{{ server.reverse_dns }}</code>
+                                <a href="http://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
+                                    <code class="text-info">{{ server.reverse_dns }}</code>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
                             {% else %}
                                 <span class="text-muted">None</span>
                             {% endif %}

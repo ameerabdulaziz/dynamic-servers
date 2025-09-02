@@ -190,7 +190,7 @@
                         <th>Type</th>
                         <th>Location</th>
                         <th>Public IP</th>
-                        <th>Reverse DNS</th>
+                        <th>Domain</th>
                         <th>Resources</th>
                         <th>Last Sync</th>
                         <th>Actions</th>
@@ -224,9 +224,12 @@
                         </td>
                         <td>
                             {% if server.reverse_dns %}
-                            <small class="text-muted">{{ server.reverse_dns }}</small>
+                            <a href="http://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
+                                <small class="text-info">{{ server.reverse_dns }}</small>
+                                <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                            </a>
                             {% else %}
-                            <span class="text-muted">No reverse DNS</span>
+                            <span class="text-muted">No domain</span>
                             {% endif %}
                         </td>
                         <td>
