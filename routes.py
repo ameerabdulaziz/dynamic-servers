@@ -1565,34 +1565,76 @@ def assign_user_to_server():
         return redirect(url_for('index'))
     
     server_id = request.form.get('server_id')
-    user_id = request.form.get('user_id')
+    user_ids = request.form.getlist('user_ids')  # Get multiple user IDs
     access_level = request.form.get('access_level')
     
-    # Validate input
+    # Validate server
     server = HetznerServer.query.get(server_id)
-    user = User.query.get(user_id)
-    
-    if not server or not user:
-        flash('Invalid server or user selected.', 'danger')
+    if not server:
+        flash('Invalid server selected.', 'danger')
         return redirect(url_for('server_assignments'))
     
-    # Check if assignment already exists
-    existing = UserServerAccess.query.filter_by(user_id=user_id, server_id=server_id).first()
-    if existing:
-        flash(f'User {user.username} is already assigned to server {server.name}.', 'warning')
+    if not user_ids:
+        flash('Please select at least one technical agent.', 'warning')
         return redirect(url_for('server_assignments'))
     
-    # Create new assignment
-    assignment = UserServerAccess()
-    assignment.user_id = user_id
-    assignment.server_id = server_id
-    assignment.access_level = access_level
-    assignment.assigned_by = current_user.id
+    # Track assignment results
+    assigned_users = []
+    already_assigned = []
+    invalid_users = []
     
-    db.session.add(assignment)
-    db.session.commit()
+    # Process each selected user
+    for user_id in user_ids:
+        user = User.query.get(user_id)
+        if not user:
+            invalid_users.append(f"User ID {user_id}")
+            continue
+            
+        # Check if assignment already exists
+        existing = UserServerAccess.query.filter_by(user_id=user_id, server_id=server_id).first()
+        if existing:
+            already_assigned.append(user.username)
+            continue
+        
+        # Create new assignment
+        assignment = UserServerAccess()
+        assignment.user_id = user_id
+        assignment.server_id = server_id
+        assignment.access_level = access_level
+        assignment.assigned_by = current_user.id
+        
+        db.session.add(assignment)
+        assigned_users.append(user.username)
     
-    flash(f'Successfully assigned {user.username} to server {server.name} with {access_level} access.', 'success')
+    # Commit all changes
+    if assigned_users:
+        db.session.commit()
+        
+    # Build success/warning messages
+    messages = []
+    if assigned_users:
+        if len(assigned_users) == 1:
+            messages.append(f'Successfully assigned {assigned_users[0]} to server {server.name} with {access_level} access.')
+        else:
+            messages.append(f'Successfully assigned {len(assigned_users)} users to server {server.name}: {", ".join(assigned_users)}')
+        
+    if already_assigned:
+        if len(already_assigned) == 1:
+            messages.append(f'User {already_assigned[0]} was already assigned to this server.')
+        else:
+            messages.append(f'{len(already_assigned)} users were already assigned: {", ".join(already_assigned)}')
+            
+    if invalid_users:
+        messages.append(f'Invalid users skipped: {", ".join(invalid_users)}')
+    
+    # Flash appropriate message
+    if assigned_users:
+        flash(' '.join(messages), 'success')
+    elif already_assigned and not invalid_users:
+        flash(' '.join(messages), 'warning') 
+    else:
+        flash(' '.join(messages), 'danger')
+        
     return redirect(url_for('server_assignments'))
 
 @app.route('/admin/remove-server-assignment', methods=['POST'])
