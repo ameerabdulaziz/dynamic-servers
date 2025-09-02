@@ -51,26 +51,41 @@
                     </div>
                 </div>
 
-                <!-- Application Details -->
+                <!-- Client & Project Details -->
                 <div class="mb-4">
                     <h6 class="text-info">
-                        <i class="fas fa-code me-2"></i>Application Details
+                        <i class="fas fa-user-tie me-2"></i>Client & Project Details
                     </h6>
                     <div class="row">
                         <div class="col-md-6">
                             <ul class="list-unstyled">
-                                <li><strong>Application:</strong> {{ request.application_name }}</li>
-                                <li><strong>Type:</strong> {{ request.application_type.replace('-', ' ').title() }}</li>
-                                <li><strong>Usage:</strong> {{ request.estimated_usage.replace('-', ' ').title() }}</li>
+                                <li><strong>Client:</strong> {{ request.client_name }}</li>
+                                {% if request.subdomain %}
+                                    <li><strong>Subdomain:</strong> <code>{{ request.subdomain }}</code></li>
+                                    {% if request.project %}
+                                        <li><strong>Full Domain:</strong> <code>{{ request.subdomain }}.{{ request.project.base_domain }}</code></li>
+                                    {% endif %}
+                                {% endif %}
+                                <li><strong>Usage Level:</strong> {{ request.estimated_usage.replace('-', ' ').title() }}</li>
                             </ul>
                         </div>
-                        {% if request.application_description %}
-                            <div class="col-md-6">
-                                <strong>Description:</strong>
-                                <p class="text-muted mb-0">{{ request.application_description }}</p>
-                            </div>
-                        {% endif %}
+                        <div class="col-md-6">
+                            {% if request.application_name %}
+                                <ul class="list-unstyled">
+                                    <li><strong>Application:</strong> {{ request.application_name }}</li>
+                                    {% if request.application_type %}
+                                        <li><strong>Type:</strong> {{ request.application_type.replace('-', ' ').title() }}</li>
+                                    {% endif %}
+                                </ul>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% if request.application_description %}
+                        <div class="mt-3">
+                            <strong>Application Description:</strong>
+                            <p class="text-muted mb-0">{{ request.application_description }}</p>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <!-- Business Justification -->
