@@ -659,7 +659,7 @@ def manage_server(server_id):
     
     if form.validate_on_submit():
         try:
-            hetzner_service = HetznerService()
+            hetzner_service = HetznerService(project_id=server.project_id)
             
             if form.action.data == 'start':
                 result = hetzner_service.start_server(server.hetzner_id)
