@@ -427,36 +427,23 @@ select.form-select option:hover {
     min-width: 200px !important;
 }
 
-/* Bootstrap override for dropdown */
+/* Bootstrap override for dropdown - ONLY z-index changes */
+.dropdown-menu {
+    z-index: 99999 !important; /* Even higher z-index to appear above dashboard widgets */
+}
+
 .navbar .nav-item.dropdown .dropdown-menu {
     z-index: 99999 !important; /* Even higher z-index */
-    position: absolute !important;
-    inset: auto auto auto 0px !important;
-    transform: translate3d(0px, 38px, 0px) !important;
-}
-
-/* Ensure navbar dropdown is above everything */
-.navbar .nav-item.dropdown {
-    position: static !important;
-}
-
-.navbar .nav-item.dropdown .dropdown-menu {
-    position: fixed !important;
-    z-index: 99999 !important;
-    top: auto !important;
-    margin-top: 0 !important;
 }
 
 /* Override any Bootstrap z-index conflicts */
 .dropdown-menu[data-bs-popper] {
     z-index: 99999 !important;
-    position: absolute !important;
 }
 
 /* Ensure admin dropdown works properly */
 #adminDropdown + .dropdown-menu {
     z-index: 99999 !important;
-    position: absolute !important;
 }
 
 /* Footer adjustments */
