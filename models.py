@@ -108,11 +108,11 @@ class User(UserMixin, db.Model):
         """Get list of servers user has access to based on project access"""
         from models import HetznerServer  # Import here to avoid circular imports
         
-        # Admins and manager technical agents see all servers
-        if self.role == UserRole.ADMIN or (self.role == UserRole.TECHNICAL_AGENT and self.is_manager):
+        # Only admins see all servers
+        if self.role == UserRole.ADMIN:
             return HetznerServer.query.all()
         
-        # Get servers from projects user has access to
+        # All technical agents (including managers) get servers from projects they have access to
         accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
         return HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
     

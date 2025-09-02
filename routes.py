@@ -344,16 +344,16 @@ def technical_dashboard():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Admins see all servers and data - no filtering applied
-    if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
-        # Admins and manager technical agents see all servers
+    # Only admins see all servers - technical agents (including managers) use project-based filtering
+    if current_user.is_admin:
+        # Only admins see all servers
         servers = HetznerServer.query.all()
         # Get all system updates, backups, and deployments
         recent_updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(10).all()
         recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
         recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
     else:
-        # Regular technical agents see only servers from projects they have access to
+        # All technical agents (including managers) see only servers from projects they have access to
         servers = current_user.get_accessible_servers()
         accessible_server_ids = [server.id for server in servers]
         
@@ -631,7 +631,7 @@ def server_detail(server_id):
     server = HetznerServer.query.get_or_404(server_id)
     
     # Check if technical agent has access to this server's project
-    if current_user.is_technical_agent and not current_user.is_admin:
+    if not current_user.is_admin:
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
@@ -666,7 +666,7 @@ def manage_server(server_id):
     server = HetznerServer.query.get_or_404(server_id)
     
     # Check if technical agent has access to this server's project
-    if current_user.is_technical_agent and not current_user.is_admin:
+    if not current_user.is_admin:
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
@@ -717,7 +717,7 @@ def deploy_to_server(server_id):
     server = HetznerServer.query.get_or_404(server_id)
     
     # Check if technical agent has access to this server's project
-    if current_user.is_technical_agent and not current_user.is_admin:
+    if not current_user.is_admin:
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
@@ -982,12 +982,12 @@ def server_operations():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Admins have complete system access - see all servers
-    if current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager):
-        # Admins and manager technical agents see all servers
+    # Only admins have complete system access - see all servers
+    if current_user.is_admin:
+        # Only admins see all servers
         servers = HetznerServer.query.all()
     else:
-        # Regular technical agents see only servers from projects they have access to
+        # All technical agents (including managers) see only servers from projects they have access to
         servers = current_user.get_accessible_servers()
     
     return render_template('server_operations.html', servers=servers)
@@ -1001,9 +1001,9 @@ def create_backup(server_id):
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this server's project (admins and managers have full access)
-    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
-        # Regular technical agents need project access
+    # Check if user has access to this server's project (only admins have full access)
+    if not current_user.is_admin:
+        # All technical agents (including managers) need project access
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
@@ -1129,9 +1129,9 @@ def create_system_update(server_id):
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this server's project (admins and managers have full access)
-    if not (current_user.is_admin or (current_user.role == UserRole.TECHNICAL_AGENT and current_user.is_manager)):
-        # Regular technical agents need project access
+    # Check if user has access to this server's project (only admins have full access)
+    if not current_user.is_admin:
+        # All technical agents (including managers) need project access
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
