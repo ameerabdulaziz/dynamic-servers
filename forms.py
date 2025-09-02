@@ -35,99 +35,27 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Email already registered. Please choose a different one.')
 
 class ServerRequestForm(FlaskForm):
-    # Server details
-    server_name = StringField('Server Name', validators=[
+    # Client details
+    client_name = StringField('Client Name', validators=[
         DataRequired(), 
-        Length(min=3, max=100, message='Server name must be between 3 and 100 characters')
-    ])
+        Length(min=2, max=100, message='Client name must be between 2 and 100 characters')
+    ], description='The name of the client this server is for (server name will be auto-generated)')
     
-    server_type = SelectField('Server Type', validators=[DataRequired()], choices=[
-        ('web', 'Web Server'),
-        ('database', 'Database Server'),
-        ('application', 'Application Server'),
-        ('cache', 'Cache Server'),
-        ('file', 'File Server'),
-        ('backup', 'Backup Server'),
-        ('development', 'Development Server'),
-        ('testing', 'Testing Server')
-    ])
+    # Project selection
+    project_id = SelectField('Project', validators=[DataRequired()], coerce=int, 
+                           description='Select which project this server should be created in')
     
-    # Hardware specifications
-    cpu_cores = SelectField('CPU Cores', validators=[DataRequired()], coerce=int, choices=[
-        (1, '1 Core'),
-        (2, '2 Cores'),
-        (4, '4 Cores'),
-        (8, '8 Cores'),
-        (16, '16 Cores'),
-        (32, '32 Cores')
-    ])
-    
-    memory_gb = SelectField('Memory (GB)', validators=[DataRequired()], coerce=int, choices=[
-        (1, '1 GB'),
-        (2, '2 GB'),
-        (4, '4 GB'),
-        (8, '8 GB'),
-        (16, '16 GB'),
-        (32, '32 GB'),
-        (64, '64 GB'),
-        (128, '128 GB')
-    ])
-    
-    storage_gb = SelectField('Storage (GB)', validators=[DataRequired()], coerce=int, choices=[
-        (20, '20 GB'),
-        (50, '50 GB'),
-        (100, '100 GB'),
-        (250, '250 GB'),
-        (500, '500 GB'),
-        (1000, '1 TB'),
-        (2000, '2 TB')
-    ])
-    
-    operating_system = SelectField('Operating System', validators=[DataRequired()], choices=[
-        ('ubuntu-20.04', 'Ubuntu 20.04 LTS'),
-        ('ubuntu-22.04', 'Ubuntu 22.04 LTS'),
-        ('centos-7', 'CentOS 7'),
-        ('centos-8', 'CentOS 8'),
-        ('rhel-8', 'Red Hat Enterprise Linux 8'),
-        ('rhel-9', 'Red Hat Enterprise Linux 9'),
-        ('windows-server-2019', 'Windows Server 2019'),
-        ('windows-server-2022', 'Windows Server 2022')
-    ])
-    
-    # Application details
-    application_name = StringField('Application Name', validators=[
-        DataRequired(), 
-        Length(min=2, max=100, message='Application name must be between 2 and 100 characters')
-    ])
-    
-    application_type = SelectField('Application Type', validators=[DataRequired()], choices=[
-        ('web-app', 'Web Application'),
-        ('api', 'API Service'),
-        ('database', 'Database'),
-        ('microservice', 'Microservice'),
-        ('batch-job', 'Batch Processing'),
-        ('analytics', 'Analytics/BI'),
-        ('monitoring', 'Monitoring Tool'),
-        ('ci-cd', 'CI/CD Pipeline'),
-        ('other', 'Other')
-    ])
-    
-    application_description = TextAreaField('Application Description', validators=[
-        Length(max=500, message='Description cannot exceed 500 characters')
-    ])
-    
-    # Business justification
+    # Business details (simplified)
     business_justification = TextAreaField('Business Justification', validators=[
-        DataRequired(),
-        Length(min=20, max=1000, message='Business justification must be between 20 and 1000 characters')
-    ])
+        Length(max=1000, message='Business justification must be less than 1000 characters')
+    ], description='Optional: Explain why this server is needed')
     
     estimated_usage = SelectField('Estimated Usage', validators=[DataRequired()], choices=[
-        ('low', 'Low (< 100 users/day)'),
-        ('medium', 'Medium (100-1000 users/day)'),
-        ('high', 'High (1000-10000 users/day)'),
-        ('very-high', 'Very High (> 10000 users/day)')
-    ])
+        ('< 50', '< 50 users (1 Core, 2GB RAM, 20GB Storage)'),
+        ('low', 'Low (2 Cores, 4GB RAM, 40GB Storage)'),
+        ('medium', 'Medium (2 Cores, 8GB RAM, 80GB Storage)'),
+        ('high', 'High (4 Cores, 16GB RAM, 160GB Storage)')
+    ], description='Server specifications will be automatically assigned based on usage')
     
     priority = SelectField('Priority', validators=[DataRequired()], choices=[
         ('low', 'Low'),

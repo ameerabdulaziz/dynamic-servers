@@ -316,8 +316,8 @@ def admin_dashboard():
     if search:
         query = query.filter(
             db.or_(
+                ServerRequest.client_name.contains(search),
                 ServerRequest.server_name.contains(search),
-                ServerRequest.application_name.contains(search),
                 ServerRequest.request_id.contains(search)
             )
         )
@@ -426,21 +426,35 @@ def request_server():
         return redirect(url_for('index'))
         
     form = ServerRequestForm()
+    
+    # Populate project choices based on user's access
+    if current_user.is_admin:
+        form.project_id.choices = [(p.id, p.name) for p in HetznerProject.query.all()]
+    else:
+        accessible_projects = current_user.get_accessible_projects()
+        form.project_id.choices = [(p.id, p.name) for p in accessible_projects]
+    
     if form.validate_on_submit():
+        # Auto-generate server name from client name
+        server_name = ServerRequest.generate_server_name(form.client_name.data)
+        
+        # Auto-assign hardware specs based on estimated usage
+        hardware_specs = ServerRequest.assign_hardware_specs(form.estimated_usage.data)
+        
         server_request = ServerRequest()
         server_request.user_id = current_user.id
-        server_request.server_name = form.server_name.data
-        server_request.server_type = form.server_type.data
-        server_request.cpu_cores = form.cpu_cores.data
-        server_request.memory_gb = form.memory_gb.data
-        server_request.storage_gb = form.storage_gb.data
-        server_request.operating_system = form.operating_system.data
-        server_request.application_name = form.application_name.data
-        server_request.application_type = form.application_type.data
-        server_request.application_description = form.application_description.data
+        server_request.client_name = form.client_name.data
+        server_request.server_name = server_name
+        server_request.project_id = form.project_id.data
+        server_request.server_type = hardware_specs['server_type']
+        server_request.cpu_cores = hardware_specs['cpu_cores']
+        server_request.memory_gb = hardware_specs['memory_gb']
+        server_request.storage_gb = hardware_specs['storage_gb']
+        server_request.operating_system = 'ubuntu-22.04'  # Default OS
         server_request.business_justification = form.business_justification.data
         server_request.estimated_usage = form.estimated_usage.data
         server_request.priority = form.priority.data
+        
         db.session.add(server_request)
         db.session.commit()
         
@@ -448,7 +462,7 @@ def request_server():
         notification = Notification()
         notification.user_id = current_user.id
         notification.title = 'Server Request Submitted'
-        notification.message = f'Your server request "{server_request.server_name}" has been submitted and is pending approval.'
+        notification.message = f'Your server request for "{form.client_name.data}" (server: {server_name}) has been submitted and is pending approval.'
         notification.type = 'info'
         notification.request_id = server_request.id
         db.session.add(notification)

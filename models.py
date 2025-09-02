@@ -95,9 +95,10 @@ class User(UserMixin, db.Model):
     
     def get_accessible_projects(self):
         """Get list of projects user has access to"""
+        from models import HetznerProject  # Import here to avoid circular imports
+        
         # Admins and manager technical agents see all projects
         if self.role == UserRole.ADMIN or (self.role == UserRole.TECHNICAL_AGENT and self.is_manager):
-            from models import HetznerProject  # Import here to avoid circular imports
             return HetznerProject.query.all()
         
         # Get projects with explicit access
@@ -126,22 +127,21 @@ class ServerRequest(db.Model):
     # User who made the request
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
-    # Server specifications
-    server_name = db.Column(db.String(100), nullable=False)
-    server_type = db.Column(db.String(50), nullable=False)  # web, database, application, etc.
-    cpu_cores = db.Column(db.Integer, nullable=False)
-    memory_gb = db.Column(db.Integer, nullable=False)
-    storage_gb = db.Column(db.Integer, nullable=False)
-    operating_system = db.Column(db.String(50), nullable=False)
+    # Client and project details
+    client_name = db.Column(db.String(100), nullable=False)
+    server_name = db.Column(db.String(100), nullable=False)  # Auto-generated from client_name
+    project_id = db.Column(db.Integer, db.ForeignKey('hetzner_projects.id'), nullable=False)
     
-    # Application details
-    application_name = db.Column(db.String(100), nullable=False)
-    application_type = db.Column(db.String(50), nullable=False)
-    application_description = db.Column(db.Text)
+    # Auto-assigned server specifications based on estimated usage
+    server_type = db.Column(db.String(50), nullable=False)  # Auto-assigned: cx11, cx21, cx31, cx41
+    cpu_cores = db.Column(db.Integer, nullable=False)  # Auto-assigned
+    memory_gb = db.Column(db.Integer, nullable=False)  # Auto-assigned
+    storage_gb = db.Column(db.Integer, nullable=False)  # Auto-assigned
+    operating_system = db.Column(db.String(50), default='ubuntu-22.04', nullable=False)  # Default OS
     
-    # Request details
-    business_justification = db.Column(db.Text, nullable=False)
-    estimated_usage = db.Column(db.String(50), nullable=False)  # low, medium, high
+    # Request details (simplified for sales agents)
+    business_justification = db.Column(db.Text, nullable=True)  # Made optional
+    estimated_usage = db.Column(db.String(50), nullable=False)  # < 50, low, medium, high
     
     # Status and workflow
     status = db.Column(db.String(20), default='pending')  # pending, approved, rejected, deploying, deployed, failed
@@ -160,6 +160,10 @@ class ServerRequest(db.Model):
     # Deployment details (populated after approval)
     server_ip = db.Column(db.String(15))
     deployment_progress = db.Column(db.Integer, default=0)  # 0-100
+    
+    # Relationships
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
+    project = db.relationship('HetznerProject', backref='server_requests')
     
     def get_status_badge_class(self):
         status_classes = {
@@ -180,6 +184,42 @@ class ServerRequest(db.Model):
             'urgent': 'bg-danger'
         }
         return priority_classes.get(self.priority, 'bg-secondary')
+    
+    @staticmethod
+    def generate_server_name(client_name):
+        """Generate server name from client name by replacing spaces with dashes and making lowercase"""
+        return client_name.lower().replace(' ', '-').replace('_', '-')
+    
+    @staticmethod
+    def assign_hardware_specs(estimated_usage):
+        """Auto-assign hardware specifications based on estimated usage"""
+        specs = {
+            '< 50': {
+                'server_type': 'cx11',
+                'cpu_cores': 1,
+                'memory_gb': 2,
+                'storage_gb': 20
+            },
+            'low': {
+                'server_type': 'cx21',
+                'cpu_cores': 2,
+                'memory_gb': 4,
+                'storage_gb': 40
+            },
+            'medium': {
+                'server_type': 'cx31',
+                'cpu_cores': 2,
+                'memory_gb': 8,
+                'storage_gb': 80
+            },
+            'high': {
+                'server_type': 'cx41',
+                'cpu_cores': 4,
+                'memory_gb': 16,
+                'storage_gb': 160
+            }
+        }
+        return specs.get(estimated_usage, specs['low'])  # Default to low if not found
     
     def __repr__(self):
         return f'<ServerRequest {self.request_id}>'

@@ -101,7 +101,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Search</label>
                         <input type="text" name="search" class="form-control" 
-                               placeholder="Search by server name, application, or request ID"
+                               placeholder="Search by client name, server name, or request ID"
                                value="{{ search }}">
                     </div>
                     <div class="col-md-2">
@@ -133,8 +133,8 @@
                                 <tr>
                                     <th>Request ID</th>
                                     <th>User</th>
-                                    <th>Server Details</th>
-                                    <th>Application</th>
+                                    <th>Client Details</th>
+                                    <th>Project</th>
                                     <th>Hardware</th>
                                     <th>Status</th>
                                     <th>Priority</th>
@@ -153,12 +153,16 @@
                                         <small class="text-muted">{{ request.user.email }}</small>
                                     </td>
                                     <td>
-                                        <strong>{{ request.server_name }}</strong><br>
-                                        <small class="text-muted">{{ request.server_type }}</small>
+                                        <strong>{{ request.client_name }}</strong><br>
+                                        <small class="text-muted">Server: {{ request.server_name }}</small>
                                     </td>
                                     <td>
-                                        {{ request.application_name }}<br>
-                                        <small class="text-muted">{{ request.application_type }}</small>
+                                        {% if request.project %}
+                                            {{ request.project.name }}<br>
+                                            <small class="text-muted">{{ request.estimated_usage.title() }} usage</small>
+                                        {% else %}
+                                            <span class="text-muted">No project assigned</span>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         <small>
