@@ -87,6 +87,21 @@ The system now includes comprehensive Docker support for containerized deploymen
 
 ## Recent Changes
 
+### September 2, 2025 - Automatic Server Provisioning & DNS Integration
+- **Automatic Server Provisioning**: Implemented complete automation after admin approval
+  - Servers are automatically created in Hetzner Cloud with request specifications
+  - DNS A records are automatically added to GoDaddy for subdomain configuration
+  - Real-time progress tracking with notifications to users
+  - Comprehensive error handling and rollback capabilities
+- **GoDaddy DNS Integration**: Built complete DNS management service
+  - Automatic A record creation pointing subdomains to server IPs
+  - Support for multiple domains and projects
+  - Secure API key management via Replit Secrets
+- **Enhanced Approval Workflow**: Updated admin review process
+  - Single-click approval triggers automatic provisioning
+  - Progress updates and status tracking throughout deployment
+  - Automatic notifications for success/failure scenarios
+
 ### September 2, 2025 - Server Request Form Simplification & Subdomain Feature
 - **Simplified Server Request Form**: Completely redesigned for sales agents with client-focused workflow
   - Replaced server name input with client name (auto-generates server name)
@@ -99,12 +114,12 @@ The system now includes comprehensive Docker support for containerized deploymen
   - Created subdomain field in ServerRequest with auto-suggestion from client name
   - Built JavaScript functionality for real-time subdomain generation and domain preview
   - Shows full domain as: subdomain.project-base-domain.com
-- **Project Base Domains**: Configured existing projects with base domains
-  - Nova HR: novahr.dynamicservers.io
+- **Project Base Domains**: Updated base domain configuration
+  - Nova HR: novahrs.com (updated from novahr.dynamicservers.io)
   - Frappe ERP: erp.dynamicservers.io  
   - Django Projects: django.dynamicservers.io
 - **Database Schema Updates**: Added client_name, subdomain, and project_id columns to server_request table
-- **UI Enhancements**: Updated admin dashboard to display client information and project associations
+- **UI Enhancements**: Updated admin dashboard and request details to display client information and project associations
 
 ### September 2, 2025 - Enhanced Project Access Control
 - **Fixed Project-Based Access Control**: Technical users now only see projects they are assigned to, not all projects

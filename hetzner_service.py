@@ -78,6 +78,91 @@ class HetznerService:
                 'error': str(e)
             }
     
+    def create_server(self, name: str, server_type: str, image: str = 'ubuntu-22.04', location: str = 'nbg1', labels: dict = None):
+        """Create a new server in Hetzner Cloud"""
+        try:
+            self.logger.info(f"Creating server: {name} ({server_type}) in {location}")
+            
+            # Get server type and image objects
+            server_type_obj = ServerType(name=server_type)
+            image_obj = Image(name=image)
+            location_obj = Location(name=location)
+            
+            # Create server with labels
+            server_labels = labels or {}
+            if self.project_id:
+                server_labels['project_id'] = str(self.project_id)
+            
+            # Create the server
+            response = self.client.servers.create(
+                name=name,
+                server_type=server_type_obj,
+                image=image_obj,
+                location=location_obj,
+                labels=server_labels
+            )
+            
+            hetzner_server = response.server
+            self.logger.info(f"Server created successfully: {hetzner_server.name} (ID: {hetzner_server.id})")
+            
+            # Wait for server to be ready and get IP
+            self.client.servers.wait_until_ready(hetzner_server)
+            
+            # Refresh server data to get IP address
+            hetzner_server = self.client.servers.get_by_id(hetzner_server.id)
+            
+            # Create local database entry
+            local_server = self._create_server_from_hetzner(hetzner_server)
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'server': local_server,
+                'hetzner_server': hetzner_server,
+                'ip_address': hetzner_server.public_net.ipv4.ip if hetzner_server.public_net.ipv4 else None,
+                'message': f'Server {name} created successfully'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error creating server {name}: {str(e)}")
+            db.session.rollback()
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def delete_server(self, server_id: int):
+        """Delete a server from Hetzner Cloud"""
+        try:
+            hetzner_server = self.client.servers.get_by_id(server_id)
+            if hetzner_server:
+                self.client.servers.delete(hetzner_server)
+                self.logger.info(f"Server {hetzner_server.name} (ID: {server_id}) deleted from Hetzner Cloud")
+                
+                # Update local database
+                local_server = HetznerServer.query.filter_by(hetzner_id=server_id).first()
+                if local_server:
+                    local_server.status = 'deleting'
+                    local_server.last_synced = datetime.utcnow()
+                    db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': f'Server {hetzner_server.name} deleted successfully'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Server with ID {server_id} not found'
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error deleting server {server_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
     def _create_server_from_hetzner(self, hetzner_server):
         """Create a new HetznerServer record from Hetzner API data"""
         server = HetznerServer()

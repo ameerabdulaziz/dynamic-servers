@@ -11,8 +11,138 @@ from app import app, db
 from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess, UserServerAccess
 from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
+from godaddy_service import GoDaddyService
 from ansible_service import AnsibleService
 from ssh_service import SSHService, get_default_deploy_script, get_default_backup_script
+
+def provision_server_and_dns(server_request: ServerRequest):
+    """
+    Provision a Hetzner server and configure DNS record automatically
+    """
+    try:
+        app.logger.info(f"Starting server provisioning for request: {server_request.request_id}")
+        
+        # Update request status to deploying
+        server_request.status = 'deploying'
+        server_request.deployment_progress = 10
+        db.session.commit()
+        
+        # Initialize Hetzner service with the project's API token
+        if not server_request.project_id:
+            return {'success': False, 'error': 'No project specified for server request'}
+        
+        hetzner_service = HetznerService(project_id=server_request.project_id)
+        
+        # Prepare server labels
+        labels = {
+            'client': server_request.client_name,
+            'request_id': server_request.request_id,
+            'managed_by': 'dynamic_servers',
+            'subdomain': server_request.subdomain
+        }
+        
+        # Update progress
+        server_request.deployment_progress = 20
+        db.session.commit()
+        
+        # Create server in Hetzner Cloud
+        creation_result = hetzner_service.create_server(
+            name=server_request.server_name,
+            server_type=server_request.server_type,
+            image=server_request.operating_system,
+            location='nbg1',  # Default location
+            labels=labels
+        )
+        
+        if not creation_result['success']:
+            server_request.status = 'failed'
+            server_request.deployment_notes = f"Server creation failed: {creation_result['error']}"
+            db.session.commit()
+            return creation_result
+        
+        # Update progress and get IP address
+        server_ip = creation_result['ip_address']
+        server_request.server_ip = server_ip
+        server_request.deployment_progress = 60
+        db.session.commit()
+        
+        app.logger.info(f"Server created successfully with IP: {server_ip}")
+        
+        # Configure DNS if base domain exists
+        if server_request.project.base_domain and server_request.subdomain:
+            app.logger.info(f"Configuring DNS for {server_request.subdomain}.{server_request.project.base_domain}")
+            
+            godaddy_service = GoDaddyService()
+            dns_result = godaddy_service.add_dns_record(
+                domain=server_request.project.base_domain,
+                subdomain=server_request.subdomain,
+                ip_address=server_ip
+            )
+            
+            # Update progress
+            server_request.deployment_progress = 80
+            db.session.commit()
+            
+            if dns_result['success']:
+                app.logger.info(f"DNS record created successfully: {server_request.subdomain}.{server_request.project.base_domain} -> {server_ip}")
+                dns_message = f"DNS configured: {server_request.subdomain}.{server_request.project.base_domain}"
+            else:
+                app.logger.warning(f"DNS configuration failed: {dns_result['error']}")
+                dns_message = f"DNS configuration failed: {dns_result['error']}"
+        else:
+            dns_message = "DNS configuration skipped (no base domain configured)"
+            app.logger.info(dns_message)
+        
+        # Mark as successfully deployed
+        server_request.status = 'deployed'
+        server_request.deployment_progress = 100
+        server_request.deployed_at = datetime.utcnow()
+        server_request.deployment_notes = f"Server provisioned successfully. IP: {server_ip}. {dns_message}"
+        
+        # Create success notification
+        notification = Notification()
+        notification.user_id = server_request.user_id
+        notification.title = 'Server Deployed Successfully'
+        notification.message = f'Your server "{server_request.server_name}" has been deployed at {server_ip}'
+        if server_request.project.base_domain:
+            notification.message += f' and is accessible at {server_request.subdomain}.{server_request.project.base_domain}'
+        notification.type = 'success'
+        notification.request_id = server_request.id
+        db.session.add(notification)
+        
+        db.session.commit()
+        
+        app.logger.info(f"Server provisioning completed successfully for request: {server_request.request_id}")
+        
+        return {
+            'success': True,
+            'server_ip': server_ip,
+            'full_domain': f"{server_request.subdomain}.{server_request.project.base_domain}" if server_request.project.base_domain else None,
+            'message': 'Server provisioned and DNS configured successfully'
+        }
+        
+    except Exception as e:
+        app.logger.error(f"Error in server provisioning: {e}")
+        
+        # Mark as failed
+        server_request.status = 'failed'
+        server_request.deployment_notes = f"Provisioning failed: {str(e)}"
+        
+        # Create failure notification
+        notification = Notification()
+        notification.user_id = server_request.user_id
+        notification.title = 'Server Deployment Failed'
+        notification.message = f'Server deployment for "{server_request.server_name}" failed: {str(e)}'
+        notification.type = 'error'
+        notification.request_id = server_request.id
+        db.session.add(notification)
+        
+        db.session.commit()
+        
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 @app.route('/')
 def index():
@@ -536,9 +666,18 @@ def review_request(request_id):
         
         flash(f'Request {status_message} successfully!', 'success')
         
-        # If approved, redirect to deployment
+        # If approved, automatically provision server and create DNS record
         if form.status.data == 'approved':
-            return redirect(url_for('deploy_server', request_id=request_id))
+            # Start background server provisioning
+            try:
+                result = provision_server_and_dns(server_request)
+                if result['success']:
+                    flash('Server provisioning started successfully! The server will be created and DNS configured automatically.', 'success')
+                else:
+                    flash(f'Error starting server provisioning: {result["error"]}', 'warning')
+            except Exception as e:
+                app.logger.error(f"Error in server provisioning: {e}")
+                flash('Server provisioning could not be started. Please check the logs.', 'warning')
     
     return redirect(url_for('request_detail', request_id=request_id))
 
