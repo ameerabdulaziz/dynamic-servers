@@ -56,7 +56,7 @@
                                             </td>
                                             <td>
                                                 <span class="badge {{ 'bg-info' if user_data.user.role.name == 'TECHNICAL_AGENT' else 'bg-primary' }}">
-                                                    {{ user_data.user.get_role_display() }}
+                                                    {{ user_data.user.role_display }}
                                                 </span>
                                                 {% if user_data.user.is_manager %}
                                                     <span class="badge bg-warning ms-1">Manager</span>
