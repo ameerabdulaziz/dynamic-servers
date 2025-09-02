@@ -307,11 +307,23 @@ class HetznerService:
             rdns_entries = hetzner_server.public_net.ipv4.dns_ptr
             
             if rdns_entries:
-                # Return the first reverse DNS entry
-                return rdns_entries[0]['dns_ptr']
+                # dns_ptr is a list of dict objects with 'dns_ptr' key
+                if isinstance(rdns_entries, list) and len(rdns_entries) > 0:
+                    first_entry = rdns_entries[0]
+                    if hasattr(first_entry, 'dns_ptr'):
+                        return first_entry.dns_ptr
+                    elif isinstance(first_entry, dict) and 'dns_ptr' in first_entry:
+                        return first_entry['dns_ptr']
+                    else:
+                        # If it's a string, return it directly
+                        return str(first_entry)
+                elif isinstance(rdns_entries, str):
+                    # Sometimes it might be a direct string
+                    return rdns_entries
             
             return None
             
         except Exception as e:
-            self.logger.error(f"Error getting reverse DNS: {str(e)}")
+            self.logger.error(f"Error getting reverse DNS for {hetzner_server.name}: {str(e)}")
+            self.logger.debug(f"DNS PTR structure: {type(hetzner_server.public_net.ipv4.dns_ptr)} - {hetzner_server.public_net.ipv4.dns_ptr}")
             return None
