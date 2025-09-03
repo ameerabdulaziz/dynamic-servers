@@ -1767,9 +1767,40 @@ def delete_user():
             flash('You cannot delete your own account.', 'danger')
         else:
             username = user.username
-            db.session.delete(user)
-            db.session.commit()
-            flash(f'User {username} has been deleted successfully.', 'success')
+            
+            try:
+                # Delete related records first to avoid foreign key constraints
+                # Delete user project access records
+                UserProjectAccess.query.filter_by(user_id=user.id).delete()
+                
+                # Delete user server access records
+                UserServerAccess.query.filter_by(user_id=user.id).delete()
+                
+                # Delete notifications for this user
+                Notification.query.filter_by(user_id=user.id).delete()
+                
+                # Delete server requests created by this user
+                ServerRequest.query.filter_by(user_id=user.id).delete()
+                
+                # Delete deployment executions by this user
+                DeploymentExecution.query.filter_by(executed_by=user.id).delete()
+                
+                # Delete database backups initiated by this user
+                DatabaseBackup.query.filter_by(initiated_by=user.id).delete()
+                
+                # Delete system updates initiated by this user
+                SystemUpdate.query.filter_by(initiated_by=user.id).delete()
+                
+                # Now delete the user
+                db.session.delete(user)
+                db.session.commit()
+                
+                flash(f'User {username} and all related records have been deleted successfully.', 'success')
+                
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Error deleting user {username}: {str(e)}")
+                flash(f'Error deleting user {username}. Please try again.', 'danger')
     else:
         flash('User not found.', 'danger')
     
