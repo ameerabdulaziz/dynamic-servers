@@ -167,6 +167,11 @@
                                         title="Copy SQL Tunnel Command">
                                     <i class="fas fa-terminal"></i>
                                 </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="downloadLogs('{{ server.public_ip }}')" 
+                                        title="Download Project Logs">
+                                    <i class="fas fa-download"></i>
+                                </button>
                                 {% endif %}
                                 {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" 
@@ -533,6 +538,29 @@ function selectCommand() {
         window.getSelection().removeAllRanges();
         window.getSelection().addRange(range);
     }
+}
+
+// Download project logs
+function downloadLogs(serverIp) {
+    const logsUrl = `https://${serverIp}/dotnet/api/logs/download-all`;
+    
+    showNotification('Downloading...', 'Opening logs download for server', 'info');
+    
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = logsUrl;
+    link.target = '_blank';
+    link.download = `logs-${serverIp}-${new Date().toISOString().split('T')[0]}.zip`;
+    
+    // Add to DOM temporarily and click
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Show success notification after a brief delay
+    setTimeout(() => {
+        showNotification('Download Started', `Logs download initiated for ${serverIp}`, 'success');
+    }, 500);
 }
 
 // Show toast notifications
