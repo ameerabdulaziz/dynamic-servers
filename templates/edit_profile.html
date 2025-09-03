@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile - Dynamic Servers{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-edit me-2"></i>Edit Profile
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Username -->
+                    <div class="mb-3">
+                        {{ form.username.label(class="form-label") }}
+                        {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else "")) }}
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.username.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        {{ form.email.label(class="form-label") }}
+                        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                        {% if form.email.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.email.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Current Role (Read-only) -->
+                    <div class="mb-3">
+                        <label class="form-label">Current Role</label>
+                        <div class="form-control-plaintext">
+                            <span class="badge bg-{{ 'danger' if current_user.is_admin else 'info' if current_user.is_technical_agent else 'success' }} fs-6">
+                                {{ current_user.role_display }}
+                            </span>
+                        </div>
+                        <small class="text-muted">Contact an administrator to change your role</small>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="text-muted mb-3">
+                        <i class="fas fa-key me-2"></i>Password Change
+                    </h5>
+
+                    <!-- Current Password -->
+                    <div class="mb-3">
+                        {{ form.current_password.label(class="form-label") }}
+                        {{ form.current_password(class="form-control" + (" is-invalid" if form.current_password.errors else "")) }}
+                        {% if form.current_password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.current_password.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.current_password.description %}
+                            <div class="form-text">{{ form.current_password.description }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- New Password -->
+                    <div class="mb-3">
+                        {{ form.new_password.label(class="form-label") }}
+                        {{ form.new_password(class="form-control" + (" is-invalid" if form.new_password.errors else "")) }}
+                        {% if form.new_password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.new_password.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.new_password.description %}
+                            <div class="form-text">{{ form.new_password.description }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div class="mb-3">
+                        {{ form.confirm_password.label(class="form-label") }}
+                        {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
+                        {% if form.confirm_password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.confirm_password.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="d-flex gap-2 justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Cancel
+                        </a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Security Info Card -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-shield-alt text-info me-2"></i>Security Information
+                </h6>
+                <ul class="list-unstyled mb-0 small text-muted">
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Your current password is required to make any changes</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Leave the new password fields blank to keep your current password</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Username and email changes take effect immediately</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Role changes require administrator approval</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

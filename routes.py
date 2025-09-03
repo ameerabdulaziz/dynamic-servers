@@ -9,7 +9,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
 from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess, UserServerAccess
-from forms import LoginForm, RegistrationForm, ServerRequestForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
+from forms import LoginForm, RegistrationForm, ServerRequestForm, EditProfileForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
 from hetzner_service import HetznerService
 from godaddy_service import GoDaddyService
 from ansible_service import AnsibleService
@@ -760,6 +760,33 @@ def mark_notification_read(notification_id):
         notification.is_read = True
         db.session.commit()
     return redirect(request.referrer or url_for('index'))
+
+@app.route('/edit-profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = EditProfileForm(current_user)
+    
+    if form.validate_on_submit():
+        from werkzeug.security import generate_password_hash
+        
+        # Update user details
+        current_user.username = form.username.data
+        current_user.email = form.email.data
+        
+        # Update password if provided
+        if form.new_password.data:
+            current_user.password_hash = generate_password_hash(form.new_password.data)
+        
+        db.session.commit()
+        flash('Your profile has been updated successfully!', 'success')
+        return redirect(url_for('index'))
+    
+    # Pre-populate form with current user data
+    if request.method == 'GET':
+        form.username.data = current_user.username
+        form.email.data = current_user.email
+    
+    return render_template('edit_profile.html', form=form)
 
 # Server Management Routes
 

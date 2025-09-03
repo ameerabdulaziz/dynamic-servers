@@ -34,6 +34,43 @@ class RegistrationForm(FlaskForm):
         if user:
             raise ValidationError('Email already registered. Please choose a different one.')
 
+class EditProfileForm(FlaskForm):
+    username = StringField('Username', validators=[
+        DataRequired(), 
+        Length(min=3, max=64)
+    ])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
+    current_password = PasswordField('Current Password', validators=[DataRequired()], 
+                                   description='Enter your current password to confirm changes')
+    new_password = PasswordField('New Password (Optional)', validators=[
+        Length(min=6, message='New password must be at least 6 characters long')
+    ], description='Leave blank to keep current password')
+    confirm_password = PasswordField('Confirm New Password', validators=[
+        EqualTo('new_password', message='Passwords must match')
+    ])
+    submit = SubmitField('Update Profile')
+    
+    def __init__(self, original_user, *args, **kwargs):
+        super(EditProfileForm, self).__init__(*args, **kwargs)
+        self.original_user = original_user
+    
+    def validate_username(self, username):
+        if username.data != self.original_user.username:
+            user = User.query.filter_by(username=username.data).first()
+            if user:
+                raise ValidationError('Username already taken. Please choose a different one.')
+    
+    def validate_email(self, email):
+        if email.data != self.original_user.email:
+            user = User.query.filter_by(email=email.data).first()
+            if user:
+                raise ValidationError('Email already registered. Please choose a different one.')
+    
+    def validate_current_password(self, current_password):
+        from werkzeug.security import check_password_hash
+        if not check_password_hash(self.original_user.password_hash, current_password.data):
+            raise ValidationError('Current password is incorrect.')
+
 class ServerRequestForm(FlaskForm):
     # Client details
     client_name = StringField('Client Name', validators=[
