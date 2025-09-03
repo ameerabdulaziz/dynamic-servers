@@ -161,6 +161,13 @@
                                         title="System Update">
                                     <i class="fas fa-arrow-up"></i>
                                 </button>
+                                {% if server.public_ip %}
+                                <button type="button" class="btn btn-outline-info btn-sm" 
+                                        onclick="copySQLTunnel('{{ server.public_ip }}')" 
+                                        title="Copy SQL Tunnel Command">
+                                    <i class="fas fa-terminal"></i>
+                                </button>
+                                {% endif %}
                                 {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
                                 <a href="{{ url_for('server_detail', server_id=server.id) }}" 
                                    class="btn btn-outline-primary btn-sm" title="Details">
@@ -419,6 +426,113 @@ function executeServerAction(actionUrl, data = {}, button = null, serverId = nul
             button.innerHTML = button.dataset.originalText || button.innerHTML;
         }
     });
+}
+
+// Copy SQL Tunnel Command
+function copySQLTunnel(serverIp) {
+    const tunnelCommand = `ssh -N -L 1533:127.0.0.1:1433 sqltunnel@${serverIp}`;
+    
+    // Try to use the modern Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(tunnelCommand).then(() => {
+            showNotification('Copied!', 'SQL Tunnel command copied to clipboard', 'success');
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            fallbackCopyTextToClipboard(tunnelCommand);
+        });
+    } else {
+        // Fallback for older browsers or non-secure contexts
+        fallbackCopyTextToClipboard(tunnelCommand);
+    }
+}
+
+// Fallback copy method
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showNotification('Copied!', 'SQL Tunnel command copied to clipboard', 'success');
+        } else {
+            showSQLTunnelModal(text);
+        }
+    } catch (err) {
+        console.error('Fallback copy failed: ', err);
+        showSQLTunnelModal(text);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Show modal with command if copying fails
+function showSQLTunnelModal(command) {
+    const modalHtml = `
+        <div class="modal fade" id="sqlTunnelModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-terminal me-2"></i>SQL Tunnel Command
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted mb-3">Copy the command below to establish an SQL tunnel:</p>
+                        <div class="bg-dark text-light p-3 rounded">
+                            <code class="text-light">${command}</code>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                This command creates a secure SSH tunnel on port 1533 for SQL connections.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="selectCommand()">Select All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('sqlTunnelModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('sqlTunnelModal'));
+    modal.show();
+    
+    // Remove modal from DOM when hidden
+    document.getElementById('sqlTunnelModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Select command text in modal
+function selectCommand() {
+    const codeElement = document.querySelector('#sqlTunnelModal code');
+    if (codeElement) {
+        const range = document.createRange();
+        range.selectNode(codeElement);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }
 }
 
 // Show toast notifications
