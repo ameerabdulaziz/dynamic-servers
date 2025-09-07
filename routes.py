@@ -1208,10 +1208,16 @@ def create_backup(server_id):
     # Check if it's an AJAX request early for error handling
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
+    # Debug logging
+    print(f"DEBUG: User {current_user.username} (role: {current_user.role}) attempting backup on server {server_id}")
+    print(f"DEBUG: has_permission('database_operations'): {current_user.has_permission('database_operations')}")
+    
     if not current_user.has_permission('database_operations'):
+        error_msg = f'Access denied. User {current_user.username} with role {current_user.role} does not have database_operations permission.'
+        print(f"DEBUG: {error_msg}")
         if is_ajax:
-            return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
-        flash('Access denied. Technical Agent privileges required.', 'danger')
+            return jsonify({'success': False, 'message': error_msg}), 403
+        flash(error_msg, 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
@@ -1346,10 +1352,16 @@ def create_system_update(server_id):
     # Check if it's an AJAX request early for error handling
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
+    # Debug logging
+    print(f"DEBUG: User {current_user.username} (role: {current_user.role}) attempting update on server {server_id}")
+    print(f"DEBUG: has_permission('system_updates'): {current_user.has_permission('system_updates')}")
+    
     if not current_user.has_permission('system_updates'):
+        error_msg = f'Access denied. User {current_user.username} with role {current_user.role} does not have system_updates permission.'
+        print(f"DEBUG: {error_msg}")
         if is_ajax:
-            return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
-        flash('Access denied. Technical Agent privileges required.', 'danger')
+            return jsonify({'success': False, 'message': error_msg}), 403
+        flash(error_msg, 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
