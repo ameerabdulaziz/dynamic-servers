@@ -1205,7 +1205,12 @@ def server_operations():
 @app.route('/server/<int:server_id>/backup', methods=['POST'])
 @login_required
 def create_backup(server_id):
+    # Check if it's an AJAX request early for error handling
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     if not current_user.has_permission('database_operations'):
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
@@ -1217,6 +1222,8 @@ def create_backup(server_id):
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
             flash('Access denied. You do not have access to this server.', 'danger')
             return redirect(url_for('server_operations'))
     
@@ -1238,7 +1245,10 @@ def create_backup(server_id):
             backup.error_log = 'No SSH private key configured for this project. Please configure SSH access in project settings.'
             backup.completed_at = datetime.utcnow()
             db.session.commit()
-            flash(f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote backup execution', 'warning')
+            error_msg = f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote backup execution'
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg, 'status': 'failed'})
+            flash(error_msg, 'warning')
             return redirect(url_for('server_operations'))
         
         # Use SSH service to execute backup command remotely and prepare file for download
@@ -1319,8 +1329,8 @@ def create_backup(server_id):
         db.session.commit()
         flash(f'Error executing backup command: {str(e)}', 'danger')
     
-    # Check if it's an AJAX request
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    # Return appropriate response
+    if is_ajax:
         return jsonify({
             'success': backup.status == 'completed',
             'message': f'Backup {"completed" if backup.status == "completed" else "failed"}',
@@ -1333,7 +1343,12 @@ def create_backup(server_id):
 @app.route('/server/<int:server_id>/update', methods=['POST'])
 @login_required
 def create_system_update(server_id):
+    # Check if it's an AJAX request early for error handling
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     if not current_user.has_permission('system_updates'):
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
@@ -1345,6 +1360,8 @@ def create_system_update(server_id):
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
         if server_id not in accessible_server_ids:
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
             flash('Access denied. You do not have access to this server.', 'danger')
             return redirect(url_for('server_operations'))
     
@@ -1366,7 +1383,10 @@ def create_system_update(server_id):
             update.error_log = 'No SSH private key configured for this project. Please configure SSH access in project settings.'
             update.completed_at = datetime.utcnow()
             db.session.commit()
-            flash(f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote script execution', 'warning')
+            error_msg = f'Project {server.project.name if server.project else "Unknown"} requires SSH key configuration for remote script execution'
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg, 'status': 'failed'})
+            flash(error_msg, 'warning')
             return redirect(url_for('server_operations'))
         
         # Use SSH service to execute deployment script remotely
@@ -1410,8 +1430,8 @@ def create_system_update(server_id):
         db.session.commit()
         flash(f'Error executing deployment script: {str(e)}', 'danger')
     
-    # Check if it's an AJAX request
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    # Return appropriate response
+    if is_ajax:
         return jsonify({
             'success': update.status == 'completed',
             'message': f'Update {"completed" if update.status == "completed" else "failed"}',
