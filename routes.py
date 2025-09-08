@@ -1612,86 +1612,7 @@ def system_updates():
     updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).all()
     return render_template('system_updates.html', updates=updates)
 
-# Project Access Management Routes (Admin Only)
-@app.route('/project-access')
-@login_required
-def project_access():
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('index'))
-    
-    # Get all users and their project access
-    users = User.query.filter(User.role != UserRole.ADMIN).all()
-    projects = HetznerProject.query.all()
-    
-    # Build access matrix - organized by user for easier display
-    access_matrix = {}
-    for user in users:
-        access_matrix[user.id] = {
-            'user': user,
-            'project_access': {}
-        }
-        for project in projects:
-            access = UserProjectAccess.query.filter_by(user_id=user.id, project_id=project.id).first()
-            access_matrix[user.id]['project_access'][project.id] = access
-    
-    return render_template('project_access.html', 
-                         access_matrix=access_matrix, 
-                         projects=projects)
-
-@app.route('/project-access/grant', methods=['POST'])
-@login_required
-def grant_project_access():
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('index'))
-    
-    user_id = request.form.get('user_id')
-    project_id = request.form.get('project_id')
-    access_level = request.form.get('access_level', 'read')
-    
-    # Check if access already exists
-    existing = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
-    
-    if existing:
-        existing.access_level = access_level
-        existing.granted_by = current_user.id
-    else:
-        access = UserProjectAccess()
-        access.user_id = user_id
-        access.project_id = project_id
-        access.access_level = access_level
-        access.granted_by = current_user.id
-        db.session.add(access)
-    
-    user = User.query.get(user_id)
-    project = HetznerProject.query.get(project_id)
-    
-    db.session.commit()
-    flash(f'Granted {access_level} access to {user.username} for project {project.name}', 'success')
-    
-    return redirect(url_for('project_access'))
-
-@app.route('/project-access/revoke', methods=['POST'])
-@login_required
-def revoke_project_access():
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('index'))
-    
-    user_id = request.form.get('user_id')
-    project_id = request.form.get('project_id')
-    
-    access = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
-    
-    if access:
-        user = User.query.get(user_id)
-        project = HetznerProject.query.get(project_id)
-        db.session.delete(access)
-        db.session.commit()
-        flash(f'Revoked project access for {user.username} from {project.name}', 'success')
-    
-    return redirect(url_for('project_access'))
+# Project access management has been removed - tech managers are now assigned directly to projects
 
 # User Management Routes (Admin Only) - Simplified for user approval and role assignment
 @app.route('/admin/user-management')
@@ -1951,11 +1872,11 @@ def promote_to_manager():
     
     if not user or user.role != UserRole.TECHNICAL_AGENT:
         flash('Invalid technical user selected.', 'danger')
-        return redirect(url_for('user_assignments'))
+        return redirect(url_for('user_management'))
     
     if user.is_manager:
         flash(f'{user.username} is already a technical manager.', 'info')
-        return redirect(url_for('user_assignments'))
+        return redirect(url_for('user_management'))
     
     # Promote user to manager
     user.is_manager = True
@@ -1964,38 +1885,6 @@ def promote_to_manager():
     flash(f'{user.username} has been promoted to Technical Manager with access to all servers and projects.', 'success')
     return redirect(url_for('user_assignments'))
 
-@app.route('/admin/project-access/<int:access_id>/edit', methods=['POST'])
-@login_required
-def edit_project_access(access_id):
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'}), 403
-    
-    access = UserProjectAccess.query.get_or_404(access_id)
-    data = request.get_json()
-    new_level = data.get('access_level')
-    
-    if new_level not in ['read', 'write', 'admin']:
-        return jsonify({'success': False, 'error': 'Invalid access level'}), 400
-    
-    access.access_level = new_level
-    db.session.commit()
-    
-    return jsonify({'success': True, 'message': f'Access level updated to {new_level}'})
-
-@app.route('/admin/project-access/<int:access_id>/delete', methods=['POST'])
-@login_required 
-def delete_project_access(access_id):
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Access denied'}), 403
-    
-    access = UserProjectAccess.query.get_or_404(access_id)
-    user_name = access.user.username
-    project_name = access.project.name
-    
-    db.session.delete(access)
-    db.session.commit()
-    
-    return jsonify({'success': True, 'message': f'Removed {user_name}\'s access to {project_name}'})
 
 # Hetzner Project Management Routes (Admin Only)
 @app.route('/hetzner-projects')
