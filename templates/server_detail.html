@@ -82,10 +82,17 @@
                         <div class="col-md-3">
                             <strong>Domain:</strong>
                             {% if server.reverse_dns %}
-                                <a href="http://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
+                                {% if server.reverse_dns[:7] == 'static-' %}
+                                <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
+                                    <code class="text-info">{{ server.public_ip }}</code>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                                {% else %}
+                                <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
                                     <code class="text-info">{{ server.reverse_dns }}</code>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
+                                {% endif %}
                             {% else %}
                                 <span class="text-muted">None</span>
                             {% endif %}
