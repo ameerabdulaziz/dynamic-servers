@@ -1986,7 +1986,7 @@ def hetzner_project_detail(project_id):
     
     # Get tech managers assigned to this project and available tech managers for assignment
     tech_managers = User.query.filter_by(role=UserRole.TECHNICAL_AGENT, is_manager=True).all()
-    assigned_managers = User.query.join(UserProjectAccess).filter(
+    assigned_managers = User.query.join(UserProjectAccess, User.id == UserProjectAccess.user_id).filter(
         UserProjectAccess.project_id == project_id,
         User.role == UserRole.TECHNICAL_AGENT,
         User.is_manager == True
