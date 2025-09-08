@@ -16,10 +16,11 @@
                 <a href="{{ url_for('new_hetzner_project') }}" class="btn btn-primary">
                     <i class="fas fa-plus me-1"></i>New Project
                 </a>
-                <form method="POST" action="{{ url_for('sync_all_projects') }}" class="d-inline">
+                <form method="POST" action="{{ url_for('sync_all_projects') }}" class="d-inline" id="sync-all-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit" class="btn btn-outline-success">
-                        <i class="fas fa-sync me-1"></i>Sync All
+                    <button type="submit" class="btn btn-outline-success" id="sync-all-btn">
+                        <i class="fas fa-sync me-1" id="sync-all-icon"></i>
+                        <span id="sync-all-text">Sync All</span>
                     </button>
                 </form>
             </div>
@@ -95,10 +96,11 @@
                        class="btn btn-sm btn-outline-secondary">
                         <i class="fas fa-edit me-1"></i>Edit
                     </a>
-                    <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline">
+                    <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline project-sync-form" data-project-id="{{ project.id }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-sm btn-outline-success">
-                            <i class="fas fa-sync me-1"></i>Sync
+                        <button type="submit" class="btn btn-sm btn-outline-success project-sync-btn">
+                            <i class="fas fa-sync me-1 project-sync-icon"></i>
+                            <span class="project-sync-text">Sync</span>
                         </button>
                     </form>
                 </div>
@@ -112,6 +114,20 @@
         </div>
     </div>
     {% endfor %}
+</div>
+
+<!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="sync-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="fas fa-sync me-2 text-primary"></i>
+            <strong class="me-auto">Sync Status</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="sync-toast-body">
+            <!-- Message will be inserted here -->
+        </div>
+    </div>
 </div>
 
 {% if not projects %}
@@ -167,4 +183,130 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle Sync All Projects
+    const syncAllForm = document.getElementById('sync-all-form');
+    const syncAllBtn = document.getElementById('sync-all-btn');
+    const syncAllIcon = document.getElementById('sync-all-icon');
+    const syncAllText = document.getElementById('sync-all-text');
+    
+    // Handle Individual Project Sync
+    const projectSyncForms = document.querySelectorAll('.project-sync-form');
+    
+    // Get CSRF token
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    
+    function showToast(message, isSuccess = true) {
+        const toast = document.getElementById('sync-toast');
+        const toastBody = document.getElementById('sync-toast-body');
+        
+        // Update toast content
+        toastBody.innerHTML = message;
+        
+        // Update toast style
+        const toastHeader = toast.querySelector('.toast-header');
+        toastHeader.className = `toast-header ${isSuccess ? 'bg-success text-white' : 'bg-danger text-white'}`;
+        
+        // Show toast
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+    }
+    
+    function setButtonLoading(btn, icon, text, isLoading) {
+        if (isLoading) {
+            btn.disabled = true;
+            icon.className = 'fas fa-spinner fa-spin me-1';
+            text.textContent = 'Syncing...';
+        } else {
+            btn.disabled = false;
+            icon.className = 'fas fa-sync me-1';
+            text.textContent = btn.classList.contains('project-sync-btn') ? 'Sync' : 'Sync All';
+        }
+    }
+    
+    // Sync All Projects Handler
+    if (syncAllForm) {
+        syncAllForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            setButtonLoading(syncAllBtn, syncAllIcon, syncAllText, true);
+            
+            fetch('{{ url_for("sync_all_projects") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                },
+                body: new URLSearchParams({
+                    'csrf_token': csrfToken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                setButtonLoading(syncAllBtn, syncAllIcon, syncAllText, false);
+                
+                if (data.success) {
+                    showToast(`✅ ${data.message}`, true);
+                    // Refresh the page to show updated data
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showToast(`❌ ${data.error}`, false);
+                }
+            })
+            .catch(error => {
+                setButtonLoading(syncAllBtn, syncAllIcon, syncAllText, false);
+                showToast('❌ Network error occurred during sync', false);
+                console.error('Error:', error);
+            });
+        });
+    }
+    
+    // Individual Project Sync Handler
+    projectSyncForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const projectId = form.dataset.projectId;
+            const btn = form.querySelector('.project-sync-btn');
+            const icon = form.querySelector('.project-sync-icon');
+            const text = form.querySelector('.project-sync-text');
+            
+            setButtonLoading(btn, icon, text, true);
+            
+            fetch(`/hetzner-projects/${projectId}/sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                },
+                body: new URLSearchParams({
+                    'csrf_token': csrfToken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                setButtonLoading(btn, icon, text, false);
+                
+                if (data.success) {
+                    showToast(`✅ Project synced: ${data.message}`, true);
+                    // Refresh the page to show updated data
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showToast(`❌ Sync failed: ${data.error}`, false);
+                }
+            })
+            .catch(error => {
+                setButtonLoading(btn, icon, text, false);
+                showToast('❌ Network error occurred during sync', false);
+                console.error('Error:', error);
+            });
+        });
+    });
+});
+</script>
+
 {% endblock %}

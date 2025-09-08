@@ -22,7 +22,7 @@
                 <a href="{{ url_for('edit_hetzner_project', project_id=project.id) }}" class="btn btn-outline-primary">
                     <i class="fas fa-edit me-1"></i>Edit Project
                 </a>
-                <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline" id="sync-form">
+                <form method="POST" action="{{ url_for('sync_project_servers', project_id=project.id) }}" class="d-inline" id="sync-form" data-project-id="{{ project.id }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <button type="submit" class="btn btn-success" id="sync-btn">
                         <i class="fas fa-sync me-1" id="sync-icon"></i>
@@ -567,6 +567,99 @@ document.addEventListener('DOMContentLoaded', function() {
                 toast.remove();
             }
         }, 5000);
+    }
+});
+</script>
+
+<!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="sync-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="fas fa-sync me-2 text-primary"></i>
+            <strong class="me-auto">Sync Status</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="sync-toast-body">
+            <!-- Message will be inserted here -->
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const syncForm = document.getElementById('sync-form');
+    const syncBtn = document.getElementById('sync-btn');
+    const syncIcon = document.getElementById('sync-icon');
+    const syncText = document.getElementById('sync-text');
+    
+    // Get CSRF token
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    const projectId = syncForm.dataset.projectId;
+    
+    function showToast(message, isSuccess = true) {
+        const toast = document.getElementById('sync-toast');
+        const toastBody = document.getElementById('sync-toast-body');
+        
+        // Update toast content
+        toastBody.innerHTML = message;
+        
+        // Update toast style
+        const toastHeader = toast.querySelector('.toast-header');
+        toastHeader.className = `toast-header ${isSuccess ? 'bg-success text-white' : 'bg-danger text-white'}`;
+        
+        // Show toast
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+    }
+    
+    function setButtonLoading(isLoading) {
+        if (isLoading) {
+            syncBtn.disabled = true;
+            syncIcon.className = 'fas fa-spinner fa-spin me-1';
+            syncText.textContent = 'Syncing...';
+        } else {
+            syncBtn.disabled = false;
+            syncIcon.className = 'fas fa-sync me-1';
+            syncText.textContent = 'Sync Servers';
+        }
+    }
+    
+    // Sync Form Handler
+    if (syncForm) {
+        syncForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            setButtonLoading(true);
+            
+            fetch(`/hetzner-projects/${projectId}/sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                },
+                body: new URLSearchParams({
+                    'csrf_token': csrfToken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                setButtonLoading(false);
+                
+                if (data.success) {
+                    showToast(`✅ ${data.message}`, true);
+                    // Refresh the page to show updated data
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showToast(`❌ ${data.error}`, false);
+                }
+            })
+            .catch(error => {
+                setButtonLoading(false);
+                showToast('❌ Network error occurred during sync', false);
+                console.error('Error:', error);
+            });
+        });
     }
 });
 </script>

@@ -2092,9 +2092,10 @@ def sync_project_servers(project_id):
             if result['success']:
                 return jsonify({
                     'success': True,
-                    'message': f'Sync completed! {result["synced"]} new servers, {result["updated"]} updated, {result["total"]} total.',
+                    'message': f'Sync completed! {result["synced"]} new servers, {result["updated"]} updated, {result.get("deleted", 0)} deleted, {result["total"]} total.',
                     'synced': result["synced"],
                     'updated': result["updated"],
+                    'deleted': result.get("deleted", 0),
                     'total': result["total"],
                     'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
                 })
@@ -2177,12 +2178,15 @@ def new_hetzner_project():
 @login_required
 def sync_all_projects():
     if not current_user.is_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
     projects = HetznerProject.query.filter_by(is_active=True).all()
     total_synced = 0
     total_updated = 0
+    total_deleted = 0
     errors = []
     
     for project in projects:
@@ -2193,14 +2197,34 @@ def sync_all_projects():
             if result['success']:
                 total_synced += result['synced']
                 total_updated += result['updated']
+                total_deleted += result.get('deleted', 0)
             else:
                 errors.append(f'{project.name}: {result["error"]}')
         except Exception as e:
             errors.append(f'{project.name}: {str(e)}')
     
-    if errors:
-        flash(f'Sync completed with errors. Synced: {total_synced}, Updated: {total_updated}. Errors: {", ".join(errors)}', 'warning')
+    # Check if it's an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if errors:
+            return jsonify({
+                'success': False,
+                'error': f'Sync completed with errors. Synced: {total_synced}, Updated: {total_updated}, Deleted: {total_deleted}. Errors: {", ".join(errors)}'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'message': f'All projects synced successfully! {total_synced} new servers, {total_updated} updated, {total_deleted} deleted.',
+                'synced': total_synced,
+                'updated': total_updated,
+                'deleted': total_deleted,
+                'projects_count': len(projects),
+                'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            })
     else:
-        flash(f'All projects synced successfully! {total_synced} new servers, {total_updated} updated.', 'success')
-    
-    return redirect(url_for('hetzner_projects'))
+        # Regular form submission
+        if errors:
+            flash(f'Sync completed with errors. Synced: {total_synced}, Updated: {total_updated}, Deleted: {total_deleted}. Errors: {", ".join(errors)}', 'warning')
+        else:
+            flash(f'All projects synced successfully! {total_synced} new servers, {total_updated} updated, {total_deleted} deleted.', 'success')
+        
+        return redirect(url_for('hetzner_projects'))
