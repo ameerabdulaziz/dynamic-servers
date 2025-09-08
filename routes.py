@@ -244,33 +244,44 @@ def list_all_backups():
     system_backups = []
     server_backups = []
     
-    # Check for system backup files
-    system_backup_dir = Path("static/backups")
-    if system_backup_dir.exists():
-        for backup_file in system_backup_dir.glob("*.sql"):
-            if backup_file.is_file():
-                stat = backup_file.stat()
-                system_backups.append({
-                    'id': None,  # Use filename instead
-                    'filename': backup_file.name,
-                    'server_name': 'System Database',
-                    'database_name': 'dynamic_servers',
-                    'backup_type': 'system',
-                    'size': stat.st_size,
-                    'status': 'completed',
-                    'created': datetime.fromtimestamp(stat.st_mtime),
-                    'initiated_by': 'System',
-                    'download_url': url_for('download_backup_file', filename=backup_file.name),
-                    'file_exists': True
-                })
+    # Check for system backup files (admin only)
+    if current_user.is_admin:
+        system_backup_dir = Path("static/backups")
+        if system_backup_dir.exists():
+            for backup_file in system_backup_dir.glob("*.sql"):
+                if backup_file.is_file():
+                    stat = backup_file.stat()
+                    system_backups.append({
+                        'id': None,  # Use filename instead
+                        'filename': backup_file.name,
+                        'server_name': 'System Database',
+                        'database_name': 'dynamic_servers',
+                        'backup_type': 'system',
+                        'size': stat.st_size,
+                        'status': 'completed',
+                        'created': datetime.fromtimestamp(stat.st_mtime),
+                        'initiated_by': 'System',
+                        'download_url': url_for('download_backup_file', filename=backup_file.name),
+                        'file_exists': True
+                    })
     
     # Check for server backup files organized by server name
     server_backup_root = Path("static/backups/servers")
+    
+    # Get list of accessible servers for permission filtering
+    if not current_user.is_admin:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_names = [s.name for s in accessible_servers]
+    
     if server_backup_root.exists():
         # Go through each server directory
         for server_dir in server_backup_root.iterdir():
             if server_dir.is_dir():
                 server_name = server_dir.name
+                
+                # Skip servers that user doesn't have access to
+                if not current_user.is_admin and server_name not in accessible_server_names:
+                    continue
                 # Find backup files in this server's directory (.bak files)
                 for backup_file in server_dir.glob("*.bak"):
                     if backup_file.is_file():
@@ -1535,10 +1546,26 @@ def system_logs():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Get all system updates and backups for logging
-    updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
-    backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(50).all()
-    servers = HetznerServer.query.all()
+    # Filter system updates, backups, and servers by user's access
+    if current_user.is_admin:
+        updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
+        backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(50).all()
+        servers = HetznerServer.query.all()
+    else:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        
+        if accessible_server_ids:
+            updates = SystemUpdate.query.filter(
+                SystemUpdate.server_id.in_(accessible_server_ids)
+            ).order_by(SystemUpdate.started_at.desc()).limit(50).all()
+            backups = DatabaseBackup.query.filter(
+                DatabaseBackup.server_id.in_(accessible_server_ids)
+            ).order_by(DatabaseBackup.started_at.desc()).limit(50).all()
+        else:
+            updates = []
+            backups = []
+        servers = accessible_servers
     
     return render_template('system_logs.html', 
                          updates=updates, 
@@ -1620,7 +1647,16 @@ def backups():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
+    # Filter backups by user's accessible servers
+    if current_user.is_admin:
+        backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
+    else:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        backups = DatabaseBackup.query.filter(
+            DatabaseBackup.server_id.in_(accessible_server_ids)
+        ).order_by(DatabaseBackup.started_at.desc()).all() if accessible_server_ids else []
+    
     return render_template('backups.html', backups=backups)
 
 @app.route('/system-updates')
