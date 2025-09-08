@@ -1749,7 +1749,12 @@ def server_assignments():
         return redirect(url_for('index'))
     
     # Get servers based on user's access level
-    servers = HetznerServer.query.all()
+    if current_user.is_admin:
+        # Admins can assign any server
+        servers = HetznerServer.query.all()
+    else:
+        # Tech managers can only assign servers from their accessible projects
+        servers = current_user.get_accessible_servers()
     
     # Get only normal technical agents (not managers) for assignment
     # Tech managers get automatic project access and don't need individual server assignments
