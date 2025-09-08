@@ -175,7 +175,6 @@
                                     <small class="text-info">{{ server.public_ip }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
-                                <br><small class="text-muted">{{ server.reverse_dns }}</small>
                                 {% else %}
                                 <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
                                     <small class="text-info">{{ server.reverse_dns }}</small>
@@ -837,7 +836,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <small class="text-info">${server.public_ip}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
-                                <br><small class="text-muted">${server.reverse_dns}</small>
                             ` : `
                                 <a href="https://${server.reverse_dns}" target="_blank" class="text-decoration-none">
                                     <small class="text-info">${server.reverse_dns}</small>
