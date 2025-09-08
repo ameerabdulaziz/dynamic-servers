@@ -900,7 +900,7 @@ def manage_server(server_id):
             
             if result['success']:
                 flash(f'Server {form.action.data} action initiated successfully!', 'success')
-                # Update server status (will be synced properly on next sync)
+                # Update server status immediately with intermediate state
                 if form.action.data == 'start':
                     server.status = 'starting'
                 elif form.action.data == 'stop':
@@ -908,6 +908,16 @@ def manage_server(server_id):
                 elif form.action.data == 'reboot':
                     server.status = 'rebooting'
                 db.session.commit()
+                
+                # Wait a moment and then update with actual status from Hetzner
+                import time
+                time.sleep(3)  # Wait 3 seconds for the action to process
+                
+                status_result = hetzner_service.get_server_current_status(server.hetzner_id)
+                if status_result['success']:
+                    server.status = status_result['status']
+                    db.session.commit()
+                    
             else:
                 flash(f'Error executing {form.action.data}: {result["error"]}', 'danger')
                 

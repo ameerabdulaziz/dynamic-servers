@@ -325,6 +325,16 @@ class HetznerService:
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
+    def get_server_current_status(self, hetzner_id):
+        """Get the current status of a single server from Hetzner Cloud"""
+        try:
+            server = self.client.servers.get_by_id(hetzner_id)
+            if server:
+                return {'success': True, 'status': server.status}
+            return {'success': False, 'error': 'Server not found'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
     def get_available_images(self):
         """Get list of available images for server creation"""
         try:
