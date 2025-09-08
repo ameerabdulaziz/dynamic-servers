@@ -143,6 +143,42 @@ class User(UserMixin, db.Model):
         
         return []
     
+    def has_server_access(self, server_id, access_level='read'):
+        """Check if user has access to specific server"""
+        from models import HetznerServer  # Import here to avoid circular imports
+        
+        # Admins have access to all servers
+        if self.role == UserRole.ADMIN:
+            return True
+        
+        server = HetznerServer.query.get(server_id)
+        if not server:
+            return False
+        
+        # Tech managers have access to all servers in their projects
+        if self.role == UserRole.TECHNICAL_AGENT and self.is_manager:
+            return self.has_project_access(server.project_id, access_level)
+        
+        # Sales agents have access to servers in their projects
+        if self.role == UserRole.SALES_AGENT:
+            return self.has_project_access(server.project_id, access_level)
+        
+        # Normal technical agents need explicit server access
+        if self.role == UserRole.TECHNICAL_AGENT and not self.is_manager:
+            access = UserServerAccess.query.filter_by(
+                user_id=self.id, 
+                server_id=server_id
+            ).first()
+            
+            if access:
+                # Check access level hierarchy: read < write < admin
+                access_hierarchy = {'read': 1, 'write': 2, 'admin': 3}
+                required_level = access_hierarchy.get(access_level, 1)
+                user_level = access_hierarchy.get(access.access_level, 1)
+                return user_level >= required_level
+        
+        return False
+    
     def __repr__(self):
         return f'<User {self.username} ({self.role_display})>'
 

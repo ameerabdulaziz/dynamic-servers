@@ -1208,30 +1208,20 @@ def create_backup(server_id):
     # Check if it's an AJAX request early for error handling
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
-    # Debug logging
-    print(f"DEBUG: User {current_user.username} (role: {current_user.role}) attempting backup on server {server_id}")
-    print(f"DEBUG: has_permission('database_operations'): {current_user.has_permission('database_operations')}")
-    
     if not current_user.has_permission('database_operations'):
-        error_msg = f'Access denied. User {current_user.username} with role {current_user.role} does not have database_operations permission.'
-        print(f"DEBUG: {error_msg}")
         if is_ajax:
-            return jsonify({'success': False, 'message': error_msg}), 403
-        flash(error_msg, 'danger')
+            return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
+        flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this server's project (only admins have full access)
-    if not current_user.is_admin:
-        # All technical agents (including managers) need project access
-        accessible_servers = current_user.get_accessible_servers()
-        accessible_server_ids = [s.id for s in accessible_servers]
-        if server_id not in accessible_server_ids:
-            if is_ajax:
-                return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
-            flash('Access denied. You do not have access to this server.', 'danger')
-            return redirect(url_for('server_operations'))
+    # Check if user has access to this specific server
+    if not current_user.has_server_access(server_id, 'write'):
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
+        flash('Access denied. You do not have access to this server.', 'danger')
+        return redirect(url_for('server_operations'))
     
     # Create backup record
     backup = DatabaseBackup()
@@ -1352,30 +1342,20 @@ def create_system_update(server_id):
     # Check if it's an AJAX request early for error handling
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
-    # Debug logging
-    print(f"DEBUG: User {current_user.username} (role: {current_user.role}) attempting update on server {server_id}")
-    print(f"DEBUG: has_permission('system_updates'): {current_user.has_permission('system_updates')}")
-    
     if not current_user.has_permission('system_updates'):
-        error_msg = f'Access denied. User {current_user.username} with role {current_user.role} does not have system_updates permission.'
-        print(f"DEBUG: {error_msg}")
         if is_ajax:
-            return jsonify({'success': False, 'message': error_msg}), 403
-        flash(error_msg, 'danger')
+            return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
+        flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
     server = HetznerServer.query.get_or_404(server_id)
     
-    # Check if user has access to this server's project (only admins have full access)
-    if not current_user.is_admin:
-        # All technical agents (including managers) need project access
-        accessible_servers = current_user.get_accessible_servers()
-        accessible_server_ids = [s.id for s in accessible_servers]
-        if server_id not in accessible_server_ids:
-            if is_ajax:
-                return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
-            flash('Access denied. You do not have access to this server.', 'danger')
-            return redirect(url_for('server_operations'))
+    # Check if user has access to this specific server
+    if not current_user.has_server_access(server_id, 'write'):
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
+        flash('Access denied. You do not have access to this server.', 'danger')
+        return redirect(url_for('server_operations'))
     
     # Create system update record
     update = SystemUpdate()
