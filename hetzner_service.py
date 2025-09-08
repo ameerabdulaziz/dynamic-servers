@@ -45,6 +45,10 @@ class HetznerService:
             
             synced_count = 0
             updated_count = 0
+            deleted_count = 0
+            
+            # Get list of Hetzner server IDs for comparison
+            hetzner_server_ids = {server.id for server in hetzner_servers}
             
             for hetzner_server in hetzner_servers:
                 # Check if server exists in our database
@@ -60,13 +64,30 @@ class HetznerService:
                     self._create_server_from_hetzner(hetzner_server)
                     synced_count += 1
             
+            # Handle servers that exist in database but not in Hetzner Cloud anymore
+            if self.project_id:
+                # Only check servers for this specific project
+                local_servers = HetznerServer.query.filter_by(project_id=self.project_id).all()
+            else:
+                # Check all servers if no specific project
+                local_servers = HetznerServer.query.all()
+            
+            for local_server in local_servers:
+                if local_server.hetzner_id and local_server.hetzner_id not in hetzner_server_ids:
+                    # Server no longer exists in Hetzner Cloud
+                    self.logger.info(f"Server {local_server.name} (ID: {local_server.hetzner_id}) no longer exists in Hetzner Cloud - marking as deleted")
+                    local_server.status = 'deleted'
+                    local_server.last_synced = datetime.utcnow()
+                    deleted_count += 1
+            
             db.session.commit()
-            self.logger.info(f"Sync completed: {synced_count} new servers, {updated_count} updated")
+            self.logger.info(f"Sync completed: {synced_count} new servers, {updated_count} updated, {deleted_count} marked as deleted")
             
             return {
                 'success': True,
                 'synced': synced_count,
                 'updated': updated_count,
+                'deleted': deleted_count,
                 'total': len(hetzner_servers)
             }
             
