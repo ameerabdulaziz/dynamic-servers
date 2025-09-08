@@ -53,12 +53,11 @@ class User(UserMixin, db.Model):
     
     def has_permission(self, permission):
         """Check if user has specific permission based on role"""
+        # Admin has ALL permissions - can do everything
+        if self.role == UserRole.ADMIN:
+            return True
+        
         permissions = {
-            UserRole.ADMIN: [
-                'manage_users', 'manage_servers', 'approve_requests', 
-                'view_all_requests', 'manage_deployments', 'system_admin',
-                'manage_subscriptions', 'database_operations', 'server_operations'
-            ],
             UserRole.TECHNICAL_AGENT: [
                 'manage_servers', 'view_approved_servers', 'manage_deployments',
                 'database_operations', 'system_updates', 'server_monitoring',
@@ -73,49 +72,76 @@ class User(UserMixin, db.Model):
     
     def has_project_access(self, project_id, access_level='read'):
         """Check if user has access to specific project"""
-        # Admins and manager technical agents have access to all projects
-        if self.role == UserRole.ADMIN or (self.role == UserRole.TECHNICAL_AGENT and self.is_manager):
+        # Admins have access to all projects
+        if self.role == UserRole.ADMIN:
             return True
         
-        # Check explicit project access
-        access = UserProjectAccess.query.filter_by(
-            user_id=self.id, 
-            project_id=project_id
-        ).first()
+        # Tech managers have access to all projects they're assigned to
+        if self.role == UserRole.TECHNICAL_AGENT and self.is_manager:
+            access = UserProjectAccess.query.filter_by(
+                user_id=self.id, 
+                project_id=project_id
+            ).first()
+            if access:
+                return True
         
-        if not access:
-            return False
+        # Sales agents can have project access for client management
+        if self.role == UserRole.SALES_AGENT:
+            access = UserProjectAccess.query.filter_by(
+                user_id=self.id, 
+                project_id=project_id
+            ).first()
+            
+            if access:
+                # Check access level hierarchy: read < write < admin
+                access_hierarchy = {'read': 1, 'write': 2, 'admin': 3}
+                required_level = access_hierarchy.get(access_level, 1)
+                user_level = access_hierarchy.get(access.access_level, 1)
+                return user_level >= required_level
         
-        # Check access level hierarchy: read < write < admin
-        access_hierarchy = {'read': 1, 'write': 2, 'admin': 3}
-        required_level = access_hierarchy.get(access_level, 1)
-        user_level = access_hierarchy.get(access.access_level, 1)
-        
-        return user_level >= required_level
+        # Normal technical agents do NOT get project access - only individual server access
+        return False
     
     def get_accessible_projects(self):
         """Get list of projects user has access to"""
         from models import HetznerProject  # Import here to avoid circular imports
         
-        # Admins and manager technical agents see all projects
-        if self.role == UserRole.ADMIN or (self.role == UserRole.TECHNICAL_AGENT and self.is_manager):
+        # Admins see all projects
+        if self.role == UserRole.ADMIN:
             return HetznerProject.query.all()
         
-        # Get projects with explicit access
-        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
-        return HetznerProject.query.filter(HetznerProject.id.in_(accessible_project_ids)).all()
+        # Tech managers and sales agents get projects with explicit access
+        if self.role == UserRole.TECHNICAL_AGENT and self.is_manager or self.role == UserRole.SALES_AGENT:
+            accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
+            return HetznerProject.query.filter(HetznerProject.id.in_(accessible_project_ids)).all()
+        
+        # Normal technical agents don't see projects - they only see individual servers
+        return []
     
     def get_accessible_servers(self):
-        """Get list of servers user has access to based on project access"""
+        """Get list of servers user has access to"""
         from models import HetznerServer  # Import here to avoid circular imports
         
-        # Only admins see all servers
+        # Admins see all servers
         if self.role == UserRole.ADMIN:
             return HetznerServer.query.all()
         
-        # All technical agents (including managers) get servers from projects they have access to
-        accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
-        return HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+        # Tech managers get all servers from projects they have access to
+        if self.role == UserRole.TECHNICAL_AGENT and self.is_manager:
+            accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
+            return HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+        
+        # Sales agents get servers from their accessible projects for client management
+        if self.role == UserRole.SALES_AGENT:
+            accessible_project_ids = db.session.query(UserProjectAccess.project_id).filter_by(user_id=self.id).subquery()
+            return HetznerServer.query.filter(HetznerServer.project_id.in_(accessible_project_ids)).all()
+        
+        # Normal technical agents ONLY get individually assigned servers
+        if self.role == UserRole.TECHNICAL_AGENT and not self.is_manager:
+            accessible_server_ids = db.session.query(UserServerAccess.server_id).filter_by(user_id=self.id).subquery()
+            return HetznerServer.query.filter(HetznerServer.id.in_(accessible_server_ids)).all()
+        
+        return []
     
     def __repr__(self):
         return f'<User {self.username} ({self.role_display})>'
