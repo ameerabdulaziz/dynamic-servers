@@ -215,7 +215,7 @@
                                     <i class="fas fa-terminal"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                        onclick="downloadLogs('{{ server.public_ip }}')" 
+                                        onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
                                         title="Download Project Logs">
                                     <i class="fas fa-download"></i>
                                 </button>
@@ -589,16 +589,31 @@ function selectCommand() {
 }
 
 // Download project logs
-function downloadLogs(serverIp) {
-    const logsUrl = `https://${serverIp}/dotnet/api/logs/download-all`;
+function downloadLogs(serverIp, reverseDns) {
+    let logsUrl;
+    let protocol = 'https';
+    let hostname = serverIp;
     
-    showNotification('Downloading...', 'Opening logs download for server', 'info');
+    // Check if we have a reverse DNS that's not a Hetzner static domain
+    if (reverseDns && reverseDns.trim() !== '' && !reverseDns.startsWith('static-')) {
+        // Use the custom domain with HTTPS
+        hostname = reverseDns;
+        protocol = 'https';
+    } else {
+        // Use IP with HTTP for Hetzner static domains or no domain
+        hostname = serverIp;
+        protocol = 'http';
+    }
+    
+    logsUrl = `${protocol}://${hostname}/dotnet/api/logs/download-all`;
+    
+    showNotification('Downloading...', `Opening logs download from ${hostname}`, 'info');
     
     // Create a temporary link to trigger download
     const link = document.createElement('a');
     link.href = logsUrl;
     link.target = '_blank';
-    link.download = `logs-${serverIp}-${new Date().toISOString().split('T')[0]}.zip`;
+    link.download = `logs-${hostname}-${new Date().toISOString().split('T')[0]}.zip`;
     
     // Add to DOM temporarily and click
     document.body.appendChild(link);
@@ -607,7 +622,7 @@ function downloadLogs(serverIp) {
     
     // Show success notification after a brief delay
     setTimeout(() => {
-        showNotification('Download Started', `Logs download initiated for ${serverIp}`, 'success');
+        showNotification('Download Started', `Logs download initiated from ${hostname}`, 'success');
     }, 500);
 }
 
@@ -833,7 +848,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <i class="fas fa-terminal"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                        onclick="downloadLogs('${server.public_ip}')" title="Download Project Logs">
+                                        onclick="downloadLogs('${server.public_ip}', '${server.reverse_dns || ''}')" title="Download Project Logs">
                                     <i class="fas fa-download"></i>
                                 </button>
                             ` : ''}
