@@ -170,10 +170,18 @@
                         </td>
                         <td>
                             {% if server.reverse_dns %}
-                            <a href="http://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
-                                <small class="text-info">{{ server.reverse_dns }}</small>
-                                <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
-                            </a>
+                                {% if server.reverse_dns.startswith('static-') %}
+                                <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
+                                    <small class="text-info">{{ server.public_ip }}</small>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                                <br><small class="text-muted">{{ server.reverse_dns }}</small>
+                                {% else %}
+                                <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
+                                    <small class="text-info">{{ server.reverse_dns }}</small>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                                {% endif %}
                             {% else %}
                             <span class="text-muted">No domain</span>
                             {% endif %}
@@ -591,16 +599,22 @@ function selectCommand() {
 // Download project logs
 function downloadLogs(serverIp, reverseDns) {
     let logsUrl;
-    let protocol = 'https';
+    let protocol = 'http'; // Default to HTTP
     let hostname = serverIp;
     
-    // Check if we have a reverse DNS that's not a Hetzner static domain
-    if (reverseDns && reverseDns.trim() !== '' && !reverseDns.startsWith('static-')) {
-        // Use the custom domain with HTTPS
-        hostname = reverseDns;
-        protocol = 'https';
+    // Check if we have a reverse DNS
+    if (reverseDns && reverseDns.trim() !== '') {
+        if (reverseDns.startsWith('static-')) {
+            // Hetzner static domain - use HTTP with the static domain
+            hostname = reverseDns;
+            protocol = 'http';
+        } else {
+            // Custom domain - use HTTPS
+            hostname = reverseDns;
+            protocol = 'https';
+        }
     } else {
-        // Use IP with HTTP for Hetzner static domains or no domain
+        // No domain - use IP with HTTP
         hostname = serverIp;
         protocol = 'http';
     }
@@ -818,10 +832,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td>
                         ${server.reverse_dns ? `
-                            <a href="http://${server.reverse_dns}" target="_blank" class="text-decoration-none">
-                                <small class="text-info">${server.reverse_dns}</small>
-                                <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
-                            </a>
+                            ${server.reverse_dns.startsWith('static-') ? `
+                                <a href="http://${server.public_ip}" target="_blank" class="text-decoration-none">
+                                    <small class="text-info">${server.public_ip}</small>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                                <br><small class="text-muted">${server.reverse_dns}</small>
+                            ` : `
+                                <a href="https://${server.reverse_dns}" target="_blank" class="text-decoration-none">
+                                    <small class="text-info">${server.reverse_dns}</small>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                            `}
                         ` : '<span class="text-muted">No domain</span>'}
                     </td>
                     <td>
