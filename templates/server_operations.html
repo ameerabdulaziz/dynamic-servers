@@ -170,7 +170,8 @@
                         </td>
                         <td>
                             {% if server.reverse_dns %}
-                                {% if server.reverse_dns.startswith('static-') %}
+                                {% set is_static = server.reverse_dns.startswith('static-') %}
+                                {% if is_static %}
                                 <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
                                     <small class="text-info">{{ server.public_ip }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
