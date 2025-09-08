@@ -909,14 +909,25 @@ def manage_server(server_id):
                     server.status = 'rebooting'
                 db.session.commit()
                 
-                # Wait a moment and then update with actual status from Hetzner
-                import time
-                time.sleep(3)  # Wait 3 seconds for the action to process
+                # Schedule an async status update after a delay instead of blocking
+                from threading import Timer
                 
-                status_result = hetzner_service.get_server_current_status(server.hetzner_id)
-                if status_result['success']:
-                    server.status = status_result['status']
-                    db.session.commit()
+                def update_server_status():
+                    """Update server status after action completes"""
+                    try:
+                        with db.app.app_context():
+                            status_result = hetzner_service.get_server_current_status(server.hetzner_id)
+                            if status_result['success']:
+                                # Get fresh server object from database
+                                fresh_server = HetznerServer.query.get(server.id)
+                                if fresh_server:
+                                    fresh_server.status = status_result['status']
+                                    db.session.commit()
+                    except Exception as e:
+                        print(f"Error updating server status: {e}")
+                
+                # Schedule status update after 10 seconds
+                Timer(10.0, update_server_status).start()
                     
             else:
                 flash(f'Error executing {form.action.data}: {result["error"]}', 'danger')
