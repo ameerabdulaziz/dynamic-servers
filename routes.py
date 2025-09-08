@@ -937,57 +937,18 @@ def manage_server(server_id):
             
             if result['success']:
                 flash(f'Server {form.action.data} action initiated successfully!', 'success')
-                # Update server status immediately with intermediate state
+                # Update server status immediately to final expected status
+                # Map intermediate states to final states since Hetzner transitions quickly
                 if form.action.data == 'start':
-                    server.status = 'starting'
+                    server.status = 'running'  # starting -> running
                 elif form.action.data == 'stop':
-                    server.status = 'stopping'
+                    server.status = 'stopped'  # stopping -> stopped  
                 elif form.action.data == 'reboot':
-                    server.status = 'rebooting'
+                    server.status = 'running'  # rebooting -> running
+                
+                server.last_synced = datetime.utcnow()
                 db.session.commit()
-                
-                # Wait for action to complete and get the final status
-                import time
-                from threading import Thread
-                
-                def update_final_status():
-                    """Poll Hetzner until action completes and update final status"""
-                    max_attempts = 30  # Maximum wait time of 60 seconds (30 x 2)
-                    attempt = 0
-                    
-                    while attempt < max_attempts:
-                        attempt += 1
-                        time.sleep(2)  # Wait 2 seconds between checks
-                        
-                        try:
-                            # Create new app context for this thread
-                            with app.app_context():
-                                status_result = hetzner_service.get_server_current_status(server.hetzner_id)
-                                if status_result['success']:
-                                    current_status = status_result['status']
-                                    
-                                    # Check if action completed (no longer in intermediate state)
-                                    if current_status not in ['starting', 'stopping', 'rebooting']:
-                                        # Action completed, update database with final status
-                                        fresh_server = HetznerServer.query.get(server.id)
-                                        if fresh_server:
-                                            fresh_server.status = current_status
-                                            fresh_server.last_synced = datetime.utcnow()
-                                            db.session.commit()
-                                            app.logger.info(f"Server {server.name} final status updated to: {current_status}")
-                                        break
-                                        
-                        except Exception as e:
-                            app.logger.error(f"Error checking server status: {e}")
-                            break
-                            
-                    if attempt >= max_attempts:
-                        app.logger.warning(f"Server {server.name} status update timeout after {max_attempts * 2} seconds")
-                
-                # Run status polling in a separate thread
-                status_thread = Thread(target=update_final_status)
-                status_thread.daemon = True
-                status_thread.start()
+                app.logger.info(f"Server {server.name} status updated to: {server.status}")
                     
             else:
                 flash(f'Error executing {form.action.data}: {result["error"]}', 'danger')
@@ -1748,9 +1709,7 @@ def user_management():
         query = query.filter(
             db.or_(
                 User.username.contains(search),
-                User.email.contains(search),
-                User.first_name.contains(search),
-                User.last_name.contains(search)
+                User.email.contains(search)
             )
         )
     
