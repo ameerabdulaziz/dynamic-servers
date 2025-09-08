@@ -44,7 +44,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <div class="h4 mb-0">{{ servers|selectattr("status", "equalto", "running")|list|length }}</div>
+                        <div class="h4 mb-0">{{ servers|length }}</div>
                         <small>Running Servers</small>
                     </div>
                     <i class="fas fa-play fa-2x opacity-50"></i>
@@ -98,8 +98,7 @@
                         </th>
                         <th>Server</th>
                         <th>Project</th>
-                        <th>Status</th>
-                        <th>Location</th>
+                        <th>Domain</th>
                         <th>Last Backup</th>
                         <th>Last Update</th>
                         <th>Actions</th>
@@ -123,13 +122,14 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="badge {{ server.get_status_badge_class() }}">
-                                {{ server.status.title() }}
-                            </span>
-                        </td>
-                        <td>
-                            <i class="fas fa-map-marker-alt text-muted me-1"></i>
-                            {{ server.location or 'Unknown' }}
+                            {% if server.reverse_dns %}
+                            <a href="http://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
+                                <small class="text-info">{{ server.reverse_dns }}</small>
+                                <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                            </a>
+                            {% else %}
+                            <span class="text-muted">No domain</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% set last_backup = server.backups | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}

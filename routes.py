@@ -1226,11 +1226,12 @@ def server_operations():
     
     # Only admins have complete system access - see all servers
     if current_user.is_admin:
-        # Only admins see all servers
-        servers = HetznerServer.query.all()
+        # Only admins see all servers (running only)
+        servers = HetznerServer.query.filter(HetznerServer.status == 'running').all()
     else:
-        # All technical agents (including managers) see only servers from projects they have access to
-        servers = current_user.get_accessible_servers()
+        # All technical agents (including managers) see only running servers from projects they have access to
+        accessible_servers = current_user.get_accessible_servers()
+        servers = [s for s in accessible_servers if s.status == 'running']
     
     return render_template('server_operations.html', servers=servers)
 
