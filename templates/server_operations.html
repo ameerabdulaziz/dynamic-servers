@@ -170,13 +170,14 @@
                         </td>
                         <td>
                             {% if server.reverse_dns %}
-                                {% set is_static = server.reverse_dns.startswith('static-') %}
-                                {% if is_static %}
+                                {% if server.reverse_dns[:7] == 'static-' %}
+                                <!-- STATIC DOMAIN - SHOWING IP -->
                                 <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
                                     <small class="text-info">{{ server.public_ip }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                                 {% else %}
+                                <!-- NORMAL DOMAIN - SHOWING DOMAIN -->
                                 <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
                                     <small class="text-info">{{ server.reverse_dns }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
@@ -832,7 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td>
                         ${server.reverse_dns ? `
-                            ${server.reverse_dns.startsWith('static-') ? `
+                            ${server.reverse_dns.substring(0, 7) === 'static-' ? `
                                 <a href="http://${server.public_ip}" target="_blank" class="text-decoration-none">
                                     <small class="text-info">${server.public_ip}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
