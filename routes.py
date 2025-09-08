@@ -1886,6 +1886,72 @@ def promote_to_manager():
     return redirect(url_for('user_assignments'))
 
 
+# Project Tech Manager Assignment Routes (Admin Only)
+@app.route('/assign-manager-to-project', methods=['POST'])
+@login_required
+def assign_manager_to_project():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    user_id = request.form.get('user_id')
+    project_id = request.form.get('project_id')
+    
+    user = User.query.get(user_id)
+    project = HetznerProject.query.get(project_id)
+    
+    if not user or not project:
+        flash('Invalid user or project selected.', 'danger')
+        return redirect(url_for('hetzner_project_detail', project_id=project_id))
+    
+    if not (user.role == UserRole.TECHNICAL_AGENT and user.is_manager):
+        flash('Selected user is not a tech manager.', 'danger')
+        return redirect(url_for('hetzner_project_detail', project_id=project_id))
+    
+    # Check if already assigned
+    existing = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
+    if existing:
+        flash(f'{user.username} is already assigned to project {project.name}.', 'info')
+        return redirect(url_for('hetzner_project_detail', project_id=project_id))
+    
+    # Create assignment
+    assignment = UserProjectAccess()
+    assignment.user_id = user_id
+    assignment.project_id = project_id
+    assignment.access_level = 'admin'  # Tech managers get admin access to projects
+    assignment.granted_by = current_user.id
+    
+    db.session.add(assignment)
+    db.session.commit()
+    
+    flash(f'Successfully assigned {user.username} as tech manager for project {project.name}.', 'success')
+    return redirect(url_for('hetzner_project_detail', project_id=project_id))
+
+@app.route('/remove-manager-from-project', methods=['POST'])
+@login_required
+def remove_manager_from_project():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    user_id = request.form.get('user_id')
+    project_id = request.form.get('project_id')
+    
+    assignment = UserProjectAccess.query.filter_by(user_id=user_id, project_id=project_id).first()
+    
+    if assignment:
+        user = User.query.get(user_id)
+        project = HetznerProject.query.get(project_id)
+        
+        db.session.delete(assignment)
+        db.session.commit()
+        
+        flash(f'Removed {user.username} from project {project.name}.', 'success')
+    else:
+        flash('Assignment not found.', 'danger')
+    
+    return redirect(url_for('hetzner_project_detail', project_id=project_id))
+
 # Hetzner Project Management Routes (Admin Only)
 @app.route('/hetzner-projects')
 @login_required
@@ -1918,7 +1984,20 @@ def hetzner_project_detail(project_id):
     
     servers = HetznerServer.query.filter_by(project_id=project_id).all()
     
-    return render_template('hetzner_project_detail.html', project=project, servers=servers)
+    # Get tech managers assigned to this project and available tech managers for assignment
+    tech_managers = User.query.filter_by(role=UserRole.TECHNICAL_AGENT, is_manager=True).all()
+    assigned_managers = User.query.join(UserProjectAccess).filter(
+        UserProjectAccess.project_id == project_id,
+        User.role == UserRole.TECHNICAL_AGENT,
+        User.is_manager == True
+    ).all()
+    available_managers = [m for m in tech_managers if m not in assigned_managers]
+    
+    return render_template('hetzner_project_detail.html', 
+                         project=project, 
+                         servers=servers,
+                         assigned_managers=assigned_managers,
+                         available_managers=available_managers)
 
 @app.route('/hetzner-projects/<int:project_id>/sync', methods=['POST'])
 @login_required
