@@ -1272,16 +1272,81 @@ def server_operations():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
+    # Get filter parameters
+    search = request.args.get('search', '')
+    status_filter = request.args.get('status', '')
+    project_filter = request.args.get('project', '')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     # Only admins have complete system access - see all servers
     if current_user.is_admin:
-        # Only admins see all servers (running only)
-        servers = HetznerServer.query.filter(HetznerServer.status == 'running').all()
+        query = HetznerServer.query.filter(HetznerServer.status.in_(['running', 'stopped']))
     else:
-        # All technical agents (including managers) see only running servers from projects they have access to
+        # All technical agents (including managers) see only servers from projects they have access to
         accessible_servers = current_user.get_accessible_servers()
-        servers = [s for s in accessible_servers if s.status == 'running']
+        accessible_server_ids = [s.id for s in accessible_servers if s.status in ['running', 'stopped']]
+        query = HetznerServer.query.filter(HetznerServer.id.in_(accessible_server_ids)) if accessible_server_ids else HetznerServer.query.filter(False)
     
-    return render_template('server_operations.html', servers=servers)
+    # Apply filters
+    if search:
+        query = query.filter(
+            db.or_(
+                HetznerServer.name.ilike(f'%{search}%'),
+                HetznerServer.public_ip.ilike(f'%{search}%'),
+                HetznerServer.reverse_dns.ilike(f'%{search}%')
+            )
+        )
+    
+    if status_filter:
+        query = query.filter(HetznerServer.status == status_filter)
+    
+    if project_filter:
+        query = query.filter(HetznerServer.project_id == project_filter)
+    
+    servers = query.all()
+    
+    # Get available projects for filter dropdown
+    if current_user.is_admin:
+        projects = HetznerProject.query.filter(HetznerProject.is_active == True).all()
+    else:
+        projects = current_user.get_accessible_projects()
+    
+    if is_ajax:
+        servers_data = []
+        for server in servers:
+            last_backup = None
+            if server.backups:
+                completed_backups = [b for b in server.backups if b.completed_at]
+                if completed_backups:
+                    last_backup = max(completed_backups, key=lambda x: x.completed_at)
+            
+            last_update = None
+            if server.system_updates:
+                completed_updates = [u for u in server.system_updates if u.completed_at]
+                if completed_updates:
+                    last_update = max(completed_updates, key=lambda x: x.completed_at)
+            
+            servers_data.append({
+                'id': server.id,
+                'name': server.name,
+                'server_type': server.server_type,
+                'public_ip': server.public_ip or 'No IP',
+                'reverse_dns': server.reverse_dns,
+                'project_name': server.project.name if server.project else 'No Project',
+                'last_backup': last_backup.completed_at.strftime('%Y-%m-%d %H:%M') if last_backup and last_backup.completed_at else 'Never',
+                'last_backup_status': last_backup.status if last_backup else None,
+                'last_update': last_update.completed_at.strftime('%Y-%m-%d %H:%M') if last_update and last_update.completed_at else 'Never',
+                'last_update_status': last_update.status if last_update else None,
+                'status': server.status
+            })
+        
+        return jsonify({
+            'success': True,
+            'servers': servers_data,
+            'total_shown': len(servers_data)
+        })
+    
+    return render_template('server_operations.html', servers=servers, projects=projects)
 
 @app.route('/server/<int:server_id>/backup', methods=['POST'])
 @login_required
@@ -1595,26 +1660,106 @@ def system_logs():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
+    # Get filter parameters
+    search = request.args.get('search', '')
+    log_type_filter = request.args.get('log_type', '')
+    server_filter = request.args.get('server', '')
+    status_filter = request.args.get('status', '')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     # Filter system updates, backups, and servers by user's access
     if current_user.is_admin:
-        updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
-        backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(50).all()
+        accessible_server_ids = [s.id for s in HetznerServer.query.all()]
         servers = HetznerServer.query.all()
     else:
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
-        
-        if accessible_server_ids:
-            updates = SystemUpdate.query.filter(
-                SystemUpdate.server_id.in_(accessible_server_ids)
-            ).order_by(SystemUpdate.started_at.desc()).limit(50).all()
-            backups = DatabaseBackup.query.filter(
-                DatabaseBackup.server_id.in_(accessible_server_ids)
-            ).order_by(DatabaseBackup.started_at.desc()).limit(50).all()
-        else:
-            updates = []
-            backups = []
         servers = accessible_servers
+    
+    # Base queries
+    updates_query = SystemUpdate.query
+    backups_query = DatabaseBackup.query
+    
+    if not current_user.is_admin and accessible_server_ids:
+        updates_query = updates_query.filter(SystemUpdate.server_id.in_(accessible_server_ids))
+        backups_query = backups_query.filter(DatabaseBackup.server_id.in_(accessible_server_ids))
+    elif not current_user.is_admin:
+        updates_query = SystemUpdate.query.filter(False)
+        backups_query = DatabaseBackup.query.filter(False)
+    
+    # Apply filters
+    if search:
+        updates_query = updates_query.join(HetznerServer).filter(
+            db.or_(
+                HetznerServer.name.ilike(f'%{search}%'),
+                SystemUpdate.update_description.ilike(f'%{search}%')
+            )
+        )
+        backups_query = backups_query.join(HetznerServer).filter(
+            db.or_(
+                HetznerServer.name.ilike(f'%{search}%'),
+                DatabaseBackup.database_name.ilike(f'%{search}%')
+            )
+        )
+    
+    if server_filter:
+        updates_query = updates_query.filter(SystemUpdate.server_id == server_filter)
+        backups_query = backups_query.filter(DatabaseBackup.server_id == server_filter)
+    
+    if status_filter:
+        updates_query = updates_query.filter(SystemUpdate.status == status_filter)
+        backups_query = backups_query.filter(DatabaseBackup.status == status_filter)
+    
+    # Determine which logs to show based on log_type filter
+    if log_type_filter == 'deployment':
+        updates = updates_query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
+        backups = []
+    elif log_type_filter == 'backup':
+        updates = []
+        backups = backups_query.order_by(DatabaseBackup.started_at.desc()).limit(50).all()
+    else:
+        updates = updates_query.order_by(SystemUpdate.started_at.desc()).limit(50).all()
+        backups = backups_query.order_by(DatabaseBackup.started_at.desc()).limit(50).all()
+    
+    if is_ajax:
+        updates_data = []
+        for update in updates:
+            duration = None
+            if update.completed_at and update.started_at:
+                duration = int((update.completed_at - update.started_at).total_seconds())
+            
+            updates_data.append({
+                'id': update.id,
+                'server_name': update.server.name if update.server else 'Unknown',
+                'server_ip': update.server.public_ip if update.server else 'N/A',
+                'update_type': update.update_type,
+                'status': update.status,
+                'started_at': update.started_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'duration': duration,
+                'initiated_by': update.initiated_by_user.username if update.initiated_by_user else 'System',
+                'type': 'deployment'
+            })
+        
+        backups_data = []
+        for backup in backups:
+            backups_data.append({
+                'id': backup.id,
+                'database_name': backup.database_name,
+                'server_name': backup.server.name if backup.server else 'Local',
+                'backup_type': backup.backup_type,
+                'status': backup.status,
+                'started_at': backup.started_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'file_size': backup.file_size,
+                'initiated_by': backup.initiated_by_user.username if backup.initiated_by_user else 'System',
+                'type': 'backup'
+            })
+        
+        return jsonify({
+            'success': True,
+            'updates': updates_data,
+            'backups': backups_data,
+            'total_shown': len(updates_data) + len(backups_data)
+        })
     
     return render_template('system_logs.html', 
                          updates=updates, 
@@ -1696,17 +1841,76 @@ def backups():
         flash('Access denied. Technical Agent privileges required.', 'danger')
         return redirect(url_for('index'))
     
+    # Get filter parameters
+    search = request.args.get('search', '')
+    status_filter = request.args.get('status', '')
+    server_filter = request.args.get('server', '')
+    backup_type_filter = request.args.get('backup_type', '')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     # Filter backups by user's accessible servers
     if current_user.is_admin:
-        backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).all()
+        query = DatabaseBackup.query
     else:
         accessible_servers = current_user.get_accessible_servers()
         accessible_server_ids = [s.id for s in accessible_servers]
-        backups = DatabaseBackup.query.filter(
+        query = DatabaseBackup.query.filter(
             DatabaseBackup.server_id.in_(accessible_server_ids)
-        ).order_by(DatabaseBackup.started_at.desc()).all() if accessible_server_ids else []
+        ) if accessible_server_ids else DatabaseBackup.query.filter(False)
     
-    return render_template('backups.html', backups=backups)
+    # Apply filters
+    if search:
+        query = query.join(HetznerServer).filter(
+            db.or_(
+                DatabaseBackup.database_name.ilike(f'%{search}%'),
+                HetznerServer.name.ilike(f'%{search}%')
+            )
+        )
+    
+    if status_filter:
+        query = query.filter(DatabaseBackup.status == status_filter)
+    
+    if server_filter:
+        query = query.filter(DatabaseBackup.server_id == server_filter)
+    
+    if backup_type_filter:
+        query = query.filter(DatabaseBackup.backup_type == backup_type_filter)
+    
+    backups = query.order_by(DatabaseBackup.started_at.desc()).all()
+    
+    # Get available servers for filter dropdown
+    if current_user.is_admin:
+        servers = HetznerServer.query.all()
+    else:
+        servers = current_user.get_accessible_servers()
+    
+    if is_ajax:
+        backups_data = []
+        for backup in backups:
+            backups_data.append({
+                'id': backup.id,
+                'database_name': backup.database_name,
+                'server_name': backup.server.name if backup.server else 'Local Server',
+                'backup_type': backup.backup_type,
+                'status': backup.status,
+                'file_size': backup.file_size,
+                'started_at': backup.started_at.strftime('%Y-%m-%d %H:%M'),
+                'completed_at': backup.completed_at.strftime('%Y-%m-%d %H:%M') if backup.completed_at else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'backups': backups_data,
+            'total_shown': len(backups_data),
+            'stats': {
+                'total': len(backups_data),
+                'completed': len([b for b in backups if b.status == 'completed']),
+                'running': len([b for b in backups if b.status == 'running']),
+                'failed': len([b for b in backups if b.status == 'failed'])
+            }
+        })
+    
+    return render_template('backups.html', backups=backups, servers=servers)
 
 @app.route('/system-updates')
 @login_required

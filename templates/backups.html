@@ -77,14 +77,70 @@
     </div>
 </div>
 
+<!-- Filter Controls -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0">
+            <div class="card-body">
+                <form id="filter-form" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               placeholder="Database name, server name...">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="completed">Completed</option>
+                            <option value="running">Running</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="server" class="form-label">Server</label>
+                        <select class="form-select" id="server" name="server">
+                            <option value="">All Servers</option>
+                            {% for server in servers %}
+                            <option value="{{ server.id }}">{{ server.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label for="backup_type" class="form-label">Type</label>
+                        <select class="form-select" id="backup_type" name="backup_type">
+                            <option value="">All</option>
+                            <option value="full">Full</option>
+                            <option value="incremental">Incremental</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary" id="filter-btn">
+                                <i class="fas fa-search me-1" id="filter-icon"></i>
+                                <span id="filter-text">Filter</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clear-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Backups List -->
 <div class="card border-0">
     <div class="card-header bg-gradient">
         <h5 class="card-title mb-0">
-            <i class="fas fa-list me-2"></i>Backup History
+            <i class="fas fa-list me-2"></i>Backup History <small class="text-muted">{{ backups|length }} backups</small>
         </h5>
     </div>
     <div class="card-body p-0">
+        <div id="backups-content">
         {% if backups %}
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -161,7 +217,7 @@
             </table>
         </div>
         {% else %}
-        <div class="text-center py-5">
+        <div class="text-center py-5" id="no-backups-message">
             <i class="fas fa-database fa-4x text-muted mb-3"></i>
             <h3 class="text-muted">No Backups Available</h3>
             <p class="text-muted">No database backups found. Create your first backup to get started.</p>
@@ -170,6 +226,7 @@
             </button>
         </div>
         {% endif %}
+        </div>
     </div>
 </div>
 
@@ -199,5 +256,193 @@ function deleteBackup(backupId) {
         alert('Backup deleted: ' + backupId);
     }
 }
+
+// AJAX Filtering
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filter-form');
+    const filterBtn = document.getElementById('filter-btn');
+    const filterIcon = document.getElementById('filter-icon');
+    const filterText = document.getElementById('filter-text');
+    const clearBtn = document.getElementById('clear-btn');
+    const backupsContent = document.getElementById('backups-content');
+    
+    const searchInput = document.getElementById('search');
+    const statusSelect = document.getElementById('status');
+    const serverSelect = document.getElementById('server');
+    const backupTypeSelect = document.getElementById('backup_type');
+    
+    let filterTimeout;
+    
+    function setFilterLoading(loading) {
+        if (loading) {
+            filterBtn.disabled = true;
+            filterIcon.className = 'fas fa-spinner fa-spin me-1';
+            filterText.textContent = 'Filtering...';
+        } else {
+            filterBtn.disabled = false;
+            filterIcon.className = 'fas fa-search me-1';
+            filterText.textContent = 'Filter';
+        }
+    }
+    
+    function renderBackupsTable(backups) {
+        if (backups.length === 0) {
+            return `
+                <div class="text-center py-5" id="no-backups-message">
+                    <i class="fas fa-database fa-4x text-muted mb-3"></i>
+                    <h3 class="text-muted">No Backups Found</h3>
+                    <p class="text-muted">No backups match your current filters.</p>
+                </div>
+            `;
+        }
+        
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Database</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Size</th>
+                            <th>Created</th>
+                            <th>Completed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        backups.forEach(backup => {
+            const statusClass = backup.status === 'completed' ? 'bg-success' : 
+                               backup.status === 'running' ? 'bg-warning' : 
+                               backup.status === 'failed' ? 'bg-danger' : 'bg-secondary';
+            
+            html += `
+                <tr>
+                    <td>
+                        <div class="fw-bold">${backup.database_name}</div>
+                        <small class="text-muted">${backup.server_name}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">${backup.backup_type.charAt(0).toUpperCase() + backup.backup_type.slice(1)}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">${backup.status.charAt(0).toUpperCase() + backup.status.slice(1)}</span>
+                    </td>
+                    <td>
+                        ${backup.file_size ? (backup.file_size / 1024 / 1024).toFixed(2) + ' MB' : '<span class="text-muted">-</span>'}
+                    </td>
+                    <td>
+                        <small>${backup.started_at}</small>
+                    </td>
+                    <td>
+                        ${backup.completed_at ? `<small>${backup.completed_at}</small>` : '<span class="text-muted">-</span>'}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            ${backup.status === 'completed' ? `
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="downloadBackup(${backup.id})" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="restoreBackup(${backup.id})" title="Restore">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            ` : ''}
+                            <button type="button" class="btn btn-outline-danger btn-sm" 
+                                    onclick="deleteBackup(${backup.id})" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function performFilter() {
+        setFilterLoading(true);
+        
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams(formData);
+        
+        fetch('/backups?' + params, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            setFilterLoading(false);
+            
+            if (data.success) {
+                backupsContent.innerHTML = renderBackupsTable(data.backups);
+                // Update count in header
+                const headerCount = document.querySelector('.card-header h5 small');
+                if (headerCount) {
+                    headerCount.textContent = `${data.total_shown} backups`;
+                }
+                
+                // Update summary stats
+                updateSummaryStats(data.stats);
+            } else {
+                console.error('Filter failed:', data.error);
+            }
+        })
+        .catch(error => {
+            setFilterLoading(false);
+            console.error('Error:', error);
+        });
+    }
+    
+    function updateSummaryStats(stats) {
+        const totalCard = document.querySelector('.bg-primary .h4');
+        const successCard = document.querySelector('.bg-success .h4');
+        const runningCard = document.querySelector('.bg-warning .h4');
+        const failedCard = document.querySelector('.bg-danger .h4');
+        
+        if (totalCard) totalCard.textContent = stats.total;
+        if (successCard) successCard.textContent = stats.completed;
+        if (runningCard) runningCard.textContent = stats.running;
+        if (failedCard) failedCard.textContent = stats.failed;
+    }
+    
+    // Handle form submission
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        performFilter();
+    });
+    
+    // Real-time filtering with debounce
+    function handleInputChange() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(performFilter, 500);
+    }
+    
+    searchInput.addEventListener('input', handleInputChange);
+    statusSelect.addEventListener('change', performFilter);
+    serverSelect.addEventListener('change', performFilter);
+    backupTypeSelect.addEventListener('change', performFilter);
+    
+    // Clear filters
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        statusSelect.value = '';
+        serverSelect.value = '';
+        backupTypeSelect.value = '';
+        performFilter();
+    });
+});
 </script>
 {% endblock %}

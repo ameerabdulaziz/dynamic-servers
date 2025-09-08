@@ -24,32 +24,56 @@
     </div>
 </div>
 
-<!-- Log Type Filter -->
+<!-- Enhanced Filter Controls -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0">
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label class="form-label">Filter by Type</label>
-                        <select class="form-control" id="logTypeFilter" onchange="filterLogs()">
-                            <option value="">All Log Types</option>
-                            <option value="deployment">Deployment Scripts</option>
-                            <option value="backup">Database Backups</option>
-                            <option value="system">System Updates</option>
-                            <option value="error">Errors</option>
+                <form id="filter-form" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               placeholder="Server name, operation...">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="log_type" class="form-label">Log Type</label>
+                        <select class="form-select" id="log_type" name="log_type">
+                            <option value="">All Types</option>
+                            <option value="deployment">Deployment</option>
+                            <option value="backup">Backup</option>
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Server</label>
-                        <select class="form-control" id="serverFilter" onchange="filterLogs()">
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="completed">Completed</option>
+                            <option value="running">Running</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="server" class="form-label">Server</label>
+                        <select class="form-select" id="server" name="server">
                             <option value="">All Servers</option>
                             {% for server in servers %}
                             <option value="{{ server.id }}">{{ server.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary" id="filter-btn">
+                                <i class="fas fa-search me-1" id="filter-icon"></i>
+                                <span id="filter-text">Filter</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clear-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -63,6 +87,7 @@
         </h5>
     </div>
     <div class="card-body p-0">
+        <div id="updates-content">
         {% if updates %}
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -133,12 +158,13 @@
             </table>
         </div>
         {% else %}
-        <div class="text-center py-5">
+        <div class="text-center py-5" id="no-updates-message">
             <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
             <h3 class="text-muted">No Deployment Logs</h3>
             <p class="text-muted">No deployment script executions found.</p>
         </div>
         {% endif %}
+        </div>
     </div>
 </div>
 
@@ -150,6 +176,7 @@
         </h5>
     </div>
     <div class="card-body p-0">
+        <div id="backups-content">
         {% if backups %}
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -220,12 +247,13 @@
             </table>
         </div>
         {% else %}
-        <div class="text-center py-5">
+        <div class="text-center py-5" id="no-backups-message">
             <i class="fas fa-database fa-4x text-muted mb-3"></i>
             <h3 class="text-muted">No Backup Logs</h3>
             <p class="text-muted">No database backup operations found.</p>
         </div>
         {% endif %}
+        </div>
     </div>
 </div>
 
@@ -261,28 +289,248 @@
 let currentLogId = null;
 let currentLogType = null;
 
-function filterLogs() {
-    const typeFilter = document.getElementById('logTypeFilter').value;
-    const serverFilter = document.getElementById('serverFilter').value;
-    const rows = document.querySelectorAll('.log-row');
+// AJAX Filtering
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filter-form');
+    const filterBtn = document.getElementById('filter-btn');
+    const filterIcon = document.getElementById('filter-icon');
+    const filterText = document.getElementById('filter-text');
+    const clearBtn = document.getElementById('clear-btn');
+    const updatesContent = document.getElementById('updates-content');
+    const backupsContent = document.getElementById('backups-content');
     
-    rows.forEach(row => {
-        const rowType = row.getAttribute('data-type');
-        const rowServer = row.getAttribute('data-server');
-        
-        let showRow = true;
-        
-        if (typeFilter && rowType !== typeFilter) {
-            showRow = false;
+    const searchInput = document.getElementById('search');
+    const logTypeSelect = document.getElementById('log_type');
+    const statusSelect = document.getElementById('status');
+    const serverSelect = document.getElementById('server');
+    
+    let filterTimeout;
+    
+    function setFilterLoading(loading) {
+        if (loading) {
+            filterBtn.disabled = true;
+            filterIcon.className = 'fas fa-spinner fa-spin me-1';
+            filterText.textContent = 'Filtering...';
+        } else {
+            filterBtn.disabled = false;
+            filterIcon.className = 'fas fa-search me-1';
+            filterText.textContent = 'Filter';
+        }
+    }
+    
+    function renderUpdatesTable(updates) {
+        if (updates.length === 0) {
+            return `
+                <div class="text-center py-5" id="no-updates-message">
+                    <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                    <h3 class="text-muted">No Deployment Logs</h3>
+                    <p class="text-muted">No deployment logs match your filters.</p>
+                </div>
+            `;
         }
         
-        if (serverFilter && rowServer !== serverFilter) {
-            showRow = false;
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Server</th>
+                            <th>Script Type</th>
+                            <th>Status</th>
+                            <th>Started</th>
+                            <th>Duration</th>
+                            <th>Initiated By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        updates.forEach(update => {
+            const statusClass = update.status === 'completed' ? 'bg-success' : 
+                               update.status === 'failed' ? 'bg-danger' : 
+                               update.status === 'running' ? 'bg-warning' : 'bg-secondary';
+            
+            html += `
+                <tr class="log-row" data-type="deployment" data-server="${update.server_id}">
+                    <td>
+                        <div class="fw-bold">${update.server_name}</div>
+                        <small class="text-muted">${update.server_ip}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${update.update_type.charAt(0).toUpperCase() + update.update_type.slice(1)}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">${update.status.charAt(0).toUpperCase() + update.status.slice(1)}</span>
+                    </td>
+                    <td>
+                        <small>${update.started_at}</small>
+                    </td>
+                    <td>
+                        ${update.duration ? `<small>${update.duration}s</small>` : '<small class="text-muted">-</small>'}
+                    </td>
+                    <td>
+                        <small>${update.initiated_by}</small>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                onclick="viewLogs(${update.id}, 'update')" title="View Logs">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${update.status === 'failed' ? `
+                            <button type="button" class="btn btn-outline-danger btn-sm" 
+                                    onclick="viewErrors(${update.id}, 'update')" title="View Errors">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function renderBackupsTable(backups) {
+        if (backups.length === 0) {
+            return `
+                <div class="text-center py-5" id="no-backups-message">
+                    <i class="fas fa-database fa-4x text-muted mb-3"></i>
+                    <h3 class="text-muted">No Backup Logs</h3>
+                    <p class="text-muted">No backup logs match your filters.</p>
+                </div>
+            `;
         }
         
-        row.style.display = showRow ? '' : 'none';
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Database</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Started</th>
+                            <th>Size</th>
+                            <th>Initiated By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        backups.forEach(backup => {
+            const statusClass = backup.status === 'completed' ? 'bg-success' : 
+                               backup.status === 'failed' ? 'bg-danger' : 
+                               backup.status === 'running' ? 'bg-warning' : 'bg-secondary';
+            
+            html += `
+                <tr class="log-row" data-type="backup" data-server="${backup.server_id}">
+                    <td>
+                        <div class="fw-bold">${backup.database_name}</div>
+                        <small class="text-muted">${backup.server_name}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">${backup.backup_type.charAt(0).toUpperCase() + backup.backup_type.slice(1)}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">${backup.status.charAt(0).toUpperCase() + backup.status.slice(1)}</span>
+                    </td>
+                    <td>
+                        <small>${backup.started_at}</small>
+                    </td>
+                    <td>
+                        ${backup.file_size ? `<small>${(backup.file_size / 1024 / 1024).toFixed(2)} MB</small>` : '<small class="text-muted">-</small>'}
+                    </td>
+                    <td>
+                        <small>${backup.initiated_by}</small>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                onclick="viewLogs(${backup.id}, 'backup')" title="View Logs">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${backup.status === 'failed' ? `
+                            <button type="button" class="btn btn-outline-danger btn-sm" 
+                                    onclick="viewErrors(${backup.id}, 'backup')" title="View Errors">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function performFilter() {
+        setFilterLoading(true);
+        
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams(formData);
+        
+        fetch('/system-logs?' + params, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            setFilterLoading(false);
+            
+            if (data.success) {
+                updatesContent.innerHTML = renderUpdatesTable(data.updates);
+                backupsContent.innerHTML = renderBackupsTable(data.backups);
+            } else {
+                console.error('Filter failed:', data.error);
+            }
+        })
+        .catch(error => {
+            setFilterLoading(false);
+            console.error('Error:', error);
+        });
+    }
+    
+    // Handle form submission
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        performFilter();
     });
-}
+    
+    // Real-time filtering with debounce
+    function handleInputChange() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(performFilter, 500);
+    }
+    
+    searchInput.addEventListener('input', handleInputChange);
+    logTypeSelect.addEventListener('change', performFilter);
+    statusSelect.addEventListener('change', performFilter);
+    serverSelect.addEventListener('change', performFilter);
+    
+    // Clear filters
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        logTypeSelect.value = '';
+        statusSelect.value = '';
+        serverSelect.value = '';
+        performFilter();
+    });
+});
 
 function viewLogs(logId, logType) {
     currentLogId = logId;
