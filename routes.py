@@ -1830,8 +1830,9 @@ def server_assignments():
     # Get servers based on user's access level
     servers = HetznerServer.query.all()
     
-    # Get all technical users for assignment
-    technical_users = User.query.filter_by(role=UserRole.TECHNICAL_AGENT).all()
+    # Get only normal technical agents (not managers) for assignment
+    # Tech managers get automatic project access and don't need individual server assignments
+    technical_users = User.query.filter_by(role=UserRole.TECHNICAL_AGENT, is_manager=False).all()
     
     return render_template('server_assignments.html', servers=servers, technical_users=technical_users)
 
