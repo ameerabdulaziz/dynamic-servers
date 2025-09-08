@@ -1699,7 +1699,13 @@ def user_management():
     query = User.query
     
     if role_filter:
-        query = query.filter(User.role == role_filter)
+        from models import UserRole
+        if role_filter == 'admin':
+            query = query.filter(User.role == UserRole.ADMIN)
+        elif role_filter == 'sales_agent':
+            query = query.filter(User.role == UserRole.SALES_AGENT)
+        elif role_filter == 'technical_agent':
+            query = query.filter(User.role == UserRole.TECHNICAL_AGENT)
     if status_filter:
         if status_filter == 'approved':
             query = query.filter(User.is_approved == True)

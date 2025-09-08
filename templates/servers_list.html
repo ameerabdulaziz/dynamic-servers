@@ -77,9 +77,6 @@
                             <option value="">All Statuses</option>
                             <option value="running" {% if status_filter == 'running' %}selected{% endif %}>Running</option>
                             <option value="stopped" {% if status_filter == 'stopped' %}selected{% endif %}>Stopped</option>
-                            <option value="starting" {% if status_filter == 'starting' %}selected{% endif %}>Starting</option>
-                            <option value="stopping" {% if status_filter == 'stopping' %}selected{% endif %}>Stopping</option>
-                            <option value="rebooting" {% if status_filter == 'rebooting' %}selected{% endif %}>Rebooting</option>
                             <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>Deleted</option>
                         </select>
                     </div>
