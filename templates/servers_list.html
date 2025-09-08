@@ -60,6 +60,57 @@
     </div>
 </div>
 
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               placeholder="Server name, IP, domain..." value="{{ search }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="running" {% if status_filter == 'running' %}selected{% endif %}>Running</option>
+                            <option value="stopped" {% if status_filter == 'stopped' %}selected{% endif %}>Stopped</option>
+                            <option value="starting" {% if status_filter == 'starting' %}selected{% endif %}>Starting</option>
+                            <option value="stopping" {% if status_filter == 'stopping' %}selected{% endif %}>Stopping</option>
+                            <option value="rebooting" {% if status_filter == 'rebooting' %}selected{% endif %}>Rebooting</option>
+                            <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>Deleted</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="project" class="form-label">Project</label>
+                        <select class="form-select" id="project" name="project">
+                            <option value="">All Projects</option>
+                            {% for project in projects %}
+                                <option value="{{ project.id }}" {% if project_filter == project.id|string %}selected{% endif %}>
+                                    {{ project.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filter
+                            </button>
+                            <a href="{{ url_for('servers_list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Servers Table -->
 <div class="row">
     <div class="col-12">
@@ -67,6 +118,7 @@
             <div class="card-header">
                 <h5 class="mb-0">
                     <i class="fas fa-list me-2"></i>Hetzner Cloud Servers
+                    <small class="text-muted">({{ servers|length }} shown)</small>
                 </h5>
             </div>
             <div class="card-body">

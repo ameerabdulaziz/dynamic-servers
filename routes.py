@@ -579,18 +579,18 @@ def request_server():
     form = ServerRequestForm()
     
     # Populate project choices based on user's access
-    # For sales agents and admins creating requests, show all available projects 
+    # For sales agents and admins creating requests, show only active projects 
     # (sales agents need to create requests for any project)
     if current_user.is_admin:
-        projects = HetznerProject.query.all()
+        projects = HetznerProject.query.filter_by(is_active=True).all()
         form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain if p.base_domain else 'No domain'}") for p in projects]
     elif current_user.is_sales_agent:
-        # Sales agents can create requests for any project
-        projects = HetznerProject.query.all()
+        # Sales agents can create requests for only active projects
+        projects = HetznerProject.query.filter_by(is_active=True).all()
         form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain if p.base_domain else 'No domain'}") for p in projects]
     else:
-        # Technical agents only see their assigned projects
-        accessible_projects = current_user.get_accessible_projects()
+        # Technical agents only see their active assigned projects
+        accessible_projects = [p for p in current_user.get_accessible_projects() if p.is_active]
         form.project_id.choices = [(p.id, f"{p.name} - {p.base_domain if p.base_domain else 'No domain'}") for p in accessible_projects]
     
     # Debug logging
@@ -808,18 +808,44 @@ def servers_list():
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Get servers from database
-    servers = HetznerServer.query.order_by(HetznerServer.last_synced.desc()).all()
+    # Get filter parameters
+    status_filter = request.args.get('status', '')
+    project_filter = request.args.get('project', '')
+    search = request.args.get('search', '')
     
-    # Get server statistics
+    # Build query
+    query = HetznerServer.query
+    
+    if status_filter:
+        query = query.filter(HetznerServer.status == status_filter)
+    if project_filter:
+        query = query.filter(HetznerServer.project_id == project_filter)
+    if search:
+        query = query.filter(
+            db.or_(
+                HetznerServer.name.contains(search),
+                HetznerServer.reverse_dns.contains(search),
+                HetznerServer.public_ip.contains(search)
+            )
+        )
+    
+    servers = query.order_by(HetznerServer.last_synced.desc()).all()
+    
+    # Get server statistics (from all servers for stats)
+    all_servers = HetznerServer.query.all()
     stats = {
-        'total_servers': len(servers),
-        'running': len([s for s in servers if s.status == 'running']),
-        'stopped': len([s for s in servers if s.status == 'stopped']),
-        'deploying': len([s for s in servers if s.deployment_status == 'deploying'])
+        'total_servers': len(all_servers),
+        'running': len([s for s in all_servers if s.status == 'running']),
+        'stopped': len([s for s in all_servers if s.status == 'stopped']),
+        'deploying': len([s for s in all_servers if s.deployment_status == 'deploying'])
     }
     
-    return render_template('servers_list.html', servers=servers, stats=stats)
+    # Get projects for filter dropdown
+    projects = HetznerProject.query.all()
+    
+    return render_template('servers_list.html', servers=servers, stats=stats,
+                         status_filter=status_filter, project_filter=project_filter, 
+                         search=search, projects=projects)
 
 @app.route('/servers/sync')
 @login_required
@@ -920,25 +946,48 @@ def manage_server(server_id):
                     server.status = 'rebooting'
                 db.session.commit()
                 
-                # Schedule an async status update after a delay instead of blocking
-                from threading import Timer
+                # Wait for action to complete and get the final status
+                import time
+                from threading import Thread
                 
-                def update_server_status():
-                    """Update server status after action completes"""
-                    try:
-                        with db.app.app_context():
-                            status_result = hetzner_service.get_server_current_status(server.hetzner_id)
-                            if status_result['success']:
-                                # Get fresh server object from database
-                                fresh_server = HetznerServer.query.get(server.id)
-                                if fresh_server:
-                                    fresh_server.status = status_result['status']
-                                    db.session.commit()
-                    except Exception as e:
-                        print(f"Error updating server status: {e}")
+                def update_final_status():
+                    """Poll Hetzner until action completes and update final status"""
+                    max_attempts = 30  # Maximum wait time of 60 seconds (30 x 2)
+                    attempt = 0
+                    
+                    while attempt < max_attempts:
+                        attempt += 1
+                        time.sleep(2)  # Wait 2 seconds between checks
+                        
+                        try:
+                            # Create new app context for this thread
+                            with app.app_context():
+                                status_result = hetzner_service.get_server_current_status(server.hetzner_id)
+                                if status_result['success']:
+                                    current_status = status_result['status']
+                                    
+                                    # Check if action completed (no longer in intermediate state)
+                                    if current_status not in ['starting', 'stopping', 'rebooting']:
+                                        # Action completed, update database with final status
+                                        fresh_server = HetznerServer.query.get(server.id)
+                                        if fresh_server:
+                                            fresh_server.status = current_status
+                                            fresh_server.last_synced = datetime.utcnow()
+                                            db.session.commit()
+                                            app.logger.info(f"Server {server.name} final status updated to: {current_status}")
+                                        break
+                                        
+                        except Exception as e:
+                            app.logger.error(f"Error checking server status: {e}")
+                            break
+                            
+                    if attempt >= max_attempts:
+                        app.logger.warning(f"Server {server.name} status update timeout after {max_attempts * 2} seconds")
                 
-                # Schedule status update after 10 seconds
-                Timer(10.0, update_server_status).start()
+                # Run status polling in a separate thread
+                status_thread = Thread(target=update_final_status)
+                status_thread.daemon = True
+                status_thread.start()
                     
             else:
                 flash(f'Error executing {form.action.data}: {result["error"]}', 'danger')
@@ -1680,10 +1729,46 @@ def user_management():
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('index'))
     
-    # Get all users for management
-    all_users = User.query.all()
+    # Get filter parameters
+    role_filter = request.args.get('role', '')
+    status_filter = request.args.get('status', '')
+    search = request.args.get('search', '')
     
-    return render_template('user_management.html', users=all_users)
+    # Build query
+    query = User.query
+    
+    if role_filter:
+        query = query.filter(User.role == role_filter)
+    if status_filter:
+        if status_filter == 'approved':
+            query = query.filter(User.is_approved == True)
+        elif status_filter == 'pending':
+            query = query.filter(User.is_approved == False)
+    if search:
+        query = query.filter(
+            db.or_(
+                User.username.contains(search),
+                User.email.contains(search),
+                User.first_name.contains(search),
+                User.last_name.contains(search)
+            )
+        )
+    
+    all_users = query.order_by(User.created_at.desc()).all()
+    
+    # Get user statistics
+    total_users = User.query.all()
+    stats = {
+        'total_users': len(total_users),
+        'approved': len([u for u in total_users if u.is_approved]),
+        'pending': len([u for u in total_users if not u.is_approved]),
+        'admins': len([u for u in total_users if u.is_admin]),
+        'technical': len([u for u in total_users if u.is_technical_agent]),
+        'sales': len([u for u in total_users if u.is_sales_agent])
+    }
+    
+    return render_template('user_management.html', users=all_users, stats=stats,
+                         role_filter=role_filter, status_filter=status_filter, search=search)
 
 # Approve User Route
 @app.route('/admin/approve-user', methods=['POST'])
