@@ -26,7 +26,7 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-body">
-                            <form method="GET" class="row g-3">
+                            <form id="filter-form" class="row g-3">
                                 <div class="col-md-4">
                                     <label for="search" class="form-label">Search</label>
                                     <input type="text" class="form-control" id="search" name="search" 
@@ -52,12 +52,13 @@
                                 <div class="col-md-2">
                                     <label class="form-label">&nbsp;</label>
                                     <div class="d-flex gap-2">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-search me-1"></i>Filter
+                                        <button type="submit" class="btn btn-primary" id="filter-btn">
+                                            <i class="fas fa-search me-1" id="filter-icon"></i>
+                                            <span id="filter-text">Filter</span>
                                         </button>
-                                        <a href="{{ url_for('user_management') }}" class="btn btn-outline-secondary">
+                                        <button type="button" class="btn btn-outline-secondary" id="clear-btn">
                                             <i class="fas fa-times me-1"></i>Clear
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </form>
@@ -75,9 +76,10 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    <div id="users-content">
                     {% if users %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover" id="users-table">
                             <thead>
                                 <tr>
                                     <th>User</th>
@@ -164,11 +166,12 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="text-center py-4">
+                    <div class="text-center py-4" id="no-users-message">
                         <i class="fas fa-users fa-3x text-muted mb-3"></i>
                         <p class="text-muted">No users found in the system.</p>
                     </div>
                     {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -285,5 +288,177 @@ function confirmDeleteUser(userId, username) {
     document.getElementById('deleteUsername').textContent = username;
     new bootstrap.Modal(document.getElementById('deleteUserModal')).show();
 }
+
+// AJAX Filtering
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filter-form');
+    const filterBtn = document.getElementById('filter-btn');
+    const filterIcon = document.getElementById('filter-icon');
+    const filterText = document.getElementById('filter-text');
+    const clearBtn = document.getElementById('clear-btn');
+    const usersContent = document.getElementById('users-content');
+    
+    const searchInput = document.getElementById('search');
+    const roleSelect = document.getElementById('role');
+    const statusSelect = document.getElementById('status');
+    
+    let filterTimeout;
+    
+    function setFilterLoading(loading) {
+        if (loading) {
+            filterBtn.disabled = true;
+            filterIcon.className = 'fas fa-spinner fa-spin me-1';
+            filterText.textContent = 'Filtering...';
+        } else {
+            filterBtn.disabled = false;
+            filterIcon.className = 'fas fa-search me-1';
+            filterText.textContent = 'Filter';
+        }
+    }
+    
+    function renderUsersTable(users) {
+        if (users.length === 0) {
+            return `
+                <div class="text-center py-4" id="no-users-message">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No users match your current filters.</p>
+                </div>
+            `;
+        }
+        
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover" id="users-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Current Role</th>
+                            <th>Status</th>
+                            <th>Registered</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        users.forEach(user => {
+            const roleClass = user.is_admin ? 'bg-danger' : 
+                             user.is_sales_agent ? 'bg-success' : 
+                             user.is_technical_agent ? 'bg-primary' : 'bg-secondary';
+            
+            const roleName = user.is_admin ? 'Administrator' : 
+                            user.is_sales_agent ? 'Sales Agent' : 
+                            user.is_technical_agent ? 'Technical Agent' : 'No Role Assigned';
+            
+            const statusClass = user.is_approved ? 'bg-success' : 'bg-warning';
+            const statusText = user.is_approved ? 'Approved' : 'Pending Approval';
+            
+            html += `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2">
+                                ${user.username.charAt(0).toUpperCase()}
+                            </div>
+                            <strong>${user.username}</strong>
+                        </div>
+                    </td>
+                    <td>${user.email}</td>
+                    <td>
+                        <span class="badge ${roleClass}">${roleName}</span>
+                        ${user.is_manager ? '<span class="badge bg-warning ms-1">Manager</span>' : ''}
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">${statusText}</span>
+                    </td>
+                    <td>${user.created_at}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            ${!user.is_approved ? `
+                                <form method="POST" action="/admin/approve-user" class="d-inline">
+                                    <input type="hidden" name="user_id" value="${user.id}">
+                                    <button type="submit" class="btn btn-success btn-sm" title="Approve User">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </form>
+                            ` : ''}
+                            <button class="btn btn-primary btn-sm" 
+                                    onclick="showChangeRoleModal('${user.id}', '${user.username}', '${user.role}')" 
+                                    title="Change Role">
+                                <i class="fas fa-user-tag"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function performFilter() {
+        setFilterLoading(true);
+        
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams(formData);
+        
+        fetch('/admin/user-management?' + params, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            setFilterLoading(false);
+            
+            if (data.success) {
+                usersContent.innerHTML = renderUsersTable(data.users);
+                // Update stats in header
+                const totalBadge = document.querySelector('.badge.bg-info');
+                const pendingBadge = document.querySelector('.badge.bg-warning');
+                if (totalBadge) totalBadge.textContent = data.stats.total_users + ' Total';
+                if (pendingBadge) pendingBadge.textContent = data.stats.pending + ' Pending';
+            } else {
+                console.error('Filter failed:', data.error);
+            }
+        })
+        .catch(error => {
+            setFilterLoading(false);
+            console.error('Error:', error);
+        });
+    }
+    
+    // Handle form submission
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        performFilter();
+    });
+    
+    // Real-time filtering with debounce
+    function handleInputChange() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(performFilter, 500);
+    }
+    
+    searchInput.addEventListener('input', handleInputChange);
+    roleSelect.addEventListener('change', performFilter);
+    statusSelect.addEventListener('change', performFilter);
+    
+    // Clear filters
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        roleSelect.value = '';
+        statusSelect.value = '';
+        performFilter();
+    });
+});
 </script>
 {% endblock %}

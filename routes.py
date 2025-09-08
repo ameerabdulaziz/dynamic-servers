@@ -485,6 +485,25 @@ def admin_dashboard():
         'rejected': len([r for r in all_requests if r.status == 'rejected'])
     }
     
+    # Check if it's an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'requests': [{
+                'id': r.id,
+                'request_id': r.request_id,
+                'client_name': r.client_name,
+                'server_name': r.server_name,
+                'status': r.status,
+                'priority': r.priority,
+                'subdomain': r.subdomain,
+                'project_name': r.project.name if r.project else 'Unknown',
+                'created_at': r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else 'Unknown'
+            } for r in requests],
+            'stats': stats,
+            'total_shown': len(requests)
+        })
+    
     return render_template('admin_dashboard.html', requests=requests, stats=stats, 
                          status_filter=status_filter, priority_filter=priority_filter, search=search)
 
@@ -842,6 +861,25 @@ def servers_list():
     
     # Get projects for filter dropdown
     projects = HetznerProject.query.all()
+    
+    # Check if it's an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'servers': [{
+                'id': s.id,
+                'name': s.name,
+                'status': s.status,
+                'server_type': s.server_type,
+                'public_ip': s.public_ip,
+                'reverse_dns': s.reverse_dns,
+                'location': s.location,
+                'project_name': s.project.name if s.project else 'Unknown',
+                'last_synced': s.last_synced.strftime('%Y-%m-%d %H:%M') if s.last_synced else 'Never'
+            } for s in servers],
+            'stats': stats,
+            'total_shown': len(servers)
+        })
     
     return render_template('servers_list.html', servers=servers, stats=stats,
                          status_filter=status_filter, project_filter=project_filter, 
@@ -1731,6 +1769,26 @@ def user_management():
         'technical': len([u for u in total_users if u.is_technical_agent]),
         'sales': len([u for u in total_users if u.is_sales_agent])
     }
+    
+    # Check if it's an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'users': [{
+                'id': u.id,
+                'username': u.username,
+                'email': u.email,
+                'role': u.role.value if u.role else 'unknown',
+                'is_manager': u.is_manager,
+                'is_approved': u.is_approved,
+                'is_admin': u.is_admin,
+                'is_technical_agent': u.is_technical_agent,
+                'is_sales_agent': u.is_sales_agent,
+                'created_at': u.created_at.strftime('%Y-%m-%d') if u.created_at else 'Unknown'
+            } for u in all_users],
+            'stats': stats,
+            'total_shown': len(all_users)
+        })
     
     return render_template('user_management.html', users=all_users, stats=stats,
                          role_filter=role_filter, status_filter=status_filter, search=search)

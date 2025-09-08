@@ -65,7 +65,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                <form method="GET" class="row g-3">
+                <form id="filter-form" class="row g-3">
                     <div class="col-md-3">
                         <label for="search" class="form-label">Search</label>
                         <input type="text" class="form-control" id="search" name="search" 
@@ -94,12 +94,13 @@
                     <div class="col-md-3">
                         <label class="form-label">&nbsp;</label>
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search me-1"></i>Filter
+                            <button type="submit" class="btn btn-primary" id="filter-btn">
+                                <i class="fas fa-search me-1" id="filter-icon"></i>
+                                <span id="filter-text">Filter</span>
                             </button>
-                            <a href="{{ url_for('servers_list') }}" class="btn btn-outline-secondary">
+                            <button type="button" class="btn btn-outline-secondary" id="clear-btn">
                                 <i class="fas fa-times me-1"></i>Clear
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -119,9 +120,10 @@
                 </h5>
             </div>
             <div class="card-body">
+                <div id="servers-content">
                 {% if servers %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover" id="servers-table">
                             <thead>
                                 <tr>
                                     <th>Server Name</th>
@@ -186,7 +188,7 @@
                         </table>
                     </div>
                 {% else %}
-                    <div class="text-center py-4">
+                    <div class="text-center py-4" id="no-servers-message">
                         <div class="display-6 text-muted mb-3">
                             <i class="fas fa-server"></i>
                         </div>
@@ -197,8 +199,174 @@
                         </a>
                     </div>
                 {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filter-form');
+    const filterBtn = document.getElementById('filter-btn');
+    const filterIcon = document.getElementById('filter-icon');
+    const filterText = document.getElementById('filter-text');
+    const clearBtn = document.getElementById('clear-btn');
+    const serversContent = document.getElementById('servers-content');
+    
+    // Real-time filtering on input change
+    const searchInput = document.getElementById('search');
+    const statusSelect = document.getElementById('status');
+    const projectSelect = document.getElementById('project');
+    
+    let filterTimeout;
+    
+    function setFilterLoading(loading) {
+        if (loading) {
+            filterBtn.disabled = true;
+            filterIcon.className = 'fas fa-spinner fa-spin me-1';
+            filterText.textContent = 'Filtering...';
+        } else {
+            filterBtn.disabled = false;
+            filterIcon.className = 'fas fa-search me-1';
+            filterText.textContent = 'Filter';
+        }
+    }
+    
+    function renderServersTable(servers) {
+        if (servers.length === 0) {
+            return `
+                <div class="text-center py-4" id="no-servers-message">
+                    <div class="display-6 text-muted mb-3">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <h5>No servers found</h5>
+                    <p class="text-muted">No servers match your current filters.</p>
+                </div>
+            `;
+        }
+        
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover" id="servers-table">
+                    <thead>
+                        <tr>
+                            <th>Server Name</th>
+                            <th>Status</th>
+                            <th>Type & Location</th>
+                            <th>IP Addresses</th>
+                            <th>Project</th>
+                            <th>Last Synced</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        servers.forEach(server => {
+            const statusClass = server.status === 'running' ? 'bg-success' : 
+                               server.status === 'stopped' ? 'bg-secondary' : 'bg-warning';
+            
+            html += `
+                <tr>
+                    <td>
+                        <strong>${server.name}</strong><br>
+                        <small class="text-muted">ID: ${server.id}</small>
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">
+                            ${server.status.charAt(0).toUpperCase() + server.status.slice(1)}
+                        </span>
+                    </td>
+                    <td>
+                        ${server.server_type}<br>
+                        <small class="text-muted">${server.location || 'Unknown'}</small>
+                    </td>
+                    <td>
+                        ${server.public_ip ? `<code>${server.public_ip}</code>` : 'No IP'}
+                        ${server.reverse_dns ? `<br><small class="text-muted">${server.reverse_dns}</small>` : ''}
+                    </td>
+                    <td>
+                        <small>${server.project_name}</small>
+                    </td>
+                    <td>
+                        <small>${server.last_synced}</small>
+                    </td>
+                    <td>
+                        <a href="/servers/${server.id}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function performFilter() {
+        setFilterLoading(true);
+        
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams(formData);
+        
+        fetch(`{{ url_for('servers_list') }}?${params}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            setFilterLoading(false);
+            
+            if (data.success) {
+                serversContent.innerHTML = renderServersTable(data.servers);
+                // Update the count in header
+                const headerCount = document.querySelector('.card-header h5 small');
+                if (headerCount) {
+                    headerCount.textContent = `(${data.total_shown} shown)`;
+                }
+            } else {
+                console.error('Filter failed:', data.error);
+            }
+        })
+        .catch(error => {
+            setFilterLoading(false);
+            console.error('Error:', error);
+        });
+    }
+    
+    // Handle form submission
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        performFilter();
+    });
+    
+    // Real-time filtering with debounce
+    function handleInputChange() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(performFilter, 500);
+    }
+    
+    searchInput.addEventListener('input', handleInputChange);
+    statusSelect.addEventListener('change', performFilter);
+    projectSelect.addEventListener('change', performFilter);
+    
+    // Clear filters
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        statusSelect.value = '';
+        projectSelect.value = '';
+        performFilter();
+    });
+});
+</script>
+
 {% endblock %}
