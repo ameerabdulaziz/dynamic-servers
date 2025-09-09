@@ -799,20 +799,24 @@ function showSimpleAlert(title, message, details) {
 
 // Convert existing timestamps to relative time on page load
 function convertExistingTimestamps() {
-    // Find all timestamp cells and convert them to relative time
-    const timestampCells = document.querySelectorAll('tbody tr td:nth-child(5), tbody tr td:nth-child(6)');
-    
-    timestampCells.forEach(cell => {
-        const timestampElement = cell.querySelector('small');
-        if (timestampElement && timestampElement.textContent && timestampElement.textContent !== 'Never') {
-            const absoluteTime = timestampElement.textContent.trim();
-            if (absoluteTime.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/)) { // Check if it's an absolute timestamp
-                const relativeTime = getRelativeTime(absoluteTime);
-                timestampElement.title = absoluteTime; // Keep absolute time in tooltip
-                timestampElement.textContent = relativeTime;
+    // Wait a bit for DOM to be fully rendered
+    setTimeout(() => {
+        // Find all timestamp elements with text-success class (excludes status badges)
+        const timestampElements = document.querySelectorAll('tbody tr td small.text-success');
+        
+        timestampElements.forEach(element => {
+            if (element.textContent && element.textContent !== 'Never') {
+                const absoluteTime = element.textContent.trim();
+                
+                // Check if it matches the timestamp format and hasn't been converted yet
+                if (absoluteTime.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/) && !element.title) {
+                    const relativeTime = getRelativeTime(absoluteTime);
+                    element.title = absoluteTime; // Keep absolute time in tooltip
+                    element.textContent = relativeTime;
+                }
             }
-        }
-    });
+        });
+    }, 100); // Small delay to ensure DOM is ready
 }
 
 // Update all relative timestamps periodically
