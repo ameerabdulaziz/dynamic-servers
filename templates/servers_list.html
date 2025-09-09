@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td>
                         ${server.public_ip ? `<code>${server.public_ip}</code>` : 'No IP'}
-                        ${server.reverse_dns ? `<br><small class="text-muted">${server.reverse_dns.substring(0, 7) === 'static-' ? server.public_ip : server.reverse_dns}</small>` : ''}
+                        ${server.reverse_dns ? `<br><small class="text-muted">${server.reverse_dns.startsWith('static.') ? server.public_ip : server.reverse_dns}</small>` : ''}
                     </td>
                     <td>
                         <small>${server.project_name}</small>
