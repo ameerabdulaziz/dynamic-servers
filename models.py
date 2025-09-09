@@ -49,7 +49,13 @@ class User(UserMixin, db.Model):
             UserRole.TECHNICAL_AGENT: "Technical Agent",
             UserRole.SALES_AGENT: "Sales Agent"
         }
-        return role_names.get(self.role, "Unknown")
+        base_role = role_names.get(self.role, "Unknown")
+        
+        # Add "Manager" designation for technical agents who are managers
+        if self.role == UserRole.TECHNICAL_AGENT and self.is_manager:
+            return "Technical Manager"
+        
+        return base_role
     
     def has_permission(self, permission):
         """Check if user has specific permission based on role"""
