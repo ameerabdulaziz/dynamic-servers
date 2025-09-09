@@ -689,8 +689,17 @@ function getRelativeTime(timestamp) {
     if (!timestamp) return 'Never';
     
     const now = new Date();
-    const timestampDate = new Date(timestamp + ' UTC'); // Parse as UTC then convert
-    const diffMs = now - timestampDate;
+    
+    // Parse the Cairo timezone timestamp correctly
+    // The timestamp is in format "2025-09-09 14:20" and is already in Cairo time
+    // Cairo is UTC+2, so we need to adjust for that
+    const timestampDate = new Date(timestamp);
+    
+    // Add 2 hours to convert from Cairo time to UTC, then compare with current UTC
+    const cairoOffsetMs = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+    const timestampUTC = new Date(timestampDate.getTime() - cairoOffsetMs);
+    
+    const diffMs = now - timestampUTC;
     const diffSeconds = Math.floor(diffMs / 1000);
     
     if (diffSeconds < 60) {
@@ -1039,6 +1048,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize relative timestamps
     convertExistingTimestamps();
+    
+    // Force refresh all timestamps immediately after loading to fix any issues
+    setTimeout(() => {
+        refreshRelativeTimestamps();
+    }, 500);
     
     // Refresh relative timestamps every minute
     setInterval(refreshRelativeTimestamps, 60000);
