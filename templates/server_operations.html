@@ -360,9 +360,13 @@ document.getElementById('bulkSchedule').addEventListener('change', function() {
 
 // Individual server operations
 function initiateBackup(serverId) {
+    // Get server name from the table row
+    const serverRow = document.querySelector(`input[value="${serverId}"]`)?.closest('tr');
+    const serverName = serverRow?.querySelector('td:nth-child(2) .fw-bold')?.textContent || 'Unknown Server';
+    
     showConfirmModal(
         'Start Database Backup',
-        'Start backup process?',
+        `Start backup process for ${serverName}?`,
         'This will execute the backup script via SSH.',
         () => {
             // Find the backup button for this server and update it
@@ -376,9 +380,13 @@ function initiateBackup(serverId) {
 }
 
 function initiateUpdate(serverId) {
+    // Get server name from the table row
+    const serverRow = document.querySelector(`input[value="${serverId}"]`)?.closest('tr');
+    const serverName = serverRow?.querySelector('td:nth-child(2) .fw-bold')?.textContent || 'Unknown Server';
+    
     showConfirmModal(
         'Execute Deployment',
-        'Run deployment script?',
+        `Run deployment script for ${serverName}?`,
         'This will execute the Nova HR Docker deployment script.',
         () => {
             // Find the update button for this server and update it
