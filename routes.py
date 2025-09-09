@@ -1459,7 +1459,19 @@ def create_backup(server_id):
     db.session.commit()
     
     try:
-        # Check if project has SSH configuration
+        # Check if server is self-hosted
+        if server.is_self_hosted:
+            backup.status = 'skipped'
+            backup.error_log = 'Backup operations are not currently available for self-hosted servers. Please manage backups directly on the client server.'
+            backup.completed_at = datetime.utcnow()
+            db.session.commit()
+            error_msg = 'Self-hosted servers must be backed up manually by the client. Automated backups are only available for Hetzner Cloud servers.'
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg, 'status': 'skipped'})
+            flash(error_msg, 'info')
+            return redirect(url_for('server_operations'))
+        
+        # Check if project has SSH configuration (for Hetzner servers)
         if not server.project or not server.project.ssh_private_key:
             backup.status = 'failed'
             backup.error_log = 'No SSH private key configured for this project. Please configure SSH access in project settings.'
@@ -1593,7 +1605,19 @@ def create_system_update(server_id):
     db.session.commit()
     
     try:
-        # Check if project has SSH configuration
+        # Check if server is self-hosted
+        if server.is_self_hosted:
+            update.status = 'skipped'
+            update.error_log = 'System update operations are not currently available for self-hosted servers. Please manage updates directly on the client server.'
+            update.completed_at = datetime.utcnow()
+            db.session.commit()
+            error_msg = 'Self-hosted servers must be updated manually by the client. Automated updates are only available for Hetzner Cloud servers.'
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg, 'status': 'skipped'})
+            flash(error_msg, 'info')
+            return redirect(url_for('server_operations'))
+        
+        # Check if project has SSH configuration (for Hetzner servers)
         if not server.project or not server.project.ssh_private_key:
             update.status = 'failed'
             update.error_log = 'No SSH private key configured for this project. Please configure SSH access in project settings.'
