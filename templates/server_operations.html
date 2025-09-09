@@ -691,24 +691,25 @@ function getRelativeTime(timestamp) {
     // Get current time
     const now = new Date();
     
-    // Parse the Cairo timestamp 
-    // The timestamp "2025-09-09 14:20" is already in Cairo time
-    const timestampParts = timestamp.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
-    if (!timestampParts) return 'Invalid time';
+    // The server sends Cairo time timestamps like "2025-09-09 15:04"
+    // But the browser might be in a different timezone
+    // Since the server already converted to Cairo time, we need to parse this correctly
     
-    const [, year, month, day, hour, minute] = timestampParts;
+    // Parse timestamp and treat it as UTC, then add Cairo offset
+    const timestampUTC = new Date(timestamp + ' UTC');
     
-    // Create the timestamp date directly (this will be interpreted in user's local timezone)
-    const timestampDate = new Date(
-        parseInt(year),
-        parseInt(month) - 1, // JavaScript months are 0-indexed
-        parseInt(day),
-        parseInt(hour),
-        parseInt(minute)
-    );
+    // Cairo is UTC+2, so add 2 hours to get the correct Cairo time
+    const cairoOffset = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+    const cairoTime = new Date(timestampUTC.getTime() + cairoOffset);
     
-    const diffMs = now - timestampDate;
+    const diffMs = now - cairoTime;
     const diffSeconds = Math.floor(diffMs / 1000);
+    
+    // Debug logging
+    console.log('Timestamp:', timestamp);
+    console.log('Now:', now.toISOString());
+    console.log('Cairo Time:', cairoTime.toISOString());
+    console.log('Diff seconds:', diffSeconds);
     
     if (diffSeconds < 60) {
         return 'Just now';
