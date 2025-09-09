@@ -300,11 +300,19 @@ class ServerRequest(db.Model):
 
 class HetznerServer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    hetzner_id = db.Column(db.Integer, unique=True, nullable=False)  # Hetzner server ID
+    
+    # Server source type
+    server_source = db.Column(db.String(20), default='hetzner', nullable=False)  # 'hetzner' or 'self_hosted'
+    
+    hetzner_id = db.Column(db.Integer, unique=True, nullable=True)  # Hetzner server ID - null for self-hosted
     name = db.Column(db.String(100), nullable=False)
     status = db.Column(db.String(20), nullable=False)  # running, stopped, starting, etc.
-    server_type = db.Column(db.String(50), nullable=False)  # cx11, cx21, etc.
-    image = db.Column(db.String(100), nullable=False)  # ubuntu-20.04, etc.
+    server_type = db.Column(db.String(50), nullable=False)  # cx11, cx21, etc. or custom for self-hosted
+    image = db.Column(db.String(100), nullable=True)  # ubuntu-20.04, etc. - optional for self-hosted
+    
+    # Self-hosted specific fields
+    client_name = db.Column(db.String(100), nullable=True)  # Client name for self-hosted servers
+    client_contact = db.Column(db.String(255), nullable=True)  # Client contact information
     
     # Project association
     project_id = db.Column(db.Integer, db.ForeignKey('hetzner_projects.id'), nullable=True)
@@ -337,6 +345,16 @@ class HetznerServer(db.Model):
     # SSH configuration is now handled at the project level
     
     manager = db.relationship('User', backref='managed_servers')
+    
+    @property
+    def is_self_hosted(self):
+        """Check if this server is self-hosted (not managed by Hetzner)"""
+        return self.server_source == 'self_hosted'
+    
+    @property
+    def is_hetzner_managed(self):
+        """Check if this server is managed by Hetzner Cloud"""
+        return self.server_source == 'hetzner'
     
     def get_status_badge_class(self):
         status_classes = {
