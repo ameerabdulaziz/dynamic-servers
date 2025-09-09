@@ -15,7 +15,12 @@
                 </h1>
                 <p class="text-muted">Manage server backups, updates, and system operations</p>
             </div>
-            <div>
+            <div class="d-flex gap-2">
+                {% if current_user.is_admin or (current_user.is_technical_agent and current_user.is_manager) %}
+                <a href="{{ url_for('add_self_hosted_server') }}" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i>Add Self-Hosted Server
+                </a>
+                {% endif %}
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bulkOperationModal">
                     <i class="fas fa-tasks me-1"></i>Bulk Operations
                 </button>
@@ -99,13 +104,21 @@
                             <option value="stopped">Stopped</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="project" class="form-label">Project</label>
                         <select class="form-select" id="project" name="project">
                             <option value="">All Projects</option>
                             {% for project in projects %}
                             <option value="{{ project.id }}">{{ project.name }}</option>
                             {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="server_source" class="form-label">Server Type</label>
+                        <select class="form-select" id="server_source" name="server_source">
+                            <option value="">All Types</option>
+                            <option value="hetzner">Hetzner Cloud</option>
+                            <option value="self_hosted">Self-Hosted</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -144,6 +157,7 @@
                             <input type="checkbox" id="selectAll">
                         </th>
                         <th>Server</th>
+                        <th>Type</th>
                         <th>Project</th>
                         <th>Domain</th>
                         <th>Last Backup</th>
@@ -160,6 +174,20 @@
                         <td>
                             <div class="fw-bold">{{ server.name }}</div>
                             <small class="text-muted">{{ server.server_type }} • {{ server.public_ip or 'No IP' }}</small>
+                            {% if server.is_self_hosted %}
+                                <br><small class="text-info"><i class="fas fa-user me-1"></i>{{ server.client_name }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if server.is_self_hosted %}
+                                <span class="badge bg-info text-dark">
+                                    <i class="fas fa-user-cog me-1"></i>Self-Hosted
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-cloud me-1"></i>Hetzner
+                                </span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if server.project %}
@@ -205,33 +233,59 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-success btn-sm" 
-                                        onclick="initiateBackup({{ server.id }})" 
-                                        title="Start Backup">
-                                    <i class="fas fa-database"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-warning btn-sm" 
-                                        onclick="initiateUpdate({{ server.id }})" 
-                                        title="System Update">
-                                    <i class="fas fa-arrow-up"></i>
-                                </button>
-                                {% if server.public_ip %}
-                                <button type="button" class="btn btn-outline-info btn-sm" 
-                                        onclick="copySQLTunnel('{{ server.public_ip }}')" 
-                                        title="Copy SQL Tunnel Command">
-                                    <i class="fas fa-terminal"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                        onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
-                                        title="Download Project Logs">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                {% endif %}
-                                {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
-                                <a href="{{ url_for('server_detail', server_id=server.id) }}" 
-                                   class="btn btn-outline-primary btn-sm" title="Details">
-                                    <i class="fas fa-eye"></i>
-                                </a>
+                                {% if server.is_self_hosted %}
+                                    <!-- Limited operations for self-hosted servers -->
+                                    {% if server.public_ip %}
+                                    <button type="button" class="btn btn-outline-info btn-sm" 
+                                            onclick="copySQLTunnel('{{ server.public_ip }}')" 
+                                            title="Copy SQL Tunnel Command">
+                                        <i class="fas fa-terminal"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                            onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
+                                            title="Download Project Logs">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
+                                    <a href="{{ url_for('server_detail', server_id=server.id) }}" 
+                                       class="btn btn-outline-primary btn-sm" title="Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% endif %}
+                                    <span class="badge bg-warning text-dark ms-2" title="Self-hosted servers have limited operations">
+                                        <i class="fas fa-info-circle me-1"></i>Limited Ops
+                                    </span>
+                                {% else %}
+                                    <!-- Full operations for Hetzner servers -->
+                                    <button type="button" class="btn btn-outline-success btn-sm" 
+                                            onclick="initiateBackup({{ server.id }})" 
+                                            title="Start Backup">
+                                        <i class="fas fa-database"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-warning btn-sm" 
+                                            onclick="initiateUpdate({{ server.id }})" 
+                                            title="System Update">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </button>
+                                    {% if server.public_ip %}
+                                    <button type="button" class="btn btn-outline-info btn-sm" 
+                                            onclick="copySQLTunnel('{{ server.public_ip }}')" 
+                                            title="Copy SQL Tunnel Command">
+                                        <i class="fas fa-terminal"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                            onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
+                                            title="Download Project Logs">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
+                                    <a href="{{ url_for('server_detail', server_id=server.id) }}" 
+                                       class="btn btn-outline-primary btn-sm" title="Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </td>
