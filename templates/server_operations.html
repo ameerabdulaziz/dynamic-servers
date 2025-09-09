@@ -688,13 +688,26 @@ function showNotification(title, message, type = 'info') {
 function getRelativeTime(timestamp) {
     if (!timestamp) return 'Never';
     
-    // Server already sends Cairo time, so parse directly as local time
-    // Format: "2025-09-09 16:20" -> "2025-09-09T16:20"
+    console.log('=== DEBUGGING TIMESTAMP ===');
+    console.log('Input timestamp:', timestamp);
+    console.log('Browser timezone offset (mins from UTC):', new Date().getTimezoneOffset());
+    
+    // Parse timestamp as local time
     const timestampDate = new Date(timestamp.replace(' ', 'T'));
     const now = new Date();
     
+    console.log('Parsed timestamp:', timestampDate.toString());
+    console.log('Current time:', now.toString());
+    console.log('Timestamp UTC:', timestampDate.toUTCString());
+    console.log('Current UTC:', now.toUTCString());
+    
     const diffMs = now - timestampDate;
     const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffSeconds / 3600);
+    
+    console.log('Time difference:', diffSeconds, 'seconds =', diffMinutes, 'minutes =', diffHours, 'hours');
+    console.log('============================');
     
     if (diffSeconds < 60) {
         return 'Just now';
