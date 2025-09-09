@@ -688,31 +688,26 @@ function showNotification(title, message, type = 'info') {
 function getRelativeTime(timestamp) {
     if (!timestamp) return 'Never';
     
-    // Get current time in UTC
+    // Get current time
     const now = new Date();
     
-    // Parse the Cairo timestamp as UTC first, then adjust
-    // The timestamp "2025-09-09 14:20" is Cairo time (UTC+2)
+    // Parse the Cairo timestamp 
+    // The timestamp "2025-09-09 14:20" is already in Cairo time
     const timestampParts = timestamp.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
     if (!timestampParts) return 'Invalid time';
     
     const [, year, month, day, hour, minute] = timestampParts;
     
-    // Create date in Cairo timezone (UTC+2)
-    // We create it as UTC then subtract 2 hours to get the actual UTC time
-    const cairoDate = new Date(Date.UTC(
+    // Create the timestamp date directly (this will be interpreted in user's local timezone)
+    const timestampDate = new Date(
         parseInt(year),
         parseInt(month) - 1, // JavaScript months are 0-indexed
         parseInt(day),
         parseInt(hour),
         parseInt(minute)
-    ));
+    );
     
-    // Convert from Cairo time to UTC by subtracting 2 hours
-    const cairoOffsetMs = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-    const utcTimestamp = new Date(cairoDate.getTime() - cairoOffsetMs);
-    
-    const diffMs = now - utcTimestamp;
+    const diffMs = now - timestampDate;
     const diffSeconds = Math.floor(diffMs / 1000);
     
     if (diffSeconds < 60) {
