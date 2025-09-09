@@ -684,6 +684,29 @@ function showNotification(title, message, type = 'info') {
     });
 }
 
+// Convert timestamp to relative time (e.g., "2 minutes ago")
+function getRelativeTime(timestamp) {
+    if (!timestamp) return 'Never';
+    
+    const now = new Date();
+    const timestampDate = new Date(timestamp + ' UTC'); // Parse as UTC then convert
+    const diffMs = now - timestampDate;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    
+    if (diffSeconds < 60) {
+        return 'Just now';
+    } else if (diffSeconds < 3600) { // Less than 1 hour
+        const minutes = Math.floor(diffSeconds / 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+    } else if (diffSeconds < 86400) { // Less than 24 hours
+        const hours = Math.floor(diffSeconds / 3600);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    } else { // More than 24 hours
+        const days = Math.floor(diffSeconds / 86400);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+    }
+}
+
 // Update timestamp in the table
 function updateTimestamp(serverId, actionType, timestamp) {
     if (!timestamp) return;
@@ -703,9 +726,12 @@ function updateTimestamp(serverId, actionType, timestamp) {
     }
     
     if (targetCell) {
-        // Update the cell content with new timestamp
+        // Convert to relative time
+        const relativeTime = getRelativeTime(timestamp);
+        
+        // Update the cell content with relative timestamp
         targetCell.innerHTML = `
-            <small class="text-success">${timestamp}</small>
+            <small class="text-success" title="${timestamp}">${relativeTime}</small>
             <br><small class="badge bg-success">completed</small>
         `;
         
@@ -769,6 +795,35 @@ function showSimpleAlert(title, message, details) {
         confirmBtn.style.display = 'inline-block';
         cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i>Cancel';
     }, { once: true });
+}
+
+// Convert existing timestamps to relative time on page load
+function convertExistingTimestamps() {
+    // Find all timestamp cells and convert them to relative time
+    const timestampCells = document.querySelectorAll('tbody tr td:nth-child(5), tbody tr td:nth-child(6)');
+    
+    timestampCells.forEach(cell => {
+        const timestampElement = cell.querySelector('small');
+        if (timestampElement && timestampElement.textContent && timestampElement.textContent !== 'Never') {
+            const absoluteTime = timestampElement.textContent.trim();
+            if (absoluteTime.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/)) { // Check if it's an absolute timestamp
+                const relativeTime = getRelativeTime(absoluteTime);
+                timestampElement.title = absoluteTime; // Keep absolute time in tooltip
+                timestampElement.textContent = relativeTime;
+            }
+        }
+    });
+}
+
+// Update all relative timestamps periodically
+function refreshRelativeTimestamps() {
+    const timestampElements = document.querySelectorAll('tbody tr td small[title]');
+    timestampElements.forEach(element => {
+        if (element.title && element.title.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/)) {
+            const relativeTime = getRelativeTime(element.title);
+            element.textContent = relativeTime;
+        }
+    });
 }
 
 // AJAX Filtering
@@ -949,6 +1004,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.server-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', updateSelectedCount);
         });
+        
+        // Convert timestamps in newly loaded content
+        convertExistingTimestamps();
     }
     
     // Handle form submission
@@ -974,6 +1032,12 @@ document.addEventListener('DOMContentLoaded', function() {
         projectSelect.value = '';
         performFilter();
     });
+    
+    // Initialize relative timestamps
+    convertExistingTimestamps();
+    
+    // Refresh relative timestamps every minute
+    setInterval(refreshRelativeTimestamps, 60000);
 });
 </script>
 {% endblock %}
