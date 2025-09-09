@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 from datetime import datetime
+import pytz
 from flask import render_template, redirect, url_for, flash, request, jsonify, make_response, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
@@ -14,6 +15,26 @@ from hetzner_service import HetznerService
 from godaddy_service import GoDaddyService
 from ansible_service import AnsibleService
 from ssh_service import SSHService, get_default_deploy_script, get_default_backup_script
+
+def convert_to_cairo_timezone(utc_datetime):
+    """Convert UTC datetime to Cairo timezone"""
+    if utc_datetime is None:
+        return None
+    
+    # Create UTC timezone object
+    utc_tz = pytz.UTC
+    
+    # Create Cairo timezone object  
+    cairo_tz = pytz.timezone('Africa/Cairo')
+    
+    # If the datetime is naive (no timezone info), assume it's UTC
+    if utc_datetime.tzinfo is None:
+        utc_datetime = utc_tz.localize(utc_datetime)
+    
+    # Convert to Cairo timezone
+    cairo_datetime = utc_datetime.astimezone(cairo_tz)
+    
+    return cairo_datetime
 
 def provision_server_and_dns(server_request: ServerRequest):
     """
@@ -1333,9 +1354,9 @@ def server_operations():
                 'public_ip': server.public_ip or 'No IP',
                 'reverse_dns': server.reverse_dns,
                 'project_name': server.project.name if server.project else 'No Project',
-                'last_backup': last_backup.completed_at.strftime('%Y-%m-%d %H:%M') if last_backup and last_backup.completed_at else 'Never',
+                'last_backup': convert_to_cairo_timezone(last_backup.completed_at).strftime('%Y-%m-%d %H:%M') if last_backup and last_backup.completed_at else 'Never',
                 'last_backup_status': last_backup.status if last_backup else None,
-                'last_update': last_update.completed_at.strftime('%Y-%m-%d %H:%M') if last_update and last_update.completed_at else 'Never',
+                'last_update': convert_to_cairo_timezone(last_update.completed_at).strftime('%Y-%m-%d %H:%M') if last_update and last_update.completed_at else 'Never',
                 'last_update_status': last_update.status if last_update else None,
                 'status': server.status
             })
@@ -1345,6 +1366,7 @@ def server_operations():
             'servers': servers_data,
             'total_shown': len(servers_data)
         })
+    
     
     return render_template('server_operations.html', servers=servers, projects=projects)
 

@@ -188,7 +188,7 @@
                         <td>
                             {% set last_backup = server.backups | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}
                             {% if last_backup and last_backup.completed_at %}
-                                <small class="text-success">{{ last_backup.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                <small class="text-success">{{ (last_backup.completed_at | cairo_time).strftime('%Y-%m-%d %H:%M') }}</small>
                                 <br><small class="badge bg-{{ 'success' if last_backup.status == 'completed' else 'danger' }}">{{ last_backup.status }}</small>
                             {% else %}
                                 <small class="text-muted">Never</small>
@@ -197,7 +197,7 @@
                         <td>
                             {% set last_update = server.system_updates | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}
                             {% if last_update and last_update.completed_at %}
-                                <small class="text-success">{{ last_update.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                <small class="text-success">{{ (last_update.completed_at | cairo_time).strftime('%Y-%m-%d %H:%M') }}</small>
                                 <br><small class="badge bg-{{ 'success' if last_update.status == 'completed' else 'danger' }}">{{ last_update.status }}</small>
                             {% else %}
                                 <small class="text-muted">Never</small>
