@@ -687,11 +687,11 @@ function updateTimestamp(serverId, actionType, timestamp) {
     // Determine which column to update (backup or update)
     let targetCell;
     if (actionType === 'backup') {
-        // Find the "Last Backup" cell (6th column)
-        targetCell = serverRow.cells[5]; // 0-indexed
+        // Find the "Last Backup" cell (5th column)
+        targetCell = serverRow.cells[4]; // 0-indexed
     } else if (actionType === 'update') {
-        // Find the "Last Update" cell (7th column) 
-        targetCell = serverRow.cells[6]; // 0-indexed
+        // Find the "Last Update" cell (6th column) 
+        targetCell = serverRow.cells[5]; // 0-indexed
     }
     
     if (targetCell) {
