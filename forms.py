@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SelectField, IntegerField, TextAreaField, SubmitField
+from wtforms import StringField, PasswordField, SelectField, IntegerField, DecimalField, TextAreaField, SubmitField
 from wtforms.validators import DataRequired, Email, Length, NumberRange, EqualTo, ValidationError
 from models import User
 
@@ -112,6 +112,76 @@ class ServerRequestForm(FlaskForm):
     ])
     
     submit = SubmitField('Submit Request')
+
+class SelfHostedServerForm(FlaskForm):
+    # Basic server information
+    name = StringField('Server Name', validators=[
+        DataRequired(), 
+        Length(min=2, max=100, message='Server name must be between 2 and 100 characters')
+    ], description='A unique name for this self-hosted server')
+    
+    # Project selection
+    project_id = SelectField('Project', validators=[DataRequired()], coerce=int, 
+                           description='Select which project this server belongs to')
+    
+    # Client information
+    client_name = StringField('Client Name', validators=[
+        DataRequired(), 
+        Length(min=2, max=100, message='Client name must be between 2 and 100 characters')
+    ], description='The name of the client who owns this server')
+    
+    client_contact = StringField('Client Contact', validators=[
+        Length(max=255, message='Contact information must be less than 255 characters')
+    ], description='Client contact information (email, phone, etc.)')
+    
+    # Network information
+    public_ip = StringField('Public IP Address', validators=[
+        DataRequired(),
+        Length(max=15)
+    ], description='The public IP address of the server')
+    
+    private_ip = StringField('Private IP Address (Optional)', validators=[
+        Length(max=15)
+    ], description='Private/internal IP address if applicable')
+    
+    reverse_dns = StringField('Domain/Reverse DNS (Optional)', validators=[
+        Length(max=255)
+    ], description='Domain name or reverse DNS for this server')
+    
+    # Server specifications
+    server_type = StringField('Server Type', validators=[
+        DataRequired(),
+        Length(min=2, max=50)
+    ], description='Server type or configuration (e.g., "VPS-4GB", "Dedicated-16GB")')
+    
+    cpu_cores = IntegerField('CPU Cores', validators=[DataRequired()], 
+                           description='Number of CPU cores')
+    
+    memory_gb = DecimalField('Memory (GB)', validators=[DataRequired()], 
+                           description='RAM in GB')
+    
+    disk_gb = IntegerField('Storage (GB)', validators=[DataRequired()], 
+                         description='Storage space in GB')
+    
+    # Location information
+    location = StringField('Location', validators=[
+        Length(max=50)
+    ], description='Server location (city, country, or data center name)')
+    
+    datacenter = StringField('Datacenter/Provider', validators=[
+        Length(max=50)
+    ], description='Data center or hosting provider name')
+    
+    # Operating system
+    image = StringField('Operating System', validators=[
+        Length(max=100)
+    ], description='Operating system (e.g., "Ubuntu 22.04", "CentOS 7")')
+    
+    submit = SubmitField('Add Self-Hosted Server')
+    
+    def validate_project_id(self, project_id):
+        if project_id.data == 0:
+            raise ValidationError('Please select a valid project.')
 
 class AdminReviewForm(FlaskForm):
     status = SelectField('Status', validators=[DataRequired()], choices=[

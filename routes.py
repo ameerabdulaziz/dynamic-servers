@@ -10,7 +10,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
 from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess, UserServerAccess
-from forms import LoginForm, RegistrationForm, ServerRequestForm, EditProfileForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm
+from forms import LoginForm, RegistrationForm, ServerRequestForm, EditProfileForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm, SelfHostedServerForm
 from hetzner_service import HetznerService
 from godaddy_service import GoDaddyService
 from ansible_service import AnsibleService
@@ -1016,6 +1016,62 @@ def manage_server(server_id):
             flash(f'Error managing server: {str(e)}', 'danger')
     
     return redirect(url_for('server_detail', server_id=server_id))
+
+@app.route('/servers/add-self-hosted', methods=['GET', 'POST'])
+@login_required
+def add_self_hosted_server():
+    # Only admins and technical managers can add self-hosted servers
+    if not (current_user.is_admin or (current_user.is_technical_agent and current_user.is_manager)):
+        flash('Access denied. Administrator or Technical Manager privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    form = SelfHostedServerForm()
+    
+    # Populate project choices based on user access
+    if current_user.is_admin:
+        projects = HetznerProject.query.filter(HetznerProject.is_active == True).all()
+    else:
+        projects = current_user.get_accessible_projects()
+    
+    form.project_id.choices = [(0, 'Select Project')] + [(p.id, p.name) for p in projects]
+    
+    if form.validate_on_submit():
+        try:
+            # Create new self-hosted server
+            server = HetznerServer(
+                server_source='self_hosted',
+                hetzner_id=None,  # No Hetzner ID for self-hosted servers
+                name=form.name.data,
+                status='running',  # Assume running for self-hosted servers
+                server_type=form.server_type.data,
+                image=form.image.data,
+                client_name=form.client_name.data,
+                client_contact=form.client_contact.data,
+                project_id=form.project_id.data if form.project_id.data != 0 else None,
+                public_ip=form.public_ip.data,
+                private_ip=form.private_ip.data,
+                reverse_dns=form.reverse_dns.data,
+                datacenter=form.datacenter.data,
+                location=form.location.data,
+                cpu_cores=form.cpu_cores.data,
+                memory_gb=float(form.memory_gb.data),
+                disk_gb=form.disk_gb.data,
+                managed_by=current_user.id,
+                created_at=datetime.utcnow(),
+                last_synced=datetime.utcnow()
+            )
+            
+            db.session.add(server)
+            db.session.commit()
+            
+            flash(f'Self-hosted server "{server.name}" added successfully!', 'success')
+            return redirect(url_for('server_operations'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding self-hosted server: {str(e)}', 'danger')
+    
+    return render_template('add_self_hosted_server.html', form=form)
 
 @app.route('/servers/<int:server_id>/deploy', methods=['POST'])
 @login_required
