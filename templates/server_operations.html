@@ -170,14 +170,16 @@
                         </td>
                         <td>
                             {% if server.reverse_dns %}
-                                {% if server.reverse_dns.startswith('static-') %}
+                                <small class="text-warning">DEBUG: "{{ server.reverse_dns }}" | First7: "{{ server.reverse_dns[:7] }}"</small><br>
+                                {% set domain_starts_with_static = server.reverse_dns.startswith('static-') %}
+                                {% if domain_starts_with_static %}
                                 <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
-                                    <small class="text-info">🔴 {{ server.public_ip }}</small>
+                                    <small class="text-info">🔴 STATIC: {{ server.public_ip }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                                 {% else %}
                                 <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
-                                    <small class="text-info">🟢 {{ server.reverse_dns }}</small>
+                                    <small class="text-info">🟢 NORMAL: {{ server.reverse_dns }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                                 {% endif %}
