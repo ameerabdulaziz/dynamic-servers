@@ -688,36 +688,13 @@ function showNotification(title, message, type = 'info') {
 function getRelativeTime(timestamp) {
     if (!timestamp) return 'Never';
     
-    // Get current time
+    // Server already sends Cairo time, so parse directly as local time
+    // Format: "2025-09-09 16:20" -> "2025-09-09T16:20"
+    const timestampDate = new Date(timestamp.replace(' ', 'T'));
     const now = new Date();
     
-    // Parse the timestamp - try different approaches
-    console.log('=== DEBUG TIMESTAMP ===');
-    console.log('Original timestamp:', timestamp);
-    console.log('Current time:', now.toString());
-    console.log('Current time UTC:', now.toUTCString());
-    console.log('Browser timezone offset (minutes):', now.getTimezoneOffset());
-    
-    // Try parsing as ISO format
-    const timestampISO = new Date(timestamp.replace(' ', 'T'));
-    console.log('Parsed as ISO:', timestampISO.toString());
-    console.log('Parsed as ISO UTC:', timestampISO.toUTCString());
-    
-    // Try parsing with explicit timezone (assume Cairo = UTC+2)
-    const timestampUTC = new Date(timestamp + ' UTC');
-    const cairoTime = new Date(timestampUTC.getTime() + (2 * 60 * 60 * 1000));
-    console.log('As Cairo time:', cairoTime.toString());
-    
-    // Calculate differences for both approaches
-    const diffISO = Math.floor((now - timestampISO) / 1000);
-    const diffCairo = Math.floor((now - cairoTime) / 1000);
-    
-    console.log('Diff with ISO parsing:', diffISO, 'seconds');
-    console.log('Diff with Cairo parsing:', diffCairo, 'seconds');
-    console.log('======================');
-    
-    // Use the smaller absolute difference (closest to reality)
-    const diffSeconds = Math.abs(diffISO) < Math.abs(diffCairo) ? diffISO : diffCairo;
+    const diffMs = now - timestampDate;
+    const diffSeconds = Math.floor(diffMs / 1000);
     
     if (diffSeconds < 60) {
         return 'Just now';
