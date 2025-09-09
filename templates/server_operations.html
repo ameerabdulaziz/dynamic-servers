@@ -170,14 +170,14 @@
                         </td>
                         <td>
                             {% if server.reverse_dns %}
-                                {% if server.reverse_dns[:7] == 'static-' %}
+                                {% if server.reverse_dns.startswith('static-') %}
                                 <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
-                                    <small class="text-info">{{ server.public_ip }}</small>
+                                    <small class="text-info">🔴 {{ server.public_ip }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                                 {% else %}
                                 <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
-                                    <small class="text-info">{{ server.reverse_dns }}</small>
+                                    <small class="text-info">🟢 {{ server.reverse_dns }}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                                 {% endif %}
@@ -831,14 +831,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td>
                         ${server.reverse_dns ? `
-                            ${server.reverse_dns.substring(0, 7) === 'static-' ? `
+                            ${server.reverse_dns.startsWith('static-') ? `
                                 <a href="http://${server.public_ip}" target="_blank" class="text-decoration-none">
-                                    <small class="text-info">${server.public_ip}</small>
+                                    <small class="text-info">🔴 ${server.public_ip}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                             ` : `
                                 <a href="https://${server.reverse_dns}" target="_blank" class="text-decoration-none">
-                                    <small class="text-info">${server.reverse_dns}</small>
+                                    <small class="text-info">🟢 ${server.reverse_dns}</small>
                                     <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
                                 </a>
                             `}
