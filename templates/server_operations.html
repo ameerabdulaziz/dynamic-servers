@@ -603,12 +603,12 @@ function downloadLogs(serverIp, reverseDns) {
     
     // Check if we have a reverse DNS
     if (reverseDns && reverseDns.trim() !== '') {
-        if (reverseDns.startsWith('static-')) {
-            // Hetzner static domain - use HTTP with the static domain
-            hostname = reverseDns;
+        if (reverseDns.startsWith('static.')) {
+            // Hetzner static domain - use HTTP with IP address
+            hostname = serverIp;
             protocol = 'http';
         } else {
-            // Custom domain - use HTTPS
+            // Custom domain - use HTTPS with domain
             hostname = reverseDns;
             protocol = 'https';
         }
