@@ -1497,7 +1497,7 @@ def create_backup(server_id):
     if is_ajax:
         return jsonify({
             'success': backup.status == 'completed',
-            'message': f'Backup {"completed" if backup.status == "completed" else "failed"}',
+            'message': f'Backup {"completed" if backup.status == "completed" else "failed"} for {server.name}',
             'timestamp': convert_to_cairo_timezone(backup.completed_at).strftime('%Y-%m-%d %H:%M') if backup.completed_at else None,
             'status': backup.status
         })
@@ -1594,7 +1594,7 @@ def create_system_update(server_id):
     if is_ajax:
         return jsonify({
             'success': update.status == 'completed',
-            'message': f'Update {"completed" if update.status == "completed" else "failed"}',
+            'message': f'Update {"completed" if update.status == "completed" else "failed"} for {server.name}',
             'timestamp': convert_to_cairo_timezone(update.completed_at).strftime('%Y-%m-%d %H:%M') if update.completed_at else None,
             'status': update.status
         })
