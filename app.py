@@ -144,6 +144,24 @@ with app.app_context():
     import models
     db.create_all()
     
+    # Add timezone conversion filter for templates
+    import pytz
+    
+    def convert_to_cairo_timezone_filter(utc_datetime):
+        """Convert UTC datetime to Cairo timezone for template usage"""
+        if utc_datetime is None:
+            return None
+        
+        utc_tz = pytz.UTC
+        cairo_tz = pytz.timezone('Africa/Cairo')
+        
+        if utc_datetime.tzinfo is None:
+            utc_datetime = utc_tz.localize(utc_datetime)
+        
+        return utc_datetime.astimezone(cairo_tz)
+    
+    app.jinja_env.filters['cairo_time'] = convert_to_cairo_timezone_filter
+    
     # Create admin user if it doesn't exist
     admin_user = models.User.query.filter_by(username='admin').first()
     if not admin_user:
