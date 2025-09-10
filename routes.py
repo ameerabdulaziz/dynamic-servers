@@ -981,6 +981,11 @@ def manage_server(server_id):
     form = ServerManagementForm()
     
     if form.validate_on_submit():
+        # Check if server is client-managed (we don't manage infrastructure)
+        if server.is_self_hosted:
+            flash('Infrastructure operations (start/stop/reboot) are not available for client-managed servers. We only manage project deployments on these servers.', 'warning')
+            return redirect(url_for('server_detail', server_id=server_id))
+        
         try:
             hetzner_service = HetznerService(project_id=server.project_id)
             

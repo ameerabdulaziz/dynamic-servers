@@ -12,7 +12,11 @@
                     <h4 class="mb-0">
                         <i class="fas fa-server me-2"></i>{{ server.name }}
                     </h4>
+                    {% if server.is_self_hosted %}
+                    <p class="text-muted mb-0">Client-Managed Infrastructure</p>
+                    {% else %}
                     <p class="text-muted mb-0">Hetzner ID: {{ server.hetzner_id }}</p>
+                    {% endif %}
                 </div>
                 <div class="text-end">
                     <span class="badge {{ server.get_status_badge_class() }} fs-6 mb-2">
@@ -165,11 +169,12 @@
 
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Server Management -->
+        <!-- Server Management - Only for Hetzner Cloud servers -->
+        {% if not server.is_self_hosted %}
         <div class="card mb-4">
             <div class="card-header">
                 <h6 class="mb-0">
-                    <i class="fas fa-tools me-2"></i>Server Management
+                    <i class="fas fa-tools me-2"></i>Infrastructure Management
                 </h6>
             </div>
             <div class="card-body">
@@ -188,6 +193,26 @@
                 </form>
             </div>
         </div>
+        {% else %}
+        <!-- Client-Managed Server Notice -->
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Client-Managed Infrastructure
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    <i class="fas fa-user-cog me-2"></i>This server is managed by the client. 
+                    Infrastructure operations (start/stop/reboot) are handled by the client directly.
+                </p>
+                <hr>
+                <p class="text-muted mb-0">
+                    <strong>Available Operations:</strong> Project deployments and monitoring only.
+                </p>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Deploy Applications -->
         <div class="card mb-4">
