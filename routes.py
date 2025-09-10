@@ -1428,7 +1428,13 @@ def server_operations():
         })
     
     
-    return render_template('server_operations.html', servers=servers, projects=projects)
+    return render_template('server_operations.html', 
+                         servers=servers, 
+                         projects=projects,
+                         search=search,
+                         status_filter=status_filter,
+                         project_filter=project_filter,
+                         server_source_filter=server_source_filter)
 
 @app.route('/server/<int:server_id>/backup', methods=['POST'])
 @login_required

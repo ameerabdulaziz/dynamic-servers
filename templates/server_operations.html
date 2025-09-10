@@ -94,14 +94,14 @@
                     <div class="col-md-4">
                         <label for="search" class="form-label">Search</label>
                         <input type="text" class="form-control" id="search" name="search" 
-                               placeholder="Server name, IP, domain...">
+                               placeholder="Server name, IP, domain..." value="{{ search }}">
                     </div>
                     <div class="col-md-3">
                         <label for="status" class="form-label">Status</label>
                         <select class="form-select" id="status" name="status">
                             <option value="">All Statuses</option>
-                            <option value="running">Running</option>
-                            <option value="stopped">Stopped</option>
+                            <option value="running" {{ 'selected' if status_filter == 'running' else '' }}>Running</option>
+                            <option value="stopped" {{ 'selected' if status_filter == 'stopped' else '' }}>Stopped</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -109,7 +109,7 @@
                         <select class="form-select" id="project" name="project">
                             <option value="">All Projects</option>
                             {% for project in projects %}
-                            <option value="{{ project.id }}">{{ project.name }}</option>
+                            <option value="{{ project.id }}" {{ 'selected' if project_filter == project.id|string else '' }}>{{ project.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -117,8 +117,8 @@
                         <label for="server_source" class="form-label">Server Type</label>
                         <select class="form-select" id="server_source" name="server_source">
                             <option value="">All Types</option>
-                            <option value="hetzner">Hetzner Cloud</option>
-                            <option value="self_hosted">Self-Hosted</option>
+                            <option value="hetzner" {{ 'selected' if server_source_filter == 'hetzner' else '' }}>Hetzner Cloud</option>
+                            <option value="self_hosted" {{ 'selected' if server_source_filter == 'self_hosted' else '' }}>Client-Managed</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -181,11 +181,11 @@
                         <td>
                             {% if server.is_self_hosted %}
                                 <span class="badge bg-info text-dark">
-                                    <i class="fas fa-user-cog me-1"></i>Self-Hosted
+                                    <i class="fas fa-user-cog me-1"></i>Client-Managed
                                 </span>
                             {% else %}
                                 <span class="badge bg-primary">
-                                    <i class="fas fa-cloud me-1"></i>Hetzner
+                                    <i class="fas fa-cloud me-1"></i>Hetzner Cloud
                                 </span>
                             {% endif %}
                         </td>
@@ -253,8 +253,8 @@
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     {% endif %}
-                                    <span class="badge bg-warning text-dark ms-2" title="Self-hosted servers have limited operations">
-                                        <i class="fas fa-info-circle me-1"></i>Limited Ops
+                                    <span class="badge bg-warning text-dark ms-2" title="Client-managed infrastructure - limited automated operations">
+                                        <i class="fas fa-info-circle me-1"></i>Client Infrastructure
                                     </span>
                                 {% else %}
                                     <!-- Full operations for Hetzner servers -->
