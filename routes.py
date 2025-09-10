@@ -1353,6 +1353,7 @@ def server_operations():
     search = request.args.get('search', '')
     status_filter = request.args.get('status', '')
     project_filter = request.args.get('project', '')
+    server_source_filter = request.args.get('server_source', '')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
     # Only admins have complete system access - see all servers
@@ -1379,6 +1380,9 @@ def server_operations():
     
     if project_filter:
         query = query.filter(HetznerServer.project_id == project_filter)
+    
+    if server_source_filter:
+        query = query.filter(HetznerServer.server_source == server_source_filter)
     
     servers = query.all()
     
