@@ -1,12 +1,8 @@
 services:
-  postgress:
+  postgres:
     image: postgres:15-alpine
-    container_name: dynamic-servers-postgress
-    environment:
-      - POSTGRES_DB=dynamic_servers
-      - POSTGRES_USER=dynamic_user
-      - POSTGRES_PASSWORD=dynamic_pass
-      - PGDATA=/var/lib/postgresql/data/pgdata
+    container_name: dynamic-servers-postgres
+    env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,17 +17,11 @@ services:
   flask:
     build: .
     container_name: dynamic-servers-flask
-    environment:
-      - DATABASE_URL=postgresql://dynamic_user:dynamic_pass@postgress:5432/dynamic_servers
-      - SESSION_SECRET=${SESSION_SECRET:-your-secret-key-change-this}
-      - HETZNER_API_TOKEN=${HETZNER_API_TOKEN}
-      - FLASK_ENV=production
-      - REPL_ID=${REPL_ID:-dynamic-servers}
+    env_file: .env
     depends_on:
-      postgress:
+      postgres:
         condition: service_healthy
     volumes:
-      # Mount SSH keys if they exist locally
       - ~/.ssh:/root/.ssh:ro
     restart: unless-stopped
     networks:
