@@ -10,7 +10,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
 from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess, UserServerAccess
-from forms import LoginForm, RegistrationForm, ServerRequestForm, EditProfileForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm, SelfHostedServerForm
+from forms import LoginForm, RegistrationForm, ServerRequestForm, EditProfileForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm, SelfHostedServerForm, EditServerForm
 from hetzner_service import HetznerService
 from godaddy_service import GoDaddyService
 from ansible_service import AnsibleService
@@ -960,6 +960,72 @@ def server_detail(server_id):
                          management_form=management_form,
                          execution_form=execution_form,
                          recent_deployments=recent_deployments)
+
+@app.route('/servers/<int:server_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_server(server_id):
+    # Allow technical agents access to servers in their projects (admins and managers only for editing)
+    if not (current_user.is_admin or (current_user.is_technical_agent and current_user.is_manager)):
+        flash('Access denied. Administrator or Technical Manager privileges required.', 'danger')
+        return redirect(url_for('index'))
+    
+    server = HetznerServer.query.get_or_404(server_id)
+    
+    # Check if technical manager has access to this server's project
+    if not current_user.is_admin:
+        accessible_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [s.id for s in accessible_servers]
+        if server_id not in accessible_server_ids:
+            flash('Access denied. You do not have permission to edit this server.', 'danger')
+            return redirect(url_for('server_operations'))
+    
+    form = EditServerForm()
+    
+    # Populate project choices based on user access
+    if current_user.is_admin:
+        projects = HetznerProject.query.filter(HetznerProject.is_active == True).all()
+    else:
+        projects = current_user.get_accessible_projects()
+    
+    form.project_id.choices = [(0, 'Select Project')] + [(p.id, p.name) for p in projects]
+    
+    if form.validate_on_submit():
+        try:
+            # Update server fields
+            server.name = form.name.data
+            server.project_id = form.project_id.data if form.project_id.data != 0 else server.project_id
+            server.public_ip = form.public_ip.data
+            server.private_ip = form.private_ip.data
+            server.reverse_dns = form.reverse_dns.data
+            
+            # Update client information for self-hosted servers
+            if server.is_self_hosted:
+                server.client_name = form.client_name.data
+                server.client_contact = form.client_contact.data
+            
+            server.last_synced = datetime.utcnow()
+            
+            db.session.commit()
+            flash(f'Server "{server.name}" updated successfully!', 'success')
+            return redirect(url_for('server_detail', server_id=server_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating server: {str(e)}', 'danger')
+    
+    # Pre-populate form with current server data
+    elif request.method == 'GET':
+        form.name.data = server.name
+        form.project_id.data = server.project_id if server.project_id else 0
+        form.public_ip.data = server.public_ip
+        form.private_ip.data = server.private_ip
+        form.reverse_dns.data = server.reverse_dns
+        
+        if server.is_self_hosted:
+            form.client_name.data = server.client_name
+            form.client_contact.data = server.client_contact
+    
+    return render_template('edit_server.html', form=form, server=server)
 
 @app.route('/servers/<int:server_id>/manage', methods=['POST'])
 @login_required
