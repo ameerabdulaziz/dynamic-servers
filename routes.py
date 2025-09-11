@@ -1048,19 +1048,19 @@ def add_self_hosted_server():
                 hetzner_id=None,  # No Hetzner ID for self-hosted servers
                 name=form.name.data,
                 status='running',  # Assume running for self-hosted servers
-                server_type=form.server_type.data,
-                image=form.image.data,
+                server_type='Client-Managed',  # Default type for client-managed servers
+                image=None,  # Not needed for client-managed servers
                 client_name=form.client_name.data,
                 client_contact=form.client_contact.data,
                 project_id=form.project_id.data if form.project_id.data != 0 else None,
                 public_ip=form.public_ip.data,
                 private_ip=form.private_ip.data,
                 reverse_dns=form.reverse_dns.data,
-                datacenter=form.datacenter.data,
-                location=form.location.data,
-                cpu_cores=form.cpu_cores.data,
-                memory_gb=float(form.memory_gb.data),
-                disk_gb=form.disk_gb.data,
+                datacenter=None,  # Not needed for client-managed servers
+                location=None,  # Not needed for client-managed servers
+                cpu_cores=None,  # Not needed for client-managed servers
+                memory_gb=None,  # Not needed for client-managed servers
+                disk_gb=None,  # Not needed for client-managed servers
                 managed_by=current_user.id,
                 created_at=datetime.utcnow(),
                 last_synced=datetime.utcnow()

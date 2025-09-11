@@ -118,35 +118,6 @@
                     </div>
 
 
-                    <!-- Location Information Section -->
-                    <div class="mb-4">
-                        <h5 class="text-secondary mb-3">
-                            <i class="fas fa-map-marker-alt me-2"></i>Location & Hosting
-                        </h5>
-                        
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                {{ form.location.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.location.description }}</small>
-                                {{ form.location(class="form-control" + (" is-invalid" if form.location.errors else ""), placeholder="Frankfurt, Germany") }}
-                                {% if form.location.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.location.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-6">
-                                {{ form.datacenter.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.datacenter.description }}</small>
-                                {{ form.datacenter(class="form-control" + (" is-invalid" if form.datacenter.errors else ""), placeholder="AWS, Azure, DigitalOcean") }}
-                                {% if form.datacenter.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.datacenter.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <a href="{{ url_for('server_operations') }}" class="btn btn-secondary me-md-2">
