@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 import pytz
-from flask import render_template, redirect, url_for, flash, request, jsonify, make_response, send_from_directory
+from flask import render_template, redirect, url_for, flash, request, jsonify, make_response, send_from_directory, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
 from app import app, db
@@ -991,9 +991,14 @@ def edit_server(server_id):
     
     if form.validate_on_submit():
         try:
+            # Validate that the user has access to the selected project
+            accessible_project_ids = [p.id for p in projects]
+            if form.project_id.data not in accessible_project_ids:
+                abort(403)
+            
             # Update server fields
             server.name = form.name.data
-            server.project_id = form.project_id.data if form.project_id.data != 0 else server.project_id
+            server.project_id = form.project_id.data
             server.public_ip = form.public_ip.data
             server.private_ip = form.private_ip.data
             server.reverse_dns = form.reverse_dns.data

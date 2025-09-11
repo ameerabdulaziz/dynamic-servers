@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, IntegerField, DecimalField, TextAreaField, SubmitField
-from wtforms.validators import DataRequired, Email, Length, NumberRange, EqualTo, ValidationError
+from wtforms.validators import DataRequired, Email, Length, NumberRange, EqualTo, ValidationError, IPAddress, Optional, Regexp
 from models import User
 
 class LoginForm(FlaskForm):
@@ -137,15 +137,19 @@ class SelfHostedServerForm(FlaskForm):
     # Network information
     public_ip = StringField('Public IP Address', validators=[
         DataRequired(),
-        Length(max=15)
+        IPAddress(ipv4=True, message='Please enter a valid IPv4 address')
     ], description='The public IP address of the server')
     
     private_ip = StringField('Private IP Address (Optional)', validators=[
-        Length(max=15)
+        Optional(),
+        IPAddress(ipv4=True, message='Please enter a valid IPv4 address')
     ], description='Private/internal IP address if applicable')
     
     reverse_dns = StringField('Domain/Reverse DNS (Optional)', validators=[
-        Length(max=255)
+        Optional(),
+        Length(max=255),
+        Regexp(r'^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$', 
+               message='Please enter a valid domain name')
     ], description='Domain name or reverse DNS for this server')
     
     submit = SubmitField('Add Self-Hosted Server')
@@ -177,22 +181,22 @@ class EditServerForm(FlaskForm):
     # Network information
     public_ip = StringField('Public IP Address', validators=[
         DataRequired(),
-        Length(max=15)
+        IPAddress(ipv4=True, message='Please enter a valid IPv4 address')
     ], description='The public IP address of the server')
     
     private_ip = StringField('Private IP Address (Optional)', validators=[
-        Length(max=15)
+        Optional(),
+        IPAddress(ipv4=True, message='Please enter a valid IPv4 address')
     ], description='Private/internal IP address if applicable')
     
     reverse_dns = StringField('Domain/Reverse DNS (Optional)', validators=[
-        Length(max=255)
+        Optional(),
+        Length(max=255),
+        Regexp(r'^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$', 
+               message='Please enter a valid domain name')
     ], description='Domain name or reverse DNS for this server')
     
     submit = SubmitField('Update Server')
-    
-    def validate_project_id(self, project_id):
-        if project_id.data == 0:
-            raise ValidationError('Please select a valid project.')
 
 class AdminReviewForm(FlaskForm):
     status = SelectField('Status', validators=[DataRequired()], choices=[
