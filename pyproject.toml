@@ -23,4 +23,5 @@ dependencies = [
     "oauthlib>=3.3.1",
     "paramiko>=4.0.0",
     "pytz>=2025.2",
+    "flask-migrate>=4.1.0",
 ]
