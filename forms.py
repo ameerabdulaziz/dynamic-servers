@@ -148,35 +148,6 @@ class SelfHostedServerForm(FlaskForm):
         Length(max=255)
     ], description='Domain name or reverse DNS for this server')
     
-    # Server specifications
-    server_type = StringField('Server Type', validators=[
-        DataRequired(),
-        Length(min=2, max=50)
-    ], description='Server type or configuration (e.g., "VPS-4GB", "Dedicated-16GB")')
-    
-    cpu_cores = IntegerField('CPU Cores', validators=[DataRequired()], 
-                           description='Number of CPU cores')
-    
-    memory_gb = DecimalField('Memory (GB)', validators=[DataRequired()], 
-                           description='RAM in GB')
-    
-    disk_gb = IntegerField('Storage (GB)', validators=[DataRequired()], 
-                         description='Storage space in GB')
-    
-    # Location information
-    location = StringField('Location', validators=[
-        Length(max=50)
-    ], description='Server location (city, country, or data center name)')
-    
-    datacenter = StringField('Datacenter/Provider', validators=[
-        Length(max=50)
-    ], description='Data center or hosting provider name')
-    
-    # Operating system
-    image = StringField('Operating System', validators=[
-        Length(max=100)
-    ], description='Operating system (e.g., "Ubuntu 22.04", "CentOS 7")')
-    
     submit = SubmitField('Add Self-Hosted Server')
     
     def validate_project_id(self, project_id):
