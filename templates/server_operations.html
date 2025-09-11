@@ -139,25 +139,23 @@
     </div>
 </div>
 
-<!-- Servers List -->
-<div class="card border-0">
-    <div class="card-header bg-gradient">
+<!-- Hetzner Cloud Servers Section -->
+{% if hetzner_servers %}
+<div class="card border-0 mb-4">
+    <div class="card-header bg-primary text-white">
         <h5 class="card-title mb-0">
-            <i class="fas fa-server me-2"></i>Server Management <small class="text-muted">{{ servers|length }} servers</small>
+            <i class="fas fa-cloud me-2"></i>Hetzner Cloud Servers <small class="text-white-50">{{ hetzner_servers|length }} servers</small>
         </h5>
     </div>
     <div class="card-body p-0">
-        <div id="servers-content">
-        {% if servers %}
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>
-                            <input type="checkbox" id="selectAll">
+                            <input type="checkbox" id="selectAllHetzner">
                         </th>
                         <th>Server</th>
-                        <th>Type</th>
                         <th>Project</th>
                         <th>Domain</th>
                         <th>Last Backup</th>
@@ -166,7 +164,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for server in servers %}
+                    {% for server in hetzner_servers %}
                     <tr>
                         <td>
                             <input type="checkbox" class="server-checkbox" value="{{ server.id }}">
@@ -174,19 +172,130 @@
                         <td>
                             <div class="fw-bold">{{ server.name }}</div>
                             <small class="text-muted">{{ server.server_type }} • {{ server.public_ip or 'No IP' }}</small>
-                            {% if server.is_self_hosted %}
-                                <br><small class="text-info"><i class="fas fa-user me-1"></i>{{ server.client_name }}</small>
+                        </td>
+                        <td>
+                            {% if server.project %}
+                            <span class="badge bg-secondary">{{ server.project.name }}</span>
+                            {% else %}
+                            <span class="text-muted">No Project</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if server.is_self_hosted %}
-                                <span class="badge bg-info text-dark">
-                                    <i class="fas fa-user-cog me-1"></i>Client-Managed
-                                </span>
+                            {% if server.reverse_dns %}
+                                {% if server.reverse_dns.startswith('static.') %}
+                                <a href="http://{{ server.public_ip }}" target="_blank" class="text-decoration-none">
+                                    <small class="text-info">{{ server.public_ip }}</small>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                                {% else %}
+                                <a href="https://{{ server.reverse_dns }}" target="_blank" class="text-decoration-none">
+                                    <small class="text-info">{{ server.reverse_dns }}</small>
+                                    <i class="fas fa-external-link-alt ms-1" style="font-size: 10px;"></i>
+                                </a>
+                                {% endif %}
                             {% else %}
-                                <span class="badge bg-primary">
-                                    <i class="fas fa-cloud me-1"></i>Hetzner Cloud
-                                </span>
+                            <span class="text-muted">No domain</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set last_backup = server.backups | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}
+                            {% if last_backup and last_backup.completed_at %}
+                                <small class="text-success">{{ (last_backup.completed_at | cairo_time).strftime('%Y-%m-%d %H:%M') }}</small>
+                                <br><small class="badge bg-{{ 'success' if last_backup.status == 'completed' else 'danger' }}">{{ last_backup.status }}</small>
+                            {% else %}
+                                <small class="text-muted">Never</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set last_update = server.system_updates | selectattr("completed_at") | sort(attribute='completed_at', reverse=True) | first %}
+                            {% if last_update and last_update.completed_at %}
+                                <small class="text-success">{{ (last_update.completed_at | cairo_time).strftime('%Y-%m-%d %H:%M') }}</small>
+                                <br><small class="badge bg-{{ 'success' if last_update.status == 'completed' else 'danger' }}">{{ last_update.status }}</small>
+                            {% else %}
+                                <small class="text-muted">Never</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="initiateBackup({{ server.id }})" 
+                                        title="Start Backup">
+                                    <i class="fas fa-database"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-warning btn-sm" 
+                                        onclick="initiateUpdate({{ server.id }})" 
+                                        title="System Update">
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                                {% if server.public_ip %}
+                                <button type="button" class="btn btn-outline-info btn-sm" 
+                                        onclick="copySQLTunnel('{{ server.public_ip }}')" 
+                                        title="Copy SQL Tunnel Command">
+                                    <i class="fas fa-terminal"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
+                                        title="Download Project Logs">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                {% endif %}
+                                {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
+                                <a href="{{ url_for('server_detail', server_id=server.id) }}" 
+                                   class="btn btn-outline-primary btn-sm" title="Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Client-Managed Servers Section -->
+{% if client_managed_servers %}
+<div class="card border-0 mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-user-cog me-2"></i>Client-Managed Servers <small class="text-white-50">{{ client_managed_servers|length }} servers</small>
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            <input type="checkbox" id="selectAllClient">
+                        </th>
+                        <th>Server</th>
+                        <th>Client</th>
+                        <th>Project</th>
+                        <th>Domain</th>
+                        <th>Last Backup</th>
+                        <th>Last Update</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for server in client_managed_servers %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="server-checkbox" value="{{ server.id }}">
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ server.name }}</div>
+                            <small class="text-muted">{{ server.server_type }} • {{ server.public_ip or 'No IP' }}</small>
+                        </td>
+                        <td>
+                            {% if server.client_name %}
+                                <small class="text-info"><i class="fas fa-user me-1"></i>{{ server.client_name }}</small>
+                            {% else %}
+                                <span class="text-muted">No client info</span>
                             {% endif %}
                         </td>
                         <td>
@@ -233,66 +342,33 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                {% if server.is_self_hosted %}
-                                    <!-- Client-managed servers - project operations available -->
-                                    <button type="button" class="btn btn-outline-success btn-sm" 
-                                            onclick="initiateBackup({{ server.id }})" 
-                                            title="Start Project Backup">
-                                        <i class="fas fa-database"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-warning btn-sm" 
-                                            onclick="initiateUpdate({{ server.id }})" 
-                                            title="Deploy Project Update">
-                                        <i class="fas fa-arrow-up"></i>
-                                    </button>
-                                    {% if server.public_ip %}
-                                    <button type="button" class="btn btn-outline-info btn-sm" 
-                                            onclick="copySQLTunnel('{{ server.public_ip }}')" 
-                                            title="Copy SQL Tunnel Command">
-                                        <i class="fas fa-terminal"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                            onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
-                                            title="Download Project Logs">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
-                                    <a href="{{ url_for('server_detail', server_id=server.id) }}" 
-                                       class="btn btn-outline-primary btn-sm" title="Details">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    {% endif %}
-                                {% else %}
-                                    <!-- Full operations for Hetzner servers -->
-                                    <button type="button" class="btn btn-outline-success btn-sm" 
-                                            onclick="initiateBackup({{ server.id }})" 
-                                            title="Start Backup">
-                                        <i class="fas fa-database"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-warning btn-sm" 
-                                            onclick="initiateUpdate({{ server.id }})" 
-                                            title="System Update">
-                                        <i class="fas fa-arrow-up"></i>
-                                    </button>
-                                    {% if server.public_ip %}
-                                    <button type="button" class="btn btn-outline-info btn-sm" 
-                                            onclick="copySQLTunnel('{{ server.public_ip }}')" 
-                                            title="Copy SQL Tunnel Command">
-                                        <i class="fas fa-terminal"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                            onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
-                                            title="Download Project Logs">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
-                                    <a href="{{ url_for('server_detail', server_id=server.id) }}" 
-                                       class="btn btn-outline-primary btn-sm" title="Details">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    {% endif %}
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="initiateBackup({{ server.id }})" 
+                                        title="Start Project Backup">
+                                    <i class="fas fa-database"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-warning btn-sm" 
+                                        onclick="initiateUpdate({{ server.id }})" 
+                                        title="Deploy Project Update">
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                                {% if server.public_ip %}
+                                <button type="button" class="btn btn-outline-info btn-sm" 
+                                        onclick="copySQLTunnel('{{ server.public_ip }}')" 
+                                        title="Copy SQL Tunnel Command">
+                                    <i class="fas fa-terminal"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="downloadLogs('{{ server.public_ip }}', '{{ server.reverse_dns or '' }}')" 
+                                        title="Download Project Logs">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                {% endif %}
+                                {% if current_user.is_admin or (current_user.role.name == 'TECHNICAL_AGENT' and current_user.is_manager) %}
+                                <a href="{{ url_for('server_detail', server_id=server.id) }}" 
+                                   class="btn btn-outline-primary btn-sm" title="Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
                                 {% endif %}
                             </div>
                         </td>
@@ -301,19 +377,21 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="text-center py-5" id="no-servers-message">
-            <i class="fas fa-server fa-4x text-muted mb-3"></i>
-            <h3 class="text-muted">No Servers Available</h3>
-            <p class="text-muted">No servers found for management operations. Sync servers from your Hetzner projects first.</p>
-            <a href="{{ url_for('hetzner_projects') }}" class="btn btn-primary">
-                <i class="fas fa-sync me-1"></i>Sync Servers
-            </a>
-        </div>
-        {% endif %}
-        </div>
     </div>
 </div>
+{% endif %}
+
+<!-- No Servers Message -->
+{% if not hetzner_servers and not client_managed_servers %}
+<div class="text-center py-5" id="no-servers-message">
+    <i class="fas fa-server fa-4x text-muted mb-3"></i>
+    <h3 class="text-muted">No Servers Available</h3>
+    <p class="text-muted">No servers found for management operations. Sync servers from your Hetzner projects first.</p>
+    <a href="{{ url_for('hetzner_projects') }}" class="btn btn-primary">
+        <i class="fas fa-sync me-1"></i>Sync Servers
+    </a>
+</div>
+{% endif %}
 
 <!-- Custom Confirmation Modal -->
 <div class="modal fade" id="confirmActionModal" tabindex="-1">

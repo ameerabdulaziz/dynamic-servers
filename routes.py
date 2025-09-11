@@ -1462,6 +1462,10 @@ def server_operations():
     
     servers = query.all()
     
+    # Separate servers by type
+    hetzner_servers = [s for s in servers if s.server_source == 'hetzner']
+    client_managed_servers = [s for s in servers if s.server_source == 'self_hosted']
+    
     # Get available projects for filter dropdown
     if current_user.is_admin:
         projects = HetznerProject.query.filter(HetznerProject.is_active == True).all()
@@ -1505,7 +1509,9 @@ def server_operations():
     
     
     return render_template('server_operations.html', 
-                         servers=servers, 
+                         servers=servers,
+                         hetzner_servers=hetzner_servers,
+                         client_managed_servers=client_managed_servers,
                          projects=projects,
                          search=search,
                          status_filter=status_filter,
