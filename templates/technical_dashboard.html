@@ -91,9 +91,9 @@
                 <span class="badge bg-primary">{{ servers|length }} servers</span>
             </div>
             <div class="card-body">
-                {% if servers %}
+                {% if servers_overview %}
                 <div class="row">
-                    {% for server in servers[:6] %}
+                    {% for server in servers_overview %}
                     <div class="col-md-6 col-lg-4 mb-3">
                         <div class="card h-100">
                             <div class="card-body">

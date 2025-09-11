@@ -538,33 +538,69 @@ def technical_dashboard():
     # Only admins see all servers - technical agents (including managers) use project-based filtering
     if current_user.is_admin:
         # Only admins see all servers
-        servers = HetznerServer.query.all()
+        all_servers = HetznerServer.query.all()
         # Get all system updates, backups, and deployments
         recent_updates = SystemUpdate.query.order_by(SystemUpdate.started_at.desc()).limit(10).all()
         recent_backups = DatabaseBackup.query.order_by(DatabaseBackup.started_at.desc()).limit(10).all()
         recent_deployments = DeploymentExecution.query.order_by(DeploymentExecution.started_at.desc()).limit(10).all()
     else:
         # All technical agents (including managers) see only servers from projects they have access to
-        servers = current_user.get_accessible_servers()
-        accessible_server_ids = [server.id for server in servers]
+        all_servers = current_user.get_accessible_servers()
+        accessible_server_ids = [server.id for server in all_servers]
         
         # Filter activities to only show data from servers in accessible projects
         recent_updates = SystemUpdate.query.filter(SystemUpdate.server_id.in_(accessible_server_ids)).order_by(SystemUpdate.started_at.desc()).limit(10).all() if accessible_server_ids else []
         recent_backups = DatabaseBackup.query.filter(DatabaseBackup.server_id.in_(accessible_server_ids)).order_by(DatabaseBackup.started_at.desc()).limit(10).all() if accessible_server_ids else []
         recent_deployments = DeploymentExecution.query.filter(DeploymentExecution.server_id.in_(accessible_server_ids)).order_by(DeploymentExecution.started_at.desc()).limit(10).all() if accessible_server_ids else []
     
-    # Statistics for technical dashboard
+    # Sort servers by most recent activity (backup or update) for overview section
+    def get_last_action_date(server):
+        last_backup_date = None
+        last_update_date = None
+        
+        # Get most recent backup (completed or started)
+        if server.backups:
+            for backup in server.backups:
+                backup_date = backup.completed_at or backup.started_at
+                if backup_date and (not last_backup_date or backup_date > last_backup_date):
+                    last_backup_date = backup_date
+        
+        # Get most recent update (completed or started)  
+        if server.system_updates:
+            for update in server.system_updates:
+                update_date = update.completed_at or update.started_at
+                if update_date and (not last_update_date or update_date > last_update_date):
+                    last_update_date = update_date
+        
+        # Return tuple (has_action, date) for proper sorting with None handling
+        action_dates = [d for d in [last_backup_date, last_update_date] if d]
+        if action_dates:
+            return (True, max(action_dates))
+        else:
+            # Servers with no actions sort last
+            return (False, None)
+    
+    # Sort all servers by last action date and get the most recently active ones for overview
+    servers_with_dates = [(server, get_last_action_date(server)) for server in all_servers]
+    servers_with_dates.sort(key=lambda x: x[1], reverse=True)
+    
+    # Split into overview (top 6) and all servers for different uses
+    servers_overview = [server for server, _ in servers_with_dates[:6]]
+    servers = [server for server, _ in servers_with_dates]  # Keep full sorted list
+    
+    # Statistics for technical dashboard (use all_servers for accurate counts)
     stats = {
-        'total_servers': len(servers),
-        'running_servers': len([s for s in servers if s.status == 'running']),
-        'stopped_servers': len([s for s in servers if s.status == 'stopped']),
+        'total_servers': len(all_servers),
+        'running_servers': len([s for s in all_servers if s.status == 'running']),
+        'stopped_servers': len([s for s in all_servers if s.status == 'stopped']),
         'failed_backups': len([b for b in recent_backups if b.status == 'failed']),
         'pending_updates': len([u for u in recent_updates if u.status in ['scheduled', 'running']]),
         'recent_deployments': len(recent_deployments)
     }
     
     return render_template('technical_dashboard.html', 
-                         servers=servers, 
+                         servers=servers,
+                         servers_overview=servers_overview,
                          recent_updates=recent_updates,
                          recent_backups=recent_backups,
                          recent_deployments=recent_deployments,
