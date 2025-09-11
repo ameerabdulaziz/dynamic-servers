@@ -27,7 +27,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 def setup_app():
-    """Setup Flask app for migrations"""
+    """Setup minimal Flask app for migrations only"""
     class Base(DeclarativeBase):
         pass
     
@@ -48,7 +48,7 @@ def setup_app():
         "pool_pre_ping": True,
     }
     
-    # Initialize extensions
+    # Initialize extensions but avoid loading models that might reference missing columns
     db.init_app(app)
     migrate.init_app(app, db)
     

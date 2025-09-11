@@ -1,0 +1,95 @@
+docker compose exec flask uv run python migrate_production.py --dry-run
+=== DRY RUN: Showing pending migrations ===
+This will show what migrations would be applied...
+INFO:root:Hetzner projects initialization completed
+Traceback (most recent call last):
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.UndefinedColumn: column hetzner_server.server_source does not exist
+LINE 1: SELECT hetzner_server.id AS hetzner_server_id, hetzner_serve...
+                                                       ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/.venv/bin/flask", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 1131, in main
+    cli.main()
+  File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1363, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1824, in invoke
+    cmd_name, cmd, args = self.resolve_command(ctx, args)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1871, in resolve_command
+    cmd = self.get_command(ctx, cmd_name)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 631, in get_command
+    app = info.load_app()
+          ^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 349, in load_app
+    app = locate_app(import_name, name)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 245, in locate_app
+    __import__(module_name)
+  File "/app/main.py", line 1, in <module>
+    from app import app
+  File "/app/app.py", line 246, in <module>
+    create_sample_project_access()
+  File "/app/app.py", line 124, in create_sample_project_access
+    assign_existing_servers_to_nova_hr(nova_project)
+  File "/app/app.py", line 137, in assign_existing_servers_to_nova_hr
+    existing_servers = models.HetznerServer.query.filter_by(project_id=1).limit(4).all()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column hetzner_server.server_source does not exist
+LINE 1: SELECT hetzner_server.id AS hetzner_server_id, hetzner_serve...
+                                                       ^
+
+[SQL: SELECT hetzner_server.id AS hetzner_server_id, hetzner_server.server_source AS hetzner_server_server_source, hetzner_server.hetzner_id AS hetzner_server_hetzner_id, hetzner_server.name AS hetzner_server_name, hetzner_server.status AS hetzner_server_status, hetzner_server.server_type AS hetzner_server_server_type, hetzner_server.image AS hetzner_server_image, hetzner_server.client_name AS hetzner_server_client_name, hetzner_server.client_contact AS hetzner_server_client_contact, hetzner_server.project_id AS hetzner_server_project_id, hetzner_server.public_ip AS hetzner_server_public_ip, hetzner_server.private_ip AS hetzner_server_private_ip, hetzner_server.ipv6 AS hetzner_server_ipv6, hetzner_server.reverse_dns AS hetzner_server_reverse_dns, hetzner_server.datacenter AS hetzner_server_datacenter, hetzner_server.location AS hetzner_server_location, hetzner_server.cpu_cores AS hetzner_server_cpu_cores, hetzner_server.memory_gb AS hetzner_server_memory_gb, hetzner_server.disk_gb AS hetzner_server_disk_gb, hetzner_server.created_at AS hetzner_server_created_at, hetzner_server.last_synced AS hetzner_server_last_synced, hetzner_server.managed_by AS hetzner_server_managed_by, hetzner_server.deployment_status AS hetzner_server_deployment_status, hetzner_server.deployment_log AS hetzner_server_deployment_log, hetzner_server.last_deployment AS hetzner_server_last_deployment 
+FROM hetzner_server 
+WHERE hetzner_server.project_id = %(project_id_1)s 
+ LIMIT %(param_1)s]
+[parameters: {'project_id_1': 1, 'param_1': 4}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+
+To apply these migrations, run with --apply flag
