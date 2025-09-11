@@ -117,68 +117,6 @@
                         </div>
                     </div>
 
-                    <!-- Server Specifications Section -->
-                    <div class="mb-4">
-                        <h5 class="text-info mb-3">
-                            <i class="fas fa-microchip me-2"></i>Server Specifications
-                        </h5>
-                        
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                {{ form.server_type.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.server_type.description }}</small>
-                                {{ form.server_type(class="form-control" + (" is-invalid" if form.server_type.errors else ""), placeholder="VPS-4GB or Dedicated-16GB") }}
-                                {% if form.server_type.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.server_type.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-6">
-                                {{ form.image.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.image.description }}</small>
-                                {{ form.image(class="form-control" + (" is-invalid" if form.image.errors else ""), placeholder="Ubuntu 22.04 LTS") }}
-                                {% if form.image.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.image.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <div class="row g-3 mt-2">
-                            <div class="col-md-4">
-                                {{ form.cpu_cores.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.cpu_cores.description }}</small>
-                                {{ form.cpu_cores(class="form-control" + (" is-invalid" if form.cpu_cores.errors else ""), placeholder="2") }}
-                                {% if form.cpu_cores.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.cpu_cores.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-4">
-                                {{ form.memory_gb.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.memory_gb.description }}</small>
-                                {{ form.memory_gb(class="form-control" + (" is-invalid" if form.memory_gb.errors else ""), placeholder="4.0") }}
-                                {% if form.memory_gb.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.memory_gb.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-4">
-                                {{ form.disk_gb.label(class="form-label") }}
-                                <small class="text-muted d-block">{{ form.disk_gb.description }}</small>
-                                {{ form.disk_gb(class="form-control" + (" is-invalid" if form.disk_gb.errors else ""), placeholder="80") }}
-                                {% if form.disk_gb.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.disk_gb.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Location Information Section -->
                     <div class="mb-4">
