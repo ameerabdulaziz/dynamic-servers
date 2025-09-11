@@ -154,6 +154,46 @@ class SelfHostedServerForm(FlaskForm):
         if project_id.data == 0:
             raise ValidationError('Please select a valid project.')
 
+class EditServerForm(FlaskForm):
+    # Basic server information
+    name = StringField('Server Name', validators=[
+        DataRequired(), 
+        Length(min=2, max=100, message='Server name must be between 2 and 100 characters')
+    ], description='A unique name for this server')
+    
+    # Project selection (only for admins and managers)
+    project_id = SelectField('Project', validators=[DataRequired()], coerce=int, 
+                           description='Select which project this server belongs to')
+    
+    # Client information (only for client-managed servers)
+    client_name = StringField('Client Name', validators=[
+        Length(min=0, max=100, message='Client name must be less than 100 characters')
+    ], description='The name of the client who owns this server')
+    
+    client_contact = StringField('Client Contact', validators=[
+        Length(max=255, message='Contact information must be less than 255 characters')
+    ], description='Client contact information (email, phone, etc.)')
+    
+    # Network information
+    public_ip = StringField('Public IP Address', validators=[
+        DataRequired(),
+        Length(max=15)
+    ], description='The public IP address of the server')
+    
+    private_ip = StringField('Private IP Address (Optional)', validators=[
+        Length(max=15)
+    ], description='Private/internal IP address if applicable')
+    
+    reverse_dns = StringField('Domain/Reverse DNS (Optional)', validators=[
+        Length(max=255)
+    ], description='Domain name or reverse DNS for this server')
+    
+    submit = SubmitField('Update Server')
+    
+    def validate_project_id(self, project_id):
+        if project_id.data == 0:
+            raise ValidationError('Please select a valid project.')
+
 class AdminReviewForm(FlaskForm):
     status = SelectField('Status', validators=[DataRequired()], choices=[
         ('approved', 'Approve'),
