@@ -496,15 +496,112 @@ def restore_backup(backup_id):
                 return jsonify({'success': False, 'message': f'Failed to execute restore: {str(e)}'}), 500
                 
         else:
-            # For non-test servers, implement standard restore (placeholder for now)
+            # For non-test servers, implement standard restore
             app.logger.info(f"Standard restore requested for backup {backup_id} to {target_server.name}")
             
-            # This would be implemented based on the specific server type and restore requirements
-            flash(f'Standard restore functionality not yet implemented for {target_server.name}', 'warning')
-            return jsonify({
-                'success': False, 
-                'message': f'Standard restore not yet implemented for {target_server.name}. Only test server restoration is currently supported.'
-            }), 501
+            # Step 1: Upload backup file to target server via temporary location
+            backup_file_path = Path(backup.backup_path)
+            temp_backup_path = f"/tmp/restore_backup_{backup_id}.bak"
+            final_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
+            
+            # Upload the backup file via SFTP to temporary location first
+            try:
+                with ssh_service._get_ssh_client(target_server) as client:
+                    if not client:
+                        return jsonify({'success': False, 'message': 'Failed to establish SSH connection to server'}), 500
+                    
+                    sftp = client.open_sftp()
+                    
+                    # Upload to temporary location where we have write permissions
+                    app.logger.info(f"Uploading {backup_file_path} to temporary location {temp_backup_path}")
+                    sftp.put(str(backup_file_path), temp_backup_path)
+                    sftp.close()
+                    
+                    app.logger.info(f"Successfully uploaded backup to temporary location on {target_server.name}")
+                    
+                    # Now move the file to the correct location with proper permissions
+                    app.logger.info(f"Moving backup from {temp_backup_path} to {final_backup_path}")
+                    
+                    # Ensure backup directory exists with correct ownership
+                    setup_commands = [
+                        'sudo mkdir -p /home/dynamic/nova-hr-docker/mssql/backup',
+                        f'sudo cp {temp_backup_path} {final_backup_path}',
+                        f'sudo chown 10001:10001 {final_backup_path}',
+                        f'sudo chmod 644 {final_backup_path}',
+                        f'rm -f {temp_backup_path}'  # Clean up temp file
+                    ]
+                    
+                    for cmd in setup_commands:
+                        app.logger.info(f"Executing: {cmd}")
+                        stdin, stdout, stderr = client.exec_command(cmd)
+                        exit_code = stdout.channel.recv_exit_status()
+                        error_output = stderr.read().decode('utf-8')
+                        
+                        if exit_code != 0:
+                            app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
+                            return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                    
+                    app.logger.info(f"Successfully prepared backup file with correct permissions")
+                    
+            except Exception as e:
+                app.logger.error(f"Failed to upload backup to server: {str(e)}")
+                return jsonify({'success': False, 'message': f'Failed to upload backup: {str(e)}'}), 500
+            
+            # Step 2: Check if containers are running
+            try:
+                check_command = "cd /home/dynamic/nova-hr-docker && docker compose ps --services --filter status=running"
+                
+                with ssh_service._get_ssh_client(target_server) as client:
+                    if not client:
+                        return jsonify({'success': False, 'message': 'Failed to establish SSH connection for status check'}), 500
+                    
+                    app.logger.info(f"Checking container status: {check_command}")
+                    stdin, stdout, stderr = client.exec_command(check_command, timeout=60)
+                    exit_code = stdout.channel.recv_exit_status()
+                    output = stdout.read().decode('utf-8')
+                    error_output = stderr.read().decode('utf-8')
+                    
+                    app.logger.info(f"Container status check - Exit code: {exit_code}, Output: {output}, Error: {error_output}")
+                    
+                    if exit_code != 0 or 'mssql' not in output:
+                        return jsonify({'success': False, 'message': f'MSSQL container is not running on {target_server.name}. Please ensure the application is started.'}), 500
+                
+                # Step 3: Execute the restore command
+                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec mssql ./usr/src/app/restore-db.sh"
+                
+                with ssh_service._get_ssh_client(target_server) as client:
+                    if not client:
+                        return jsonify({'success': False, 'message': 'Failed to establish SSH connection for restore'}), 500
+                    
+                    app.logger.info(f"Executing restore command: {restore_command}")
+                    stdin, stdout, stderr = client.exec_command(restore_command, timeout=300)
+                    
+                    # Wait for command completion
+                    exit_code = stdout.channel.recv_exit_status()
+                    output = stdout.read().decode('utf-8')
+                    error_output = stderr.read().decode('utf-8')
+                    
+                    if exit_code == 0:
+                        app.logger.info(f"Restore completed successfully on {target_server.name}")
+                        app.logger.info(f"Restore output: {output}")
+                        
+                        flash(f'Backup successfully restored to {target_server.name}', 'success')
+                        return jsonify({
+                            'success': True, 
+                            'message': f'Backup successfully restored to {target_server.name}',
+                            'output': output
+                        })
+                    else:
+                        app.logger.error(f"Restore failed with exit code {exit_code}")
+                        app.logger.error(f"Error output: {error_output}")
+                        return jsonify({
+                            'success': False, 
+                            'message': f'Restore failed: {error_output or "Unknown error"}'
+                        }), 500
+                        
+            except Exception as e:
+                app.logger.error(f"Failed to execute restore on {target_server.name}: {str(e)}")
+                return jsonify({'success': False, 'message': f'Failed to execute restore: {str(e)}'}), 500
         
         return jsonify({
             'success': True, 
