@@ -458,8 +458,8 @@ def restore_backup(backup_id):
                     if exit_code != 0 or 'mssql' not in output:
                         return jsonify({'success': False, 'message': f'MSSQL container is not running. Please ensure the application is started on the test server.'}), 500
                 
-                # Now execute the restore with -T flag to disable pseudo-TTY
-                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ./usr/src/app/restore-db.sh"
+                # Now execute the restore command exactly as specified
+                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec mssql ./usr/src/app/restore-db.sh"
                 
                 with ssh_service._get_ssh_client(target_server) as client:
                     if not client:
