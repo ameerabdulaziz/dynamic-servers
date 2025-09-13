@@ -390,11 +390,12 @@ def restore_backup(backup_id):
             # Special handling for test server restoration
             app.logger.info(f"Initiating test server restoration for backup {backup_id} to {target_server.name}")
             
-            # Step 1: Upload backup file to test server
+            # Step 1: Upload backup file to test server via temporary location
             backup_file_path = Path(backup.backup_path)
-            remote_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
+            temp_backup_path = f"/tmp/nova_hr_restore_{backup_id}.bak"
+            final_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
             
-            # Upload the backup file via SFTP
+            # Upload the backup file via SFTP to temporary location first
             try:
                 with ssh_service._get_ssh_client(target_server) as client:
                     if not client:
@@ -402,22 +403,36 @@ def restore_backup(backup_id):
                     
                     sftp = client.open_sftp()
                     
-                    # Ensure backup directory exists
-                    try:
-                        sftp.stat('/home/dynamic/nova-hr-docker/mssql/backup')
-                    except FileNotFoundError:
-                        # Create directory if it doesn't exist
-                        stdin, stdout, stderr = client.exec_command(
-                            'mkdir -p /home/dynamic/nova-hr-docker/mssql/backup'
-                        )
-                        stdout.channel.recv_exit_status()
-                    
-                    # Upload the backup file
-                    app.logger.info(f"Uploading {backup_file_path} to {remote_backup_path}")
-                    sftp.put(str(backup_file_path), remote_backup_path)
+                    # Upload to temporary location where we have write permissions
+                    app.logger.info(f"Uploading {backup_file_path} to temporary location {temp_backup_path}")
+                    sftp.put(str(backup_file_path), temp_backup_path)
                     sftp.close()
                     
-                    app.logger.info(f"Successfully uploaded backup to {target_server.name}")
+                    app.logger.info(f"Successfully uploaded backup to temporary location on {target_server.name}")
+                    
+                    # Now move the file to the correct location with proper permissions
+                    app.logger.info(f"Moving backup from {temp_backup_path} to {final_backup_path}")
+                    
+                    # Ensure backup directory exists with correct ownership
+                    setup_commands = [
+                        'sudo mkdir -p /home/dynamic/nova-hr-docker/mssql/backup',
+                        f'sudo cp {temp_backup_path} {final_backup_path}',
+                        f'sudo chown 10001:10001 {final_backup_path}',
+                        f'sudo chmod 644 {final_backup_path}',
+                        f'rm -f {temp_backup_path}'  # Clean up temp file
+                    ]
+                    
+                    for cmd in setup_commands:
+                        app.logger.info(f"Executing: {cmd}")
+                        stdin, stdout, stderr = client.exec_command(cmd)
+                        exit_code = stdout.channel.recv_exit_status()
+                        error_output = stderr.read().decode('utf-8')
+                        
+                        if exit_code != 0:
+                            app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
+                            return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                    
+                    app.logger.info(f"Successfully prepared backup file with correct permissions")
                     
             except Exception as e:
                 app.logger.error(f"Failed to upload backup to test server: {str(e)}")
