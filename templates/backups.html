@@ -369,7 +369,7 @@ function confirmRestore(backupId) {
     // Update restore button to show loading state
     const restoreBtn = document.querySelector(`button[onclick="restoreBackup(${backupId})"]`);
     const originalHtml = restoreBtn.innerHTML;
-    restoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    restoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Restoring...';
     restoreBtn.disabled = true;
     
     // Make AJAX request to restore backup
@@ -487,7 +487,7 @@ function deleteBackup(backupId) {
         // Show loading state
         const deleteBtn = event.target.closest('button');
         const originalHtml = deleteBtn.innerHTML;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
         deleteBtn.disabled = true;
         
         // Make AJAX request to delete backup
