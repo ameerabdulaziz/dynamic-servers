@@ -348,20 +348,48 @@ function getOriginalServerId(backupId) {
 }
 
 function getTestServerId() {
-    // For now, return the first available server ID that contains 'test'
-    // In a real implementation, you'd have a specific test server ID
+    // Look for nova-hr-test server specifically
     const serverSelect = document.getElementById('server');
     if (serverSelect) {
         for (let i = 0; i < serverSelect.options.length; i++) {
             const option = serverSelect.options[i];
-            if (option.text.toLowerCase().includes('test') || option.text.toLowerCase().includes('nova-hr-test')) {
+            const serverName = option.text.toLowerCase();
+            if (serverName.includes('nova-hr-test') || serverName.includes('test')) {
                 return option.value;
             }
         }
-        // Fallback to first available server if no test server found
+        // If no test server found, fallback to first available server
         if (serverSelect.options.length > 1) {
             return serverSelect.options[1].value;
         }
+    }
+    return null;
+}
+
+function getOriginalServerId(backupId) {
+    // Look for the backup's original server from the backup table
+    const row = document.querySelector(`tr[data-backup-id="${backupId}"]`);
+    if (row) {
+        const serverCell = row.querySelector('td:nth-child(1)'); // Server column
+        if (serverCell) {
+            const serverName = serverCell.textContent.trim();
+            // Find the server ID that matches this server name
+            const serverSelect = document.getElementById('server');
+            if (serverSelect) {
+                for (let i = 0; i < serverSelect.options.length; i++) {
+                    const option = serverSelect.options[i];
+                    if (option.text.includes(serverName)) {
+                        return option.value;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback to first available server if original server not found
+    const serverSelect = document.getElementById('server');
+    if (serverSelect && serverSelect.options.length > 1) {
+        return serverSelect.options[1].value;
     }
     return null;
 }
