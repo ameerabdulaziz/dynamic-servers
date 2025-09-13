@@ -124,7 +124,6 @@
                             <thead class="table-dark">
                                 <tr>
                                     <th><i class="fas fa-server me-1"></i>Server</th>
-                                    <th><i class="fas fa-database me-1"></i>Database</th>
                                     <th><i class="fas fa-file me-1"></i>Filename</th>
                                     <th><i class="fas fa-weight me-1"></i>Size</th>
                                     <th><i class="fas fa-calendar me-1"></i>Created</th>
@@ -137,15 +136,14 @@
                                 <tr>
                                     <td>
                                         <strong>{{ backup.server_name }}</strong>
-                                        <br><small class="text-muted">{{ backup.backup_type.title() }} backup</small>
+                                        <br><small class="text-muted">Server backup</small>
                                     </td>
-                                    <td>{{ backup.database_name }}</td>
                                     <td>
                                         <code class="text-primary">{{ backup.filename }}</code>
                                     </td>
                                     <td>
                                         <span class="badge bg-info">
-                                            {{ "%.1f KB"|format(backup.size / 1024) if backup.size else 'Unknown' }}
+                                            {{ "%.1f MB"|format(backup.size / (1024*1024)) if backup.size and backup.size > 0 else '0 KB' }}
                                         </span>
                                     </td>
                                     <td>

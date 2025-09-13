@@ -1955,7 +1955,7 @@ def system_logs():
                 'backup_type': backup.backup_type,
                 'status': backup.status,
                 'started_at': backup.started_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'file_size': backup.file_size,
+                'file_size': backup.backup_size_mb,
                 'initiated_by': backup.initiated_by_user.username if backup.initiated_by_user else 'System',
                 'type': 'backup'
             })
@@ -2099,7 +2099,7 @@ def backups():
                 'server_name': backup.server.name if backup.server else 'Local Server',
                 'backup_type': backup.backup_type,
                 'status': backup.status,
-                'file_size': backup.file_size,
+                'file_size': backup.backup_size_mb,
                 'started_at': backup.started_at.strftime('%Y-%m-%d %H:%M'),
                 'completed_at': backup.completed_at.strftime('%Y-%m-%d %H:%M') if backup.completed_at else None
             })
