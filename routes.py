@@ -440,7 +440,26 @@ def restore_backup(backup_id):
             
             # Step 2: Execute the restore script
             try:
-                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec mssql ./usr/src/app/restore-db.sh"
+                # First check if containers are running
+                check_command = "cd /home/dynamic/nova-hr-docker && docker compose ps --services --filter status=running"
+                
+                with ssh_service._get_ssh_client(target_server) as client:
+                    if not client:
+                        return jsonify({'success': False, 'message': 'Failed to establish SSH connection for status check'}), 500
+                    
+                    app.logger.info(f"Checking container status: {check_command}")
+                    stdin, stdout, stderr = client.exec_command(check_command, timeout=60)
+                    exit_code = stdout.channel.recv_exit_status()
+                    output = stdout.read().decode('utf-8')
+                    error_output = stderr.read().decode('utf-8')
+                    
+                    app.logger.info(f"Container status check - Exit code: {exit_code}, Output: {output}, Error: {error_output}")
+                    
+                    if exit_code != 0 or 'mssql' not in output:
+                        return jsonify({'success': False, 'message': f'MSSQL container is not running. Please ensure the application is started on the test server.'}), 500
+                
+                # Now execute the restore with -T flag to disable pseudo-TTY
+                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ./usr/src/app/restore-db.sh"
                 
                 with ssh_service._get_ssh_client(target_server) as client:
                     if not client:
