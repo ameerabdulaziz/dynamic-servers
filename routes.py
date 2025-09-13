@@ -390,10 +390,13 @@ def restore_backup(backup_id):
             # Special handling for test server restoration
             app.logger.info(f"Initiating test server restoration for backup {backup_id} to {target_server.name}")
             
-            # Step 1: Upload backup file to test server via temporary location
+            # Step 1: Upload backup file to test server via temporary location with unique naming
             backup_file_path = Path(backup.backup_path)
+            backup_filename = backup_file_path.name
             temp_backup_path = f"/tmp/nova_hr_restore_{backup_id}.bak"
-            final_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
+            # Use server-specific backup directory with original filename to prevent cross-client contamination
+            server_backup_dir = f"/home/dynamic/nova-hr-docker/mssql/backup/{target_server.name}"
+            final_backup_path = f"{server_backup_dir}/{backup_filename}"
             
             # Upload the backup file via SFTP to temporary location first
             try:
@@ -415,7 +418,7 @@ def restore_backup(backup_id):
                     
                     # Ensure backup directory exists with correct ownership
                     setup_commands = [
-                        'sudo mkdir -p /home/dynamic/nova-hr-docker/mssql/backup',
+                        f'sudo mkdir -p {server_backup_dir}',
                         f'sudo cp {temp_backup_path} {final_backup_path}',
                         f'sudo chown 10001:10001 {final_backup_path}',
                         f'sudo chmod 644 {final_backup_path}',
@@ -499,10 +502,13 @@ def restore_backup(backup_id):
             # For non-test servers, implement standard restore
             app.logger.info(f"Standard restore requested for backup {backup_id} to {target_server.name}")
             
-            # Step 1: Upload backup file to target server via temporary location
+            # Step 1: Upload backup file to target server via temporary location with unique naming
             backup_file_path = Path(backup.backup_path)
+            backup_filename = backup_file_path.name
             temp_backup_path = f"/tmp/restore_backup_{backup_id}.bak"
-            final_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
+            # Use server-specific backup directory with original filename to prevent cross-client contamination
+            server_backup_dir = f"/home/dynamic/nova-hr-docker/mssql/backup/{target_server.name}"
+            final_backup_path = f"{server_backup_dir}/{backup_filename}"
             
             # Upload the backup file via SFTP to temporary location first
             try:
@@ -522,9 +528,9 @@ def restore_backup(backup_id):
                     # Now move the file to the correct location with proper permissions
                     app.logger.info(f"Moving backup from {temp_backup_path} to {final_backup_path}")
                     
-                    # Ensure backup directory exists with correct ownership
+                    # Ensure server-specific backup directory exists with correct ownership
                     setup_commands = [
-                        'sudo mkdir -p /home/dynamic/nova-hr-docker/mssql/backup',
+                        f'sudo mkdir -p {server_backup_dir}',
                         f'sudo cp {temp_backup_path} {final_backup_path}',
                         f'sudo chown 10001:10001 {final_backup_path}',
                         f'sudo chmod 644 {final_backup_path}',
@@ -541,7 +547,7 @@ def restore_backup(backup_id):
                             app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
                             return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
                     
-                    app.logger.info(f"Successfully prepared backup file with correct permissions")
+                    app.logger.info(f"Successfully prepared backup file with correct permissions at {final_backup_path}")
                     
             except Exception as e:
                 app.logger.error(f"Failed to upload backup to server: {str(e)}")
@@ -566,8 +572,8 @@ def restore_backup(backup_id):
                     if exit_code != 0 or 'mssql' not in output:
                         return jsonify({'success': False, 'message': f'MSSQL container is not running on {target_server.name}. Please ensure the application is started.'}), 500
                 
-                # Step 3: Execute the restore command with interactive terminal
-                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ./usr/src/app/restore-db.sh"
+                # Step 3: Execute the restore command with specific backup file and interactive terminal 
+                restore_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ./usr/src/app/restore-db.sh '{final_backup_path}'"
                 
                 with ssh_service._get_ssh_client(target_server) as client:
                     if not client:
