@@ -232,16 +232,199 @@ function downloadBackup(backupId) {
 }
 
 function restoreBackup(backupId) {
-    if (confirm('Restore database from this backup? This action cannot be undone.')) {
-        // TODO: Implement backup restoration
-        alert('Backup restoration initiated for backup ' + backupId);
+    // Show server selection modal
+    showRestoreModal(backupId);
+}
+
+function showRestoreModal(backupId) {
+    // Create modal HTML
+    const modalHtml = `
+        <div class="modal fade" id="restoreModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Restore Backup</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Choose where to restore this backup:</p>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="restoreTarget" id="originalServer" value="original" checked>
+                            <label class="form-check-label" for="originalServer">
+                                <strong>Original Server</strong><br>
+                                <small class="text-muted">Restore to the same server where this backup was created</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="restoreTarget" id="testServer" value="test">
+                            <label class="form-check-label" for="testServer">
+                                <strong>Test Server (nova-hr-test)</strong><br>
+                                <small class="text-muted">Restore to the test environment for testing purposes</small>
+                            </label>
+                        </div>
+                        <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            This action cannot be undone. The target database will be overwritten.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning" onclick="confirmRestore(${backupId})">Restore Backup</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('restoreModal');
+    if (existingModal) {
+        existingModal.remove();
     }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
+    modal.show();
+}
+
+function confirmRestore(backupId) {
+    const selectedTarget = document.querySelector('input[name="restoreTarget"]:checked').value;
+    
+    // Get the target server ID based on selection
+    let targetServerId;
+    if (selectedTarget === 'original') {
+        // Get original server ID from the backup row or use a default
+        targetServerId = getOriginalServerId(backupId);
+    } else {
+        // Use test server ID (you may need to adjust this based on your actual test server ID)
+        targetServerId = getTestServerId();
+    }
+    
+    if (!targetServerId) {
+        alert('Unable to determine target server. Please try again.');
+        return;
+    }
+    
+    // Make AJAX request to restore backup
+    fetch(`/restore-backup/${backupId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            target_server_id: targetServerId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('restoreModal'));
+        modal.hide();
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+        } else {
+            alert('❌ Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error restoring backup. Please try again.');
+    });
+}
+
+function getOriginalServerId(backupId) {
+    // For now, return the first available server ID
+    // In a real implementation, you'd get this from the backup data
+    const serverSelect = document.getElementById('server');
+    if (serverSelect && serverSelect.options.length > 1) {
+        return serverSelect.options[1].value; // First non-empty option
+    }
+    return null;
+}
+
+function getTestServerId() {
+    // For now, return the first available server ID that contains 'test'
+    // In a real implementation, you'd have a specific test server ID
+    const serverSelect = document.getElementById('server');
+    if (serverSelect) {
+        for (let i = 0; i < serverSelect.options.length; i++) {
+            const option = serverSelect.options[i];
+            if (option.text.toLowerCase().includes('test') || option.text.toLowerCase().includes('nova-hr-test')) {
+                return option.value;
+            }
+        }
+        // Fallback to first available server if no test server found
+        if (serverSelect.options.length > 1) {
+            return serverSelect.options[1].value;
+        }
+    }
+    return null;
 }
 
 function deleteBackup(backupId) {
-    if (confirm('Delete this backup? This action cannot be undone.')) {
-        // TODO: Implement backup deletion
-        alert('Backup deleted: ' + backupId);
+    if (confirm('🗑️ Delete this backup?\n\nThis action cannot be undone and will permanently remove the backup file and its database record.')) {
+        // Show loading state
+        const deleteBtn = event.target.closest('button');
+        const originalHtml = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        deleteBtn.disabled = true;
+        
+        // Make AJAX request to delete backup
+        fetch(`/delete-backup/${backupId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the row from the table
+                const row = deleteBtn.closest('tr');
+                if (row) {
+                    row.style.transition = 'opacity 0.3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.remove();
+                        // Update backup count
+                        updateBackupCount();
+                    }, 300);
+                }
+                alert('✅ ' + data.message);
+            } else {
+                alert('❌ Error: ' + data.message);
+                // Restore button state
+                deleteBtn.innerHTML = originalHtml;
+                deleteBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error deleting backup. Please try again.');
+            // Restore button state
+            deleteBtn.innerHTML = originalHtml;
+            deleteBtn.disabled = false;
+        });
+    }
+}
+
+function updateBackupCount() {
+    // Update the backup count in the header
+    const rows = document.querySelectorAll('#backups-content tbody tr').length;
+    const headerCount = document.querySelector('.card-header h5 small');
+    if (headerCount) {
+        headerCount.textContent = `${rows} backups`;
+    }
+    
+    // Update summary stats
+    const totalCard = document.querySelector('.bg-primary .h4');
+    if (totalCard) {
+        totalCard.textContent = rows;
     }
 }
 

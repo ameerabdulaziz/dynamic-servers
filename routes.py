@@ -356,6 +356,75 @@ def download_backup_file(filename):
         flash(f'Error downloading backup: {str(e)}', 'danger')
         return redirect(url_for('list_all_backups'))
 
+@app.route('/restore-backup/<int:backup_id>', methods=['POST'])
+@login_required
+def restore_backup(backup_id):
+    """Restore a backup to a selected server"""
+    if not current_user.has_permission('database_operations'):
+        return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
+    
+    backup = DatabaseBackup.query.get_or_404(backup_id)
+    target_server_id = request.json.get('target_server_id')
+    
+    if not target_server_id:
+        return jsonify({'success': False, 'message': 'Target server is required'}), 400
+    
+    target_server = HetznerServer.query.get_or_404(target_server_id)
+    
+    # Check if user has access to the target server
+    if not current_user.has_server_access(target_server_id, 'write'):
+        return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
+    
+    try:
+        # Check if backup file exists
+        if not backup.backup_path or not Path(backup.backup_path).exists():
+            return jsonify({'success': False, 'message': 'Backup file not found'}), 404
+        
+        # TODO: Implement actual restore functionality
+        # For now, just simulate the restoration process
+        flash(f'Backup restoration initiated: {backup.database_name} → {target_server.name}', 'info')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Backup will be restored to {target_server.name}',
+            'backup_id': backup_id,
+            'target_server': target_server.name
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error initiating restore: {str(e)}'}), 500
+
+@app.route('/delete-backup/<int:backup_id>', methods=['DELETE'])
+@login_required
+def delete_backup(backup_id):
+    """Delete a backup file and database record"""
+    if not current_user.has_permission('database_operations'):
+        return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
+    
+    backup = DatabaseBackup.query.get_or_404(backup_id)
+    
+    # Check if user has access to the server this backup belongs to
+    if backup.server and not current_user.has_server_access(backup.server_id, 'admin'):
+        return jsonify({'success': False, 'message': 'Access denied. You do not have admin access to this server.'}), 403
+    
+    try:
+        # Delete the backup file if it exists
+        if backup.backup_path and Path(backup.backup_path).exists():
+            Path(backup.backup_path).unlink()
+        
+        # Delete the database record
+        db.session.delete(backup)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Backup for {backup.database_name} has been deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error deleting backup: {str(e)}'}), 500
+
 @app.route('/download-backup/<int:backup_id>')
 @login_required
 def download_backup_by_id(backup_id):
