@@ -313,7 +313,8 @@ function confirmRestore(backupId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
         },
         body: JSON.stringify({
             target_server_id: targetServerId
@@ -378,7 +379,8 @@ function deleteBackup(backupId) {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
             }
         })
         .then(response => response.json())
