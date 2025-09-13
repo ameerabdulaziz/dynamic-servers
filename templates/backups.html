@@ -148,7 +148,7 @@
                 </thead>
                 <tbody>
                     {% for backup in backups %}
-                    <tr>
+                    <tr data-backup-id="{{ backup.id }}">
                         <td>
                             <div class="fw-bold">{{ backup.server.name if backup.server else 'Local Server' }}</div>
                             <small class="text-muted">Server backup</small>
@@ -237,39 +237,91 @@ function restoreBackup(backupId) {
 }
 
 function showRestoreModal(backupId) {
-    // Create modal HTML
+    // Get backup information from the table row
+    const row = document.querySelector(`tr[data-backup-id="${backupId}"]`);
+    let sourceServer = 'Unknown';
+    let backupDate = 'Unknown';
+    let databaseName = 'Unknown';
+    
+    if (row) {
+        const serverCell = row.querySelector('td:nth-child(1)');
+        const dateCell = row.querySelector('td:nth-child(2)');
+        const dbCell = row.querySelector('td:nth-child(3)');
+        
+        if (serverCell) sourceServer = serverCell.textContent.trim();
+        if (dateCell) backupDate = dateCell.textContent.trim();
+        if (dbCell) databaseName = dbCell.textContent.trim();
+    }
+    
+    // Create modal HTML with source server information
     const modalHtml = `
         <div class="modal fade" id="restoreModal" tabindex="-1">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Restore Backup</h5>
+                        <h5 class="modal-title"><i class="fas fa-undo me-2"></i>Restore Database Backup</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p>Choose where to restore this backup:</p>
-                        <div class="form-check mb-3">
+                        <!-- Backup Information -->
+                        <div class="alert alert-info mb-4">
+                            <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Backup Details</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>Source Server:</strong><br>
+                                    <span class="text-primary">${sourceServer}</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Database:</strong><br>
+                                    <span class="text-primary">${databaseName}</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Created:</strong><br>
+                                    <span class="text-primary">${backupDate}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="mb-3">Choose where to restore this backup:</p>
+                        
+                        <div class="form-check mb-3 p-3 border rounded">
                             <input class="form-check-input" type="radio" name="restoreTarget" id="originalServer" value="original" checked>
-                            <label class="form-check-label" for="originalServer">
-                                <strong>Original Server</strong><br>
-                                <small class="text-muted">Restore to the same server where this backup was created</small>
+                            <label class="form-check-label w-100" for="originalServer">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-server text-success me-3 fa-lg"></i>
+                                    <div>
+                                        <strong>Original Server (${sourceServer})</strong><br>
+                                        <small class="text-muted">Restore to the same server where this backup was created</small>
+                                    </div>
+                                </div>
                             </label>
                         </div>
-                        <div class="form-check">
+                        
+                        <div class="form-check p-3 border rounded">
                             <input class="form-check-input" type="radio" name="restoreTarget" id="testServer" value="test">
-                            <label class="form-check-label" for="testServer">
-                                <strong>Test Server (nova-hr-test)</strong><br>
-                                <small class="text-muted">Restore to the test environment for testing purposes</small>
+                            <label class="form-check-label w-100" for="testServer">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-flask text-warning me-3 fa-lg"></i>
+                                    <div>
+                                        <strong>Test Server (nova-hr-test)</strong><br>
+                                        <small class="text-muted">Restore to the test environment for testing purposes</small>
+                                    </div>
+                                </div>
                             </label>
                         </div>
-                        <div class="alert alert-warning mt-3">
+                        
+                        <div class="alert alert-warning mt-4">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            This action cannot be undone. The target database will be overwritten.
+                            <strong>Warning:</strong> This action cannot be undone. The target database will be completely overwritten with the backup data.
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-warning" onclick="confirmRestore(${backupId})">Restore Backup</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="confirmRestore(${backupId})">
+                            <i class="fas fa-undo me-1"></i>Restore Backup
+                        </button>
                     </div>
                 </div>
             </div>
@@ -296,17 +348,29 @@ function confirmRestore(backupId) {
     // Get the target server ID based on selection
     let targetServerId;
     if (selectedTarget === 'original') {
-        // Get original server ID from the backup row or use a default
         targetServerId = getOriginalServerId(backupId);
     } else {
-        // Use test server ID (you may need to adjust this based on your actual test server ID)
         targetServerId = getTestServerId();
     }
     
     if (!targetServerId) {
-        alert('Unable to determine target server. Please try again.');
+        showToast('Unable to determine target server. Please try again.', 'danger');
         return;
     }
+    
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('restoreModal'));
+    modal.hide();
+    
+    // Show loading toast
+    const targetServerName = selectedTarget === 'test' ? 'nova-hr-test' : getOriginalServerName(backupId);
+    showToast(`<i class="fas fa-spinner fa-spin me-2"></i>Initiating backup restore to ${targetServerName}...`, 'info');
+    
+    // Update restore button to show loading state
+    const restoreBtn = document.querySelector(`button[onclick="restoreBackup(${backupId})"]`);
+    const originalHtml = restoreBtn.innerHTML;
+    restoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    restoreBtn.disabled = true;
     
     // Make AJAX request to restore backup
     fetch(`/restore-backup/${backupId}`, {
@@ -322,18 +386,30 @@ function confirmRestore(backupId) {
     })
     .then(response => response.json())
     .then(data => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('restoreModal'));
-        modal.hide();
+        // Restore button state
+        restoreBtn.innerHTML = originalHtml;
+        restoreBtn.disabled = false;
         
         if (data.success) {
-            alert('✅ ' + data.message);
+            showToast(`<i class="fas fa-check-circle me-2"></i>Backup successfully restored to ${targetServerName}!`, 'success');
+            
+            // Show additional details if available
+            if (data.output) {
+                setTimeout(() => {
+                    showToast(`<i class="fas fa-info-circle me-2"></i>Restore completed. Database is ready for use.`, 'info');
+                }, 2000);
+            }
         } else {
-            alert('❌ Error: ' + data.message);
+            showToast(`<i class="fas fa-exclamation-triangle me-2"></i>Restore failed: ${data.message}`, 'danger');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('❌ Error restoring backup. Please try again.');
+        // Restore button state
+        restoreBtn.innerHTML = originalHtml;
+        restoreBtn.disabled = false;
+        
+        showToast(`<i class="fas fa-times-circle me-2"></i>Error restoring backup. Please try again.`, 'danger');
     });
 }
 
@@ -392,6 +468,18 @@ function getOriginalServerId(backupId) {
         return serverSelect.options[1].value;
     }
     return null;
+}
+
+function getOriginalServerName(backupId) {
+    // Get the original server name from the backup table
+    const row = document.querySelector(`tr[data-backup-id="${backupId}"]`);
+    if (row) {
+        const serverCell = row.querySelector('td:nth-child(1)'); // Server column
+        if (serverCell) {
+            return serverCell.textContent.trim();
+        }
+    }
+    return 'Original Server';
 }
 
 function deleteBackup(backupId) {
