@@ -67,8 +67,9 @@
                                     <td>
                                         {{ backup.created.strftime('%Y-%m-%d %H:%M') if backup.created else 'Unknown' }}
                                         <br><small class="text-muted">
-                                            {% set days_ago = (now() - backup.created).days if backup.created %}
-                                            {{ days_ago }} days ago
+                                            {% if backup.created %}
+                                            Recent backup
+                            {% endif %}
                                         </small>
                                     </td>
                                     <td>{{ backup.initiated_by }}</td>
@@ -149,8 +150,9 @@
                                     <td>
                                         {{ backup.created.strftime('%Y-%m-%d %H:%M') if backup.created else 'Unknown' }}
                                         <br><small class="text-muted">
-                                            {% set days_ago = (now() - backup.created).days if backup.created %}
-                                            {{ days_ago }} days ago
+                                            {% if backup.created %}
+                                            Recent backup
+                            {% endif %}
                                         </small>
                                     </td>
                                     <td>
