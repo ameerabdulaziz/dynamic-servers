@@ -106,15 +106,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-1">
-                        <label for="backup_type" class="form-label">Type</label>
-                        <select class="form-select" id="backup_type" name="backup_type">
-                            <option value="">All</option>
-                            <option value="full">Full</option>
-                            <option value="incremental">Incremental</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label">&nbsp;</label>
                         <div class="d-flex gap-1">
                             <button type="submit" class="btn btn-primary" id="filter-btn">
@@ -146,8 +138,7 @@
             <table class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Database</th>
-                        <th>Type</th>
+                        <th>Server</th>
                         <th>Status</th>
                         <th>Size</th>
                         <th>Created</th>
@@ -159,11 +150,8 @@
                     {% for backup in backups %}
                     <tr>
                         <td>
-                            <div class="fw-bold">{{ backup.database_name }}</div>
-                            <small class="text-muted">{{ backup.server or 'Local Server' }}</small>
-                        </td>
-                        <td>
-                            <span class="badge bg-secondary">{{ backup.backup_type.title() }}</span>
+                            <div class="fw-bold">{{ backup.server.name if backup.server else 'Local Server' }}</div>
+                            <small class="text-muted">Server backup</small>
                         </td>
                         <td>
                             {% if backup.status == 'completed' %}
@@ -177,10 +165,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if backup.file_size %}
-                            {{ "%.2f"|format(backup.file_size / 1024 / 1024) }} MB
+                            {% if backup.backup_size_mb %}
+                            {{ backup.backup_size_mb }} MB
                             {% else %}
-                            <span class="text-muted">-</span>
+                            <span class="text-muted">0 KB</span>
                             {% endif %}
                         </td>
                         <td>
@@ -269,7 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('search');
     const statusSelect = document.getElementById('status');
     const serverSelect = document.getElementById('server');
-    const backupTypeSelect = document.getElementById('backup_type');
     
     let filterTimeout;
     
@@ -301,8 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Database</th>
-                            <th>Type</th>
+                            <th>Server</th>
                             <th>Status</th>
                             <th>Size</th>
                             <th>Created</th>
@@ -321,17 +307,14 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `
                 <tr>
                     <td>
-                        <div class="fw-bold">${backup.database_name}</div>
-                        <small class="text-muted">${backup.server_name}</small>
-                    </td>
-                    <td>
-                        <span class="badge bg-secondary">${backup.backup_type.charAt(0).toUpperCase() + backup.backup_type.slice(1)}</span>
+                        <div class="fw-bold">${backup.server_name}</div>
+                        <small class="text-muted">Server backup</small>
                     </td>
                     <td>
                         <span class="badge ${statusClass}">${backup.status.charAt(0).toUpperCase() + backup.status.slice(1)}</span>
                     </td>
                     <td>
-                        ${backup.file_size ? (backup.file_size / 1024 / 1024).toFixed(2) + ' MB' : '<span class="text-muted">-</span>'}
+                        ${backup.file_size ? backup.file_size + ' MB' : '<span class="text-muted">0 KB</span>'}
                     </td>
                     <td>
                         <small>${backup.started_at}</small>
@@ -433,14 +416,12 @@ document.addEventListener('DOMContentLoaded', function() {
     searchInput.addEventListener('input', handleInputChange);
     statusSelect.addEventListener('change', performFilter);
     serverSelect.addEventListener('change', performFilter);
-    backupTypeSelect.addEventListener('change', performFilter);
     
     // Clear filters
     clearBtn.addEventListener('click', function() {
         searchInput.value = '';
         statusSelect.value = '';
         serverSelect.value = '';
-        backupTypeSelect.value = '';
         performFilter();
     });
 });
