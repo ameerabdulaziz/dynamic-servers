@@ -390,13 +390,11 @@ def restore_backup(backup_id):
             # Special handling for test server restoration
             app.logger.info(f"Initiating test server restoration for backup {backup_id} to {target_server.name}")
             
-            # Step 1: Upload backup file to test server via temporary location with unique naming
+            # Step 1: Upload backup file to test server and replace nova_hr.bak
             backup_file_path = Path(backup.backup_path)
-            backup_filename = backup_file_path.name
             temp_backup_path = f"/tmp/nova_hr_restore_{backup_id}.bak"
-            # Use server-specific backup directory with original filename to prevent cross-client contamination
-            server_backup_dir = f"/home/dynamic/nova-hr-docker/mssql/backup/{target_server.name}"
-            final_backup_path = f"{server_backup_dir}/{backup_filename}"
+            # Overwrite the standard nova_hr.bak file that the restore script expects
+            final_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
             
             # Upload the backup file via SFTP to temporary location first
             try:
@@ -416,9 +414,9 @@ def restore_backup(backup_id):
                     # Now move the file to the correct location with proper permissions
                     app.logger.info(f"Moving backup from {temp_backup_path} to {final_backup_path}")
                     
-                    # Ensure backup directory exists with correct ownership
+                    # Ensure backup directory exists and overwrite nova_hr.bak
                     setup_commands = [
-                        f'sudo mkdir -p {server_backup_dir}',
+                        'sudo mkdir -p /home/dynamic/nova-hr-docker/mssql/backup',
                         f'sudo cp {temp_backup_path} {final_backup_path}',
                         f'sudo chown 10001:10001 {final_backup_path}',
                         f'sudo chmod 644 {final_backup_path}',
@@ -461,8 +459,8 @@ def restore_backup(backup_id):
                     if exit_code != 0 or 'mssql' not in output:
                         return jsonify({'success': False, 'message': f'MSSQL container is not running. Please ensure the application is started on the test server.'}), 500
                 
-                # Now execute the restore command exactly as specified
-                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec mssql ./usr/src/app/restore-db.sh"
+                # Now execute the restore command without arguments (script will find nova_hr.bak automatically)
+                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql /usr/src/app/restore-db.sh"
                 
                 with ssh_service._get_ssh_client(target_server) as client:
                     if not client:
@@ -584,11 +582,17 @@ def restore_backup(backup_id):
                     if container_script_error:
                         app.logger.error(f"Container script check error: {container_script_error}")
                     
-                    # Check if nova_hr.bak is accessible from inside the container
-                    app.logger.info(f"Checking if nova_hr.bak is accessible from container...")
-                    stdin, stdout, stderr = client.exec_command("cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ls -l /mssql/backup/nova_hr.bak")
-                    container_backup_check = stdout.read().decode('utf-8')
-                    app.logger.info(f"Container nova_hr.bak check: {container_backup_check}")
+                    # Check what paths are available inside the container and find nova_hr.bak
+                    app.logger.info(f"Checking container backup directory...")
+                    stdin, stdout, stderr = client.exec_command("cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ls -la /mssql/backup/")
+                    container_dir_check = stdout.read().decode('utf-8')
+                    app.logger.info(f"Container backup directory contents: {container_dir_check}")
+                    
+                    # Check if nova_hr.bak exists with various possible paths
+                    for backup_path in ["/mssql/backup/nova_hr.bak", "/backup/nova_hr.bak", "/var/opt/mssql/backup/nova_hr.bak"]:
+                        stdin, stdout, stderr = client.exec_command(f"cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ls -l {backup_path}")
+                        path_check = stdout.read().decode('utf-8')
+                        app.logger.info(f"Container path check {backup_path}: {path_check}")
                     
                     # Now execute the restore command without arguments (script will find nova_hr.bak automatically)
                     restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql /usr/src/app/restore-db.sh"
