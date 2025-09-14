@@ -572,13 +572,29 @@ def restore_backup(backup_id):
                     if exit_code != 0 or 'mssql' not in output:
                         return jsonify({'success': False, 'message': f'MSSQL container is not running on {target_server.name}. Please ensure the application is started.'}), 500
                 
-                # Step 3: Execute the restore command with specific backup file and interactive terminal 
-                restore_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ./usr/src/app/restore-db.sh '{final_backup_path}'"
-                
+                # Step 3: Debug and execute the restore command
                 with ssh_service._get_ssh_client(target_server) as client:
                     if not client:
                         return jsonify({'success': False, 'message': 'Failed to establish SSH connection for restore'}), 500
                     
+                    # First, check if the restore script exists in the container (not host)
+                    app.logger.info("Checking if restore script exists in container...")
+                    stdin, stdout, stderr = client.exec_command("cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ls -l /usr/src/app/restore-db.sh")
+                    container_script_check = stdout.read().decode('utf-8')
+                    container_script_error = stderr.read().decode('utf-8')
+                    app.logger.info(f"Container script check: {container_script_check}")
+                    if container_script_error:
+                        app.logger.error(f"Container script check error: {container_script_error}")
+                    
+                    # Check if the backup file is accessible from inside the container
+                    app.logger.info(f"Checking if backup file is accessible from container...")
+                    container_backup_path = final_backup_path.replace('/home/dynamic/nova-hr-docker', '')
+                    stdin, stdout, stderr = client.exec_command(f"cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql ls -l '{container_backup_path}'")
+                    container_backup_check = stdout.read().decode('utf-8')
+                    app.logger.info(f"Container backup check: {container_backup_check}")
+                    
+                    # Now execute the restore command with absolute path
+                    restore_command = f"cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql /usr/src/app/restore-db.sh '{final_backup_path}'"
                     app.logger.info(f"Executing restore command: {restore_command}")
                     stdin, stdout, stderr = client.exec_command(restore_command, timeout=300)
                     
@@ -587,22 +603,24 @@ def restore_backup(backup_id):
                     output = stdout.read().decode('utf-8')
                     error_output = stderr.read().decode('utf-8')
                     
+                    app.logger.info(f"Restore exit code: {exit_code}")
+                    app.logger.info(f"Restore stdout: '{output}'")
+                    app.logger.info(f"Restore stderr: '{error_output}'")
+                    
                     if exit_code == 0:
                         app.logger.info(f"Restore completed successfully on {target_server.name}")
-                        app.logger.info(f"Restore output: {output}")
                         
                         flash(f'Backup successfully restored to {target_server.name}', 'success')
                         return jsonify({
                             'success': True, 
                             'message': f'Backup successfully restored to {target_server.name}',
-                            'output': output
+                            'output': output or 'Restore completed (no output)'
                         })
                     else:
                         app.logger.error(f"Restore failed with exit code {exit_code}")
-                        app.logger.error(f"Error output: {error_output}")
                         return jsonify({
                             'success': False, 
-                            'message': f'Restore failed: {error_output or "Unknown error"}'
+                            'message': f'Restore failed: {error_output or output or "Unknown error"}'
                         }), 500
                         
             except Exception as e:
