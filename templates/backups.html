@@ -77,6 +77,63 @@
     </div>
 </div>
 
+<!-- Upload and Restore Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0">
+            <div class="card-header bg-gradient">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload & Restore Backup
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="upload-restore-form" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="backup-file" class="form-label">
+                                <i class="fas fa-file me-1"></i>Select Backup File
+                            </label>
+                            <input type="file" class="form-control" id="backup-file" name="backup_file" 
+                                   accept=".bak" required>
+                            <div class="form-text">Accepted format: .bak files only (Max 2GB)</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="target-server" class="form-label">
+                                <i class="fas fa-server me-1"></i>Target Server
+                            </label>
+                            <select class="form-select" id="target-server" name="target_server_id" required>
+                                <option value="">Select server...</option>
+                                {% for server in servers %}
+                                <option value="{{ server.id }}">{{ server.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-success d-block w-100" id="upload-restore-btn">
+                                <i class="fas fa-upload me-1"></i>Upload & Restore
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- Progress Bar -->
+                <div id="upload-progress" class="mt-3" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">Uploading and restoring backup...</small>
+                        <small class="text-muted" id="progress-percentage">0%</small>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%" id="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Filter Controls -->
 <div class="row mb-4">
     <div class="col-12">
@@ -165,8 +222,8 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if backup.backup_size_mb %}
-                            {{ backup.backup_size_mb }} MB
+                            {% if backup.backup_size %}
+                            {{ "%.1f MB"|format(backup.backup_size / (1024 * 1024)) }}
                             {% else %}
                             <span class="text-muted">0 KB</span>
                             {% endif %}
@@ -545,6 +602,107 @@ function updateBackupCount() {
         totalCard.textContent = rows;
     }
 }
+
+// Upload and Restore functionality
+document.getElementById('upload-restore-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('backup-file');
+    const serverSelect = document.getElementById('target-server');
+    const submitBtn = document.getElementById('upload-restore-btn');
+    const progressDiv = document.getElementById('upload-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-percentage');
+    
+    // Validation
+    if (!fileInput.files.length) {
+        showToast('<i class="fas fa-exclamation-triangle me-2"></i>Please select a backup file', 'warning');
+        return;
+    }
+    
+    if (!serverSelect.value) {
+        showToast('<i class="fas fa-exclamation-triangle me-2"></i>Please select a target server', 'warning');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+    
+    if (file.size > maxSize) {
+        showToast('<i class="fas fa-exclamation-triangle me-2"></i>File size must be less than 2GB', 'danger');
+        return;
+    }
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('backup_file', file);
+    formData.append('target_server_id', serverSelect.value);
+    
+    // Show progress
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    
+    // Upload with progress tracking
+    const xhr = new XMLHttpRequest();
+    
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 50; // Upload is first 50%
+            progressBar.style.width = percentComplete + '%';
+            progressText.textContent = Math.round(percentComplete) + '%';
+        }
+    });
+    
+    xhr.addEventListener('load', function() {
+        if (xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    // Complete progress
+                    progressBar.style.width = '100%';
+                    progressText.textContent = '100%';
+                    
+                    showToast('<i class="fas fa-check-circle me-2"></i>Backup uploaded and restored successfully!', 'success');
+                    
+                    // Reset form
+                    document.getElementById('upload-restore-form').reset();
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                        window.location.reload(); // Reload to show new backup in list
+                    }, 2000);
+                } else {
+                    showToast('<i class="fas fa-exclamation-triangle me-2"></i>' + response.message, 'danger');
+                }
+            } catch (e) {
+                showToast('<i class="fas fa-times-circle me-2"></i>Error processing response', 'danger');
+            }
+        } else {
+            showToast('<i class="fas fa-times-circle me-2"></i>Upload failed. Please try again.', 'danger');
+        }
+        
+        // Reset button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload & Restore';
+        if (xhr.status !== 200) {
+            progressDiv.style.display = 'none';
+        }
+    });
+    
+    xhr.addEventListener('error', function() {
+        showToast('<i class="fas fa-times-circle me-2"></i>Network error. Please try again.', 'danger');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload & Restore';
+        progressDiv.style.display = 'none';
+    });
+    
+    // Start upload
+    xhr.open('POST', '/upload-restore-backup');
+    xhr.setRequestHeader('X-CSRFToken', document.querySelector('meta[name=csrf-token]').getAttribute('content'));
+    xhr.send(formData);
+});
 
 // AJAX Filtering
 document.addEventListener('DOMContentLoaded', function() {

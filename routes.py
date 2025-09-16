@@ -638,6 +638,174 @@ def restore_backup(backup_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error initiating restore: {str(e)}'}), 500
 
+@app.route('/upload-restore-backup', methods=['POST'])
+@login_required
+def upload_restore_backup():
+    """Upload a backup file and restore it to selected server"""
+    if not current_user.has_permission('database_operations'):
+        return jsonify({'success': False, 'message': 'Access denied. Technical Agent privileges required.'}), 403
+    
+    target_server_id = request.form.get('target_server_id')
+    if not target_server_id:
+        return jsonify({'success': False, 'message': 'Target server is required'}), 400
+    
+    target_server = HetznerServer.query.get_or_404(target_server_id)
+    
+    # Enforce test server only - critical security check
+    if not ('test' in target_server.name.lower() or target_server.name.lower() == 'nova-hr-test'):
+        return jsonify({'success': False, 'message': 'Upload restore operations are only allowed on test servers for security reasons.'}), 403
+    
+    # Check if user has access to the target server
+    if not current_user.has_server_access(target_server_id, 'write'):
+        return jsonify({'success': False, 'message': 'Access denied. You do not have access to this server.'}), 403
+    
+    # Check if file was uploaded
+    if 'backup_file' not in request.files:
+        return jsonify({'success': False, 'message': 'No backup file uploaded'}), 400
+    
+    backup_file = request.files['backup_file']
+    if backup_file.filename == '':
+        return jsonify({'success': False, 'message': 'No file selected'}), 400
+    
+    # Validate file type - only .bak files for MSSQL restore compatibility
+    allowed_extensions = {'.bak'}
+    file_ext = Path(backup_file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        return jsonify({'success': False, 'message': 'Only .bak files are supported for database restore operations'}), 400
+    
+    # Validate file size (2GB max for realistic backup files)
+    max_size = 2 * 1024 * 1024 * 1024  # 2GB
+    backup_file.seek(0, 2)  # Seek to end to get file size
+    file_size = backup_file.tell()
+    backup_file.seek(0)  # Reset to beginning
+    
+    if file_size > max_size:
+        return jsonify({'success': False, 'message': 'File size exceeds 2GB limit'}), 400
+    
+    try:
+        # Create secure uploads directory outside web-accessible area
+        uploads_dir = Path('uploads/backups')
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename with timestamp and sanitize original filename
+        from werkzeug.utils import secure_filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        safe_original_filename = secure_filename(backup_file.filename)
+        safe_filename = f"uploaded_{timestamp}_{safe_original_filename}"
+        local_backup_path = uploads_dir / safe_filename
+        
+        # Save uploaded file
+        backup_file.save(str(local_backup_path))
+        app.logger.info(f"Uploaded backup file saved to {local_backup_path}")
+        
+        # Initialize SSH service
+        ssh_service = SSHService()
+        
+        app.logger.info(f"Initiating upload restore for {backup_file.filename} to {target_server.name}")
+        
+        # Step 1: Upload backup file to server and replace nova_hr.bak
+        temp_backup_path = f"/tmp/uploaded_restore_{timestamp}.bak"
+        final_backup_path = "/home/dynamic/nova-hr-docker/mssql/backup/nova_hr.bak"
+        
+        # Upload the backup file via SFTP
+        try:
+            with ssh_service._get_ssh_client(target_server) as client:
+                if not client:
+                    return jsonify({'success': False, 'message': 'Failed to establish SSH connection'}), 500
+                
+                sftp = client.open_sftp()
+                sftp.put(str(local_backup_path), temp_backup_path)
+                sftp.close()
+                
+                # Move to correct location with proper permissions
+                setup_commands = [
+                    'sudo mkdir -p /home/dynamic/nova-hr-docker/mssql/backup',
+                    f'sudo cp {temp_backup_path} {final_backup_path}',
+                    f'sudo chown 10001:10001 {final_backup_path}',
+                    f'sudo chmod 644 {final_backup_path}',
+                    f'rm -f {temp_backup_path}'
+                ]
+                
+                for cmd in setup_commands:
+                    stdin, stdout, stderr = client.exec_command(cmd)
+                    exit_code = stdout.channel.recv_exit_status()
+                    error_output = stderr.read().decode('utf-8')
+                    
+                    if exit_code != 0:
+                        return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                        
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Failed to upload backup: {str(e)}'}), 500
+        
+        # Step 2: Check containers and execute restore
+        try:
+            with ssh_service._get_ssh_client(target_server) as client:
+                if not client:
+                    return jsonify({'success': False, 'message': 'Failed to establish SSH connection'}), 500
+                
+                # Check if containers are running
+                stdin, stdout, stderr = client.exec_command("cd /home/dynamic/nova-hr-docker && docker compose ps --services --filter status=running", timeout=60)
+                exit_code = stdout.channel.recv_exit_status()
+                output = stdout.read().decode('utf-8')
+                
+                if exit_code != 0 or 'mssql' not in output:
+                    return jsonify({'success': False, 'message': 'MSSQL container is not running. Please ensure the application is started.'}), 500
+                
+                # Execute restore command
+                restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql /usr/src/app/restore-db.sh"
+                stdin, stdout, stderr = client.exec_command(restore_command, timeout=300)
+                
+                exit_code = stdout.channel.recv_exit_status()
+                output = stdout.read().decode('utf-8')
+                error_output = stderr.read().decode('utf-8')
+                
+                if exit_code == 0:
+                    # Create database record for uploaded backup
+                    try:
+                        uploaded_backup = DatabaseBackup()
+                        uploaded_backup.database_name = f"uploaded_{backup_file.filename}"
+                        uploaded_backup.backup_path = str(local_backup_path)
+                        uploaded_backup.backup_size = file_size  # Size in bytes
+                        uploaded_backup.backup_type = "full"
+                        uploaded_backup.started_at = datetime.utcnow()
+                        uploaded_backup.completed_at = datetime.utcnow()
+                        uploaded_backup.status = 'completed'
+                        uploaded_backup.initiated_by = current_user.id
+                        uploaded_backup.server_id = target_server.id
+                        db.session.add(uploaded_backup)
+                        db.session.commit()
+                    except Exception as e:
+                        app.logger.error(f"Failed to create backup record: {str(e)}")
+                        # Don't fail the restore if record creation fails
+                    
+                    flash(f'Backup uploaded and successfully restored to {target_server.name}', 'success')
+                    return jsonify({
+                        'success': True, 
+                        'message': f'Backup uploaded and successfully restored to {target_server.name}',
+                        'output': output
+                    })
+                else:
+                    # Clean up uploaded file on failure
+                    try:
+                        local_backup_path.unlink()
+                    except:
+                        pass
+                    return jsonify({
+                        'success': False, 
+                        'message': f'Restore failed: {error_output or "Unknown error"}'
+                    }), 500
+                    
+        except Exception as e:
+            # Clean up uploaded file on failure
+            try:
+                local_backup_path.unlink()
+            except:
+                pass
+            return jsonify({'success': False, 'message': f'Failed to execute restore: {str(e)}'}), 500
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error processing upload: {str(e)}'}), 500
+
 @app.route('/delete-backup/<int:backup_id>', methods=['DELETE'])
 @login_required
 def delete_backup(backup_id):

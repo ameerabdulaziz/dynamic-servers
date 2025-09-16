@@ -20,7 +20,9 @@ csrf = CSRFProtect()
 
 # create the app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
+app.secret_key = os.environ.get("SESSION_SECRET")
+if not app.secret_key:
+    raise RuntimeError("SESSION_SECRET environment variable must be set for security")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # configure the database
@@ -29,6 +31,9 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
 }
+
+# Set maximum file upload size to 2GB to prevent memory/DoS issues
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024
 
 # initialize extensions
 db.init_app(app)
