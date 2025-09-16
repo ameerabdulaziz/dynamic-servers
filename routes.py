@@ -231,8 +231,8 @@ def create_system_backup():
         backup_record.server_id = None  # System backup
         backup_record.backup_type = 'system'
         backup_record.database_name = 'dynamic_servers'
-        backup_record.file_path = str(backup_path)
-        backup_record.file_size = file_size
+        backup_record.backup_path = str(backup_path)
+        backup_record.backup_size = file_size
         backup_record.status = 'completed'
         backup_record.initiated_by = current_user.id
         backup_record.started_at = datetime.now()
