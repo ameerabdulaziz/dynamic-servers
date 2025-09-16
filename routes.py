@@ -8,7 +8,7 @@ import pytz
 from flask import render_template, redirect, url_for, flash, request, jsonify, make_response, send_from_directory, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
-from app import app, db
+from app import app, db, csrf
 from models import User, UserRole, ServerRequest, Notification, HetznerServer, DeploymentScript, DeploymentExecution, ClientSubscription, DatabaseBackup, SystemUpdate, HetznerProject, UserProjectAccess, UserServerAccess
 from forms import LoginForm, RegistrationForm, ServerRequestForm, EditProfileForm, AdminReviewForm, DeploymentScriptForm, ExecuteDeploymentForm, ServerManagementForm, SelfHostedServerForm, EditServerForm
 from hetzner_service import HetznerService
@@ -640,6 +640,7 @@ def restore_backup(backup_id):
 
 @app.route('/upload-restore-backup', methods=['POST'])
 @login_required
+@csrf.exempt  # Exempt from CSRF due to large file uploads causing worker timeouts during form parsing
 def upload_restore_backup():
     """Upload a backup file and restore it to selected server"""
     if not current_user.has_permission('database_operations'):
