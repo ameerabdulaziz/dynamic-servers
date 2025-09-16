@@ -383,6 +383,14 @@ def restore_backup(backup_id):
         # Initialize SSH service
         ssh_service = SSHService()
         
+        # Check if target server has SSH configuration before proceeding
+        try:
+            with ssh_service._get_ssh_client(target_server) as test_client:
+                if not test_client:
+                    return jsonify({'success': False, 'message': f'No SSH connection available for {target_server.name}. Server may not have SSH keys configured.'}), 500
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Cannot connect to {target_server.name}: {str(e)}. Please ensure the server has proper SSH configuration.'}), 500
+        
         # Determine if this is a test server restoration
         is_test_server = 'test' in target_server.name.lower() or target_server.name.lower() == 'nova-hr-test'
         
@@ -425,13 +433,18 @@ def restore_backup(backup_id):
                     
                     for cmd in setup_commands:
                         app.logger.info(f"Executing: {cmd}")
-                        stdin, stdout, stderr = client.exec_command(cmd)
-                        exit_code = stdout.channel.recv_exit_status()
-                        error_output = stderr.read().decode('utf-8')
+                        stdin, stdout, stderr = client.exec_command(cmd, timeout=60)
+                        stdout.channel.settimeout(30)  # 30 second timeout for setup commands
                         
-                        if exit_code != 0:
-                            app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
-                            return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                        try:
+                            exit_code = stdout.channel.recv_exit_status()
+                            error_output = stderr.read().decode('utf-8')
+                            
+                            if exit_code != 0:
+                                app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
+                                return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                        except Exception as e:
+                            return jsonify({'success': False, 'message': f'Setup command timed out: {str(e)}'}), 500
                     
                     app.logger.info(f"Successfully prepared backup file with correct permissions")
                     
@@ -450,9 +463,14 @@ def restore_backup(backup_id):
                     
                     app.logger.info(f"Checking container status: {check_command}")
                     stdin, stdout, stderr = client.exec_command(check_command, timeout=60)
-                    exit_code = stdout.channel.recv_exit_status()
-                    output = stdout.read().decode('utf-8')
-                    error_output = stderr.read().decode('utf-8')
+                    stdout.channel.settimeout(30)  # 30 second timeout for container check
+                    
+                    try:
+                        exit_code = stdout.channel.recv_exit_status()
+                        output = stdout.read().decode('utf-8')
+                        error_output = stderr.read().decode('utf-8')
+                    except Exception as e:
+                        return jsonify({'success': False, 'message': f'Failed to check container status: {str(e)}'}), 500
                     
                     app.logger.info(f"Container status check - Exit code: {exit_code}, Output: {output}, Error: {error_output}")
                     
@@ -469,10 +487,16 @@ def restore_backup(backup_id):
                     app.logger.info(f"Executing restore command: {restore_command}")
                     stdin, stdout, stderr = client.exec_command(restore_command, timeout=300)
                     
-                    # Wait for command completion
-                    exit_code = stdout.channel.recv_exit_status()
-                    output = stdout.read().decode('utf-8')
-                    error_output = stderr.read().decode('utf-8')
+                    # Wait for command completion with timeout
+                    channel = stdout.channel
+                    channel.settimeout(120)  # 2 minute timeout for restore operation
+                    
+                    try:
+                        exit_code = channel.recv_exit_status()
+                        output = stdout.read().decode('utf-8')
+                        error_output = stderr.read().decode('utf-8')
+                    except Exception as e:
+                        return jsonify({'success': False, 'message': f'Restore operation timed out or failed: {str(e)}'}), 500
                     
                     if exit_code == 0:
                         app.logger.info(f"Restore completed successfully on {target_server.name}")
@@ -535,13 +559,18 @@ def restore_backup(backup_id):
                     
                     for cmd in setup_commands:
                         app.logger.info(f"Executing: {cmd}")
-                        stdin, stdout, stderr = client.exec_command(cmd)
-                        exit_code = stdout.channel.recv_exit_status()
-                        error_output = stderr.read().decode('utf-8')
+                        stdin, stdout, stderr = client.exec_command(cmd, timeout=60)
+                        stdout.channel.settimeout(30)  # 30 second timeout for setup commands
                         
-                        if exit_code != 0:
-                            app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
-                            return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                        try:
+                            exit_code = stdout.channel.recv_exit_status()
+                            error_output = stderr.read().decode('utf-8')
+                            
+                            if exit_code != 0:
+                                app.logger.error(f"Command failed: {cmd} - Error: {error_output}")
+                                return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                        except Exception as e:
+                            return jsonify({'success': False, 'message': f'Setup command timed out: {str(e)}'}), 500
                     
                     app.logger.info(f"Successfully prepared backup file with correct permissions at {final_backup_path}")
                     
