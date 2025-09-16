@@ -620,17 +620,34 @@ function deleteBackup(backupId) {
         deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
         deleteBtn.disabled = true;
         
+        // Get CSRF token with better error handling
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            alert('❌ CSRF token missing. Please refresh the page and try again.');
+            deleteBtn.innerHTML = originalHtml;
+            deleteBtn.disabled = false;
+            return;
+        }
+        
         // Make AJAX request to delete backup
         fetch(`/delete-backup/${backupId}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+                'X-CSRFToken': csrfToken
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Delete response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Delete response data:', data);
             if (data.success) {
                 // Remove the row from the table
                 const row = deleteBtn.closest('tr');
@@ -652,8 +669,8 @@ function deleteBackup(backupId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('❌ Error deleting backup. Please try again.');
+            console.error('Error deleting backup:', error);
+            alert('❌ Error deleting backup: ' + error.message + '\nPlease check the browser console for more details.');
             // Restore button state
             deleteBtn.innerHTML = originalHtml;
             deleteBtn.disabled = false;
