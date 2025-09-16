@@ -613,69 +613,78 @@ function getOriginalServerName(backupId) {
 }
 
 function deleteBackup(backupId) {
-    if (confirm('🗑️ Delete this backup?\n\nThis action cannot be undone and will permanently remove the backup file and its database record.')) {
-        // Show loading state
-        const deleteBtn = event.target.closest('button');
-        const originalHtml = deleteBtn.innerHTML;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
-        deleteBtn.disabled = true;
-        
-        // Get CSRF token with better error handling
-        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
-        if (!csrfToken) {
-            console.error('CSRF token not found');
-            alert('❌ CSRF token missing. Please refresh the page and try again.');
-            deleteBtn.innerHTML = originalHtml;
-            deleteBtn.disabled = false;
-            return;
-        }
-        
-        // Make AJAX request to delete backup
-        fetch(`/delete-backup/${backupId}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
+    // Get backup info from the table row for display
+    const deleteBtn = event.target.closest('button');
+    const row = deleteBtn.closest('tr');
+    const serverName = row.cells[0]?.textContent.trim() || 'Unknown Server';
+    const databaseName = row.cells[1]?.textContent.trim() || 'Unknown Database';
+    
+    showConfirmModal(
+        'Delete Database Backup',
+        `Delete backup for ${databaseName} from ${serverName}?`,
+        'This action cannot be undone and will permanently remove the backup file and its database record.',
+        () => {
+            // Show loading state
+            const originalHtml = deleteBtn.innerHTML;
+            deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
+            deleteBtn.disabled = true;
+            
+            // Get CSRF token with better error handling
+            const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
+            if (!csrfToken) {
+                console.error('CSRF token not found');
+                showToast('CSRF token missing. Please refresh the page and try again.', 'danger');
+                deleteBtn.innerHTML = originalHtml;
+                deleteBtn.disabled = false;
+                return;
             }
-        })
-        .then(response => {
-            console.log('Delete response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Delete response data:', data);
-            if (data.success) {
-                // Remove the row from the table
-                const row = deleteBtn.closest('tr');
-                if (row) {
-                    row.style.transition = 'opacity 0.3s';
-                    row.style.opacity = '0';
-                    setTimeout(() => {
-                        row.remove();
-                        // Update backup count
-                        updateBackupCount();
-                    }, 300);
+            
+            // Make AJAX request to delete backup
+            fetch(`/delete-backup/${backupId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
                 }
-                alert('✅ ' + data.message);
-            } else {
-                alert('❌ Error: ' + data.message);
+            })
+            .then(response => {
+                console.log('Delete response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete response data:', data);
+                if (data.success) {
+                    // Remove the row from the table
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            // Update backup count
+                            updateBackupCount();
+                        }, 300);
+                    }
+                    showToast('Backup deleted successfully', 'success');
+                } else {
+                    showToast('Error: ' + data.message, 'danger');
+                    // Restore button state
+                    deleteBtn.innerHTML = originalHtml;
+                    deleteBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting backup:', error);
+                showToast('Error deleting backup: ' + error.message, 'danger');
                 // Restore button state
                 deleteBtn.innerHTML = originalHtml;
                 deleteBtn.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting backup:', error);
-            alert('❌ Error deleting backup: ' + error.message + '\nPlease check the browser console for more details.');
-            // Restore button state
-            deleteBtn.innerHTML = originalHtml;
-            deleteBtn.disabled = false;
-        });
-    }
+            });
+        }
+    );
 }
 
 function updateBackupCount() {
@@ -974,5 +983,93 @@ document.addEventListener('DOMContentLoaded', function() {
         performFilter();
     });
 });
+
+// Pretty confirmation modal
+function showConfirmModal(title, message, details, onConfirm) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmDetails').textContent = details;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Remove any existing event listeners
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    const newConfirmBtn = document.getElementById('confirmActionBtn');
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', () => {
+        modal.hide();
+        onConfirm();
+    });
+    
+    modal.show();
+}
+
+// Helper function to show toast notifications
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove toast element after it's hidden
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '1055';
+    document.body.appendChild(container);
+    return container;
+}
 </script>
+
+<!-- Custom Confirmation Modal -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    <span id="confirmTitle">Confirm Action</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-database fa-3x text-danger mb-3"></i>
+                </div>
+                <h6 id="confirmMessage" class="mb-3">Are you sure you want to perform this action?</h6>
+                <p class="text-muted small mb-0" id="confirmDetails"></p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmActionBtn">
+                    <i class="fas fa-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
