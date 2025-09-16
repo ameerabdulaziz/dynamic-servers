@@ -728,12 +728,17 @@ def upload_restore_backup():
                 ]
                 
                 for cmd in setup_commands:
-                    stdin, stdout, stderr = client.exec_command(cmd)
-                    exit_code = stdout.channel.recv_exit_status()
-                    error_output = stderr.read().decode('utf-8')
+                    stdin, stdout, stderr = client.exec_command(cmd, timeout=60)
+                    stdout.channel.settimeout(30)  # 30 second timeout for setup commands
                     
-                    if exit_code != 0:
-                        return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                    try:
+                        exit_code = stdout.channel.recv_exit_status()
+                        error_output = stderr.read().decode('utf-8')
+                        
+                        if exit_code != 0:
+                            return jsonify({'success': False, 'message': f'Failed to setup backup file: {error_output}'}), 500
+                    except Exception as e:
+                        return jsonify({'success': False, 'message': f'Setup command timed out: {str(e)}'}), 500
                         
         except Exception as e:
             return jsonify({'success': False, 'message': f'Failed to upload backup: {str(e)}'}), 500
@@ -746,19 +751,31 @@ def upload_restore_backup():
                 
                 # Check if containers are running
                 stdin, stdout, stderr = client.exec_command("cd /home/dynamic/nova-hr-docker && docker compose ps --services --filter status=running", timeout=60)
-                exit_code = stdout.channel.recv_exit_status()
-                output = stdout.read().decode('utf-8')
+                stdout.channel.settimeout(30)  # 30 second timeout for container check
+                
+                try:
+                    exit_code = stdout.channel.recv_exit_status()
+                    output = stdout.read().decode('utf-8')
+                except Exception as e:
+                    return jsonify({'success': False, 'message': f'Failed to check container status: {str(e)}'}), 500
                 
                 if exit_code != 0 or 'mssql' not in output:
                     return jsonify({'success': False, 'message': 'MSSQL container is not running. Please ensure the application is started.'}), 500
                 
-                # Execute restore command
+                # Execute restore command with timeout handling
                 restore_command = "cd /home/dynamic/nova-hr-docker && docker compose exec -T mssql /usr/src/app/restore-db.sh"
                 stdin, stdout, stderr = client.exec_command(restore_command, timeout=300)
                 
-                exit_code = stdout.channel.recv_exit_status()
-                output = stdout.read().decode('utf-8')
-                error_output = stderr.read().decode('utf-8')
+                # Wait for command completion with timeout
+                channel = stdout.channel
+                channel.settimeout(120)  # 2 minute timeout for restore operation
+                
+                try:
+                    exit_code = channel.recv_exit_status()
+                    output = stdout.read().decode('utf-8')
+                    error_output = stderr.read().decode('utf-8')
+                except Exception as e:
+                    return jsonify({'success': False, 'message': f'Restore operation timed out or failed: {str(e)}'}), 500
                 
                 if exit_code == 0:
                     # Create database record for uploaded backup
