@@ -356,6 +356,41 @@ def download_backup_file(filename):
         flash(f'Error downloading backup: {str(e)}', 'danger')
         return redirect(url_for('list_all_backups'))
 
+@app.route('/backup/<int:backup_id>/project-servers', methods=['GET'])
+@login_required
+def get_backup_project_servers(backup_id):
+    """Get servers from the same project as the backup"""
+    if not current_user.has_permission('database_operations'):
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+    
+    backup = DatabaseBackup.query.get_or_404(backup_id)
+    
+    # Get the source server and its project
+    source_server = backup.server
+    if not source_server or not source_server.project:
+        return jsonify({'success': False, 'message': 'Backup source project not found'}), 404
+    
+    # Get all servers from the same project that user has access to
+    project_servers = []
+    for server in source_server.project.servers:
+        if current_user.has_server_access(server.id, 'write'):
+            is_test = 'test' in server.name.lower()
+            project_servers.append({
+                'id': server.id,
+                'name': server.name,
+                'is_test': is_test
+            })
+    
+    return jsonify({
+        'success': True,
+        'source_server': {
+            'id': source_server.id,
+            'name': source_server.name,
+            'project': source_server.project.name
+        },
+        'servers': project_servers
+    })
+
 @app.route('/restore-backup/<int:backup_id>', methods=['POST'])
 @login_required
 def restore_backup(backup_id):

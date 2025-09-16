@@ -12,11 +12,6 @@
                 </h1>
                 <p class="text-muted">Manage and monitor database backup operations</p>
             </div>
-            <div>
-                <button type="button" class="btn btn-primary" onclick="initiateBackup()">
-                    <i class="fas fa-plus me-1"></i>Create Backup
-                </button>
-            </div>
         </div>
     </div>
 </div>
@@ -297,7 +292,7 @@ function showRestoreModal(backupId) {
     // Get backup information from the table row
     const row = document.querySelector(`tr[data-backup-id="${backupId}"]`);
     let sourceServer = 'Unknown';
-    let backupDate = 'Unknown';
+    let backupDate = 'Unknown';  
     let databaseName = 'Unknown';
     
     if (row) {
@@ -310,7 +305,93 @@ function showRestoreModal(backupId) {
         if (dbCell) databaseName = dbCell.textContent.trim();
     }
     
-    // Create modal HTML with source server information
+    // Show loading modal first
+    showLoadingModal();
+    
+    // Fetch project servers for this backup
+    fetch(`/backup/${backupId}/project-servers`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            createRestoreModal(backupId, data, sourceServer, databaseName, backupDate);
+        } else {
+            hideLoadingModal();
+            showToast(`Error loading server information: ${data.message}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        hideLoadingModal();
+        showToast('Error loading server information. Please try again.', 'danger');
+    });
+}
+
+function showLoadingModal() {
+    const loadingHtml = `
+        <div class="modal fade" id="loadingModal" tabindex="-1">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-body text-center py-4">
+                        <div class="spinner-border text-primary me-2"></div>
+                        Loading server information...
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', loadingHtml);
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    modal.show();
+}
+
+function hideLoadingModal() {
+    const modal = document.getElementById('loadingModal');
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) bsModal.hide();
+        modal.remove();
+    }
+}
+
+function createRestoreModal(backupId, serverData, sourceServer, databaseName, backupDate) {
+    hideLoadingModal();
+    
+    // Find test server from the same project
+    const testServer = serverData.servers.find(s => s.is_test);
+    const sourceServerInfo = serverData.source_server;
+    
+    // Build test server option HTML
+    let testServerOption = '';
+    if (testServer) {
+        testServerOption = `
+            <div class="form-check p-3 border rounded">
+                <input class="form-check-input" type="radio" name="restoreTarget" id="testServer" value="test" data-server-id="${testServer.id}">
+                <label class="form-check-label w-100" for="testServer">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-flask text-warning me-3 fa-lg"></i>
+                        <div>
+                            <strong>Test Server (${testServer.name})</strong><br>
+                            <small class="text-muted">Restore to the test environment in ${sourceServerInfo.project} project</small>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        `;
+    } else {
+        testServerOption = `
+            <div class="alert alert-warning">
+                <i class="fas fa-info-circle me-2"></i>No test server available in the ${sourceServerInfo.project} project.
+            </div>
+        `;
+    }
+    
+    // Create modal HTML with dynamic server information
     const modalHtml = `
         <div class="modal fade" id="restoreModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
@@ -324,15 +405,19 @@ function showRestoreModal(backupId) {
                         <div class="alert alert-info mb-4">
                             <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Backup Details</h6>
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <strong>Source Server:</strong><br>
                                     <span class="text-primary">${sourceServer}</span>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <strong>Project:</strong><br>
+                                    <span class="text-primary">${sourceServerInfo.project}</span>
+                                </div>
+                                <div class="col-md-3">
                                     <strong>Database:</strong><br>
                                     <span class="text-primary">${databaseName}</span>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <strong>Created:</strong><br>
                                     <span class="text-primary">${backupDate}</span>
                                 </div>
@@ -342,7 +427,7 @@ function showRestoreModal(backupId) {
                         <p class="mb-3">Choose where to restore this backup:</p>
                         
                         <div class="form-check mb-3 p-3 border rounded">
-                            <input class="form-check-input" type="radio" name="restoreTarget" id="originalServer" value="original" checked>
+                            <input class="form-check-input" type="radio" name="restoreTarget" id="originalServer" value="original" data-server-id="${sourceServerInfo.id}" checked>
                             <label class="form-check-label w-100" for="originalServer">
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-server text-success me-3 fa-lg"></i>
@@ -354,18 +439,7 @@ function showRestoreModal(backupId) {
                             </label>
                         </div>
                         
-                        <div class="form-check p-3 border rounded">
-                            <input class="form-check-input" type="radio" name="restoreTarget" id="testServer" value="test">
-                            <label class="form-check-label w-100" for="testServer">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-flask text-warning me-3 fa-lg"></i>
-                                    <div>
-                                        <strong>Test Server (nova-hr-test)</strong><br>
-                                        <small class="text-muted">Restore to the test environment for testing purposes</small>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
+                        ${testServerOption}
                         
                         <div class="alert alert-warning mt-4">
                             <i class="fas fa-exclamation-triangle me-2"></i>
@@ -400,15 +474,15 @@ function showRestoreModal(backupId) {
 }
 
 function confirmRestore(backupId) {
-    const selectedTarget = document.querySelector('input[name="restoreTarget"]:checked').value;
+    const selectedRadio = document.querySelector('input[name="restoreTarget"]:checked');
     
-    // Get the target server ID based on selection
-    let targetServerId;
-    if (selectedTarget === 'original') {
-        targetServerId = getOriginalServerId(backupId);
-    } else {
-        targetServerId = getTestServerId();
+    if (!selectedRadio) {
+        showToast('Please select a restore target.', 'warning');
+        return;
     }
+    
+    const targetServerId = selectedRadio.getAttribute('data-server-id');
+    const targetServerLabel = selectedRadio.parentElement.querySelector('strong').textContent;
     
     if (!targetServerId) {
         showToast('Unable to determine target server. Please try again.', 'danger');
@@ -420,8 +494,7 @@ function confirmRestore(backupId) {
     modal.hide();
     
     // Show loading toast
-    const targetServerName = selectedTarget === 'test' ? 'nova-hr-test' : getOriginalServerName(backupId);
-    showToast(`<i class="fas fa-spinner fa-spin me-2"></i>Initiating backup restore to ${targetServerName}...`, 'info');
+    showToast(`<i class="fas fa-spinner fa-spin me-2"></i>Initiating backup restore to ${targetServerLabel}...`, 'info');
     
     // Update restore button to show loading state
     const restoreBtn = document.querySelector(`button[onclick="restoreBackup(${backupId})"]`);
@@ -448,7 +521,7 @@ function confirmRestore(backupId) {
         restoreBtn.disabled = false;
         
         if (data.success) {
-            showToast(`<i class="fas fa-check-circle me-2"></i>Backup successfully restored to ${targetServerName}!`, 'success');
+            showToast(`<i class="fas fa-check-circle me-2"></i>Backup successfully restored to ${targetServerLabel}!`, 'success');
             
             // Show additional details if available
             if (data.output) {
