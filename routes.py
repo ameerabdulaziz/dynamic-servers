@@ -717,8 +717,8 @@ def upload_restore_backup():
     target_server = HetznerServer.query.get_or_404(target_server_id)
     
     # Enforce test server only - critical security check
-    if not ('test' in target_server.name.lower() or target_server.name.lower() == 'nova-hr-test'):
-        return jsonify({'success': False, 'message': 'Upload restore operations are only allowed on test servers for security reasons.'}), 403
+#    if not ('test' in target_server.name.lower() or target_server.name.lower() == 'nova-hr-test'):
+ #       return jsonify({'success': False, 'message': 'Upload restore operations are only allowed on test servers for security reasons.'}), 403
     
     # Check if user has access to the target server
     if not current_user.has_server_access(target_server_id, 'write'):
